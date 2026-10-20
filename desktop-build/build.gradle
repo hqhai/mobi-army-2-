@@ -1,0 +1,36 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['../client/core/src', '../client/desktop/src']
+        resources.srcDirs = ['../client/desktop/assets']
+        resources.exclude 'rms/**', '.lwjgl/**'
+    }
+}
+
+dependencies {
+    implementation 'com.badlogicgames.gdx:gdx:1.12.1'
+    implementation 'com.badlogicgames.gdx:gdx-box2d:1.12.1'
+    implementation 'com.badlogicgames.gdx:gdx-backend-lwjgl3:1.12.1'
+    runtimeOnly 'com.badlogicgames.gdx:gdx-platform:1.12.1:natives-desktop'
+    runtimeOnly 'com.badlogicgames.gdx:gdx-box2d-platform:1.12.1:natives-desktop'
+}
+
+application {
+    mainClass = 'com.mygdx.game.DesktopLauncher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
