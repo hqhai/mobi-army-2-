@@ -1,0 +1,5 @@
+MobiArmy 2 - Server 10.10.0.172
+
+1. Giai nen toan bo thu muc.
+2. Dang ky tai khoan: http://10.10.0.172:8123/
+3. Chay MobiArmy2.cmd de vao game.

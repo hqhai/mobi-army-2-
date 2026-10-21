@@ -2329,7 +2329,17 @@ public class CPlayer {
     }
     
     
+    private boolean trajCounting;
+
+    /** Aim guide shows only the first 3/4 of the predicted path. */
     private void drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100) {
+        trajCounting = true;
+        int frames = drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
+        trajCounting = false;
+        drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, frames * 3 / 4);
+    }
+
+    private int drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100, int maxFrames) {
         int vyTemp2 = 0;
         int vxTemp = 0;
         int vyTemp = 0;
@@ -2340,11 +2350,16 @@ public class CPlayer {
         byte quayLai = -1;
         boolean addTZ = (vx <= 0);
         for (int frame = 0; frame < 1000; frame++, xold = x, yold = y) {
-            if((x < -100) || (x > MM.mapWidth + 100) || (y > MM.mapHeight + 100)) {
-                return;
+            if((x < -100) || (x > MM.mapWidth + 100) || (y > MM.mapHeight + 100) || frame >= maxFrames || nearOtherPlayer(x, y)) {
+                return frame;
             }
-            g.drawLine(x, y, x = xold + vx, y = yold + vy ,true);
-            if ((bulletId == 19 || bulletId == 17) && frame < 30) {
+            if (trajCounting) {
+                x = xold + vx;
+                y = yold + vy;
+            } else {
+                g.drawLine(x, y, x = xold + vx, y = yold + vy ,true);
+            }
+            if (!trajCounting && (bulletId == 19 || bulletId == 17) && frame < 30) {
                 g.setColor(0xff0000);
                 Font.normalGFont.drawString(g, String.valueOf(frame + 1), x, y + 5, 65);
                 g.setColor(0x00ff);
@@ -2373,6 +2388,7 @@ public class CPlayer {
                 vyTemp2 %= 100;
             }
             if (bulletId == 17 && frame + 1 == this.maxforce2) {
+                if (trajCounting) return frame + 1;
                 g.setColor(0xffff00);
                 int ang = this.angle + fixangle(angle(PM.getMyPlayer().x - xold, PM.getMyPlayer().y - yold));
                 if (this.angle < 90) {
@@ -2385,7 +2401,7 @@ public class CPlayer {
                     vy = -(this.maxforce * sin(i) >> 11);
                     drawBullet(g, 18, x, y, vx, vy, ax100, ay100, g100);
                 }
-                return;
+                return frame + 1;
             }
             if (bulletId == 21) {
                 if(quayLai == 0) {
@@ -2406,6 +2422,7 @@ public class CPlayer {
                 }
             }
             if(vy >= 0 && bulletId == 49) {
+                if (trajCounting) return frame + 1;
                 int ang = angle(x - x0, y0 - y);
                 vx = (this.maxforce * cos(ang) >> 10);
                 vy = (this.maxforce * sin(ang) >> 10);
@@ -2417,13 +2434,23 @@ public class CPlayer {
                 }
                 g.setColor(0xff0000);
                 drawBullet(g, -1, x, y, vx, vy, 0, 0, 0);
-                return;
+                return frame + 1;
             }
-            if (bulletId == 19 && frame + 1 == this.maxforce2) {
+            if (!trajCounting && bulletId == 19 && frame + 1 == this.maxforce2) {
                 g.setColor(0xffff00);
                 drawBullet(g, 20, x, y + 8, 0, 0, ax100 / 2, ay100 / 2, 30);
                 g.setColor(0x00ff);
             }
         }
+        return 1000;
+    }
+
+    /** True when the aim guide point is close to another player, so it never marks a target. */
+    private boolean nearOtherPlayer(int x, int y) {
+        if (PM.p == null) return false;
+        for (CPlayer o : PM.p) {
+            if (o != null && o != this && Math.abs(o.x - x) < 70 && Math.abs(o.y - y) < 70) return true;
+        }
+        return false;
     }
 }
