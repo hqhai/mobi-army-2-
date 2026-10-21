@@ -227,7 +227,7 @@ public class Bot extends User {
             ArrayList<Equip> equips = ShopEquipment.generate((byte) glassID);
             ArrayList<Equip>[] es = new ArrayList[]{new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()};
             for (Equip equip : equips) {
-                if (equip.level <= bot.glass().level && equip.vip == 0) {
+                if (equip.level <= bot.glass().level && equip.vip == 0 && !ThorSkin.is(equip)) {
                     es[equip.type].add(equip);
                 }
             }

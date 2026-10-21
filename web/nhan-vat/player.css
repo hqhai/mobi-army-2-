@@ -1,0 +1,785 @@
+/* Player page: builds on ../css/site.css (banner, menu, band, panel, box, game buttons, footer). */
+
+.panel-foot {
+    margin: 12px 0 0;
+    color: #6b3a12;
+    font-size: 13px;
+    text-align: center;
+}
+
+.panel-foot a {
+    color: var(--brown);
+    font-weight: bold;
+}
+
+/* --- sprites ----------------------------------------------------------------------------- */
+
+.sprite {
+    display: block;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+}
+
+.thumb {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border: 2px solid #d9a35b;
+    border-radius: 8px;
+    background: radial-gradient(circle at 50% 40%, #fffdf3, #f6e2b5);
+}
+
+.thumb.small {
+    width: 44px;
+    height: 44px;
+}
+
+/* --- character card ---------------------------------------------------------------------- */
+
+.hero-card {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 18px 16px;
+}
+
+.stage {
+    position: relative;
+    flex-shrink: 0;
+    width: 140px;
+    height: 140px;
+}
+
+.portrait {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    z-index: 1;
+    transform: translateX(-50%);
+}
+
+.portrait .sprite {
+    animation: idle 2.4s ease-in-out infinite;
+}
+
+.portrait.cheer .sprite {
+    animation: cheer .6s ease-out 2;
+}
+
+.platform {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 6px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 35%, #9be255 0 45%, #4f9e2c 46% 60%, #8d5a2b 61%);
+    box-shadow: 0 6px 0 rgba(20, 20, 60, .25);
+}
+
+.hero-info {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.hello {
+    margin: 0;
+    font-size: 13px;
+}
+
+.hero-name {
+    margin: 2px 0 8px;
+    color: #fff;
+    font-size: 24px;
+    text-shadow: 0 2px 0 var(--brown), 1px 0 0 var(--brown), -1px 0 0 var(--brown), 0 -1px 0 var(--brown);
+}
+
+.level-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border: 2px solid var(--brown);
+    border-radius: 10px;
+    background: linear-gradient(#ffd27a, #ff9d2e);
+    color: var(--menu-active-text);
+    font-size: 13px;
+    text-shadow: none;
+    vertical-align: middle;
+}
+
+.exp {
+    position: relative;
+    height: 16px;
+    max-width: 320px;
+    overflow: hidden;
+    border: 2px solid #1d2f6b;
+    border-radius: 9px;
+    background: #22357a;
+}
+
+.exp-fill {
+    width: 0;
+    height: 100%;
+    background: linear-gradient(#ffe27a, #f5a623);
+    transition: width .6s ease;
+}
+
+.exp-text {
+    position: absolute;
+    inset: 0;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 12px;
+    text-align: center;
+    text-shadow: 0 1px 0 #000;
+}
+
+.wallet {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.coin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 6px;
+    border: 2px solid rgba(255, 255, 255, .5);
+    border-radius: 14px;
+    background: rgba(10, 20, 70, .35);
+    font-size: 13px;
+}
+
+.coin::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+}
+
+.coin.xu::before {
+    border: 2px solid #9a5b00;
+    background: radial-gradient(circle at 35% 35%, #fff3a8, #f4b400 60%, #c98600);
+}
+
+.coin.luong::before {
+    border-radius: 3px;
+    transform: rotate(45deg) scale(.85);
+    border: 2px solid #0b4f8f;
+    background: linear-gradient(135deg, #bfe9ff, #39a7f0 55%, #1667b8);
+}
+
+.coin b {
+    font-size: 15px;
+}
+
+.state {
+    margin: 8px 0 0;
+    font-size: 12px;
+}
+
+.state.warn {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #fff4d6;
+    color: #7a4b00;
+}
+
+.logout {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 2px 4px;
+    border: 0;
+    background: none;
+    color: #e6ecff;
+    font: 12px Arial, Helvetica, sans-serif;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* --- character picker -------------------------------------------------------------------- */
+
+.picker {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px 0 4px;
+}
+
+.pick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    padding: 6px 2px 5px;
+    border: 2px solid #8fb4e6;
+    border-radius: 8px;
+    background: #eaf3ff;
+    color: #1d3a8a;
+    font: 11px Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+
+.pick .face {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: 50px;
+}
+
+.pick b {
+    max-width: 100%;
+    margin-top: 2px;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pick:hover:not(:disabled) {
+    border-color: var(--gold);
+}
+
+.pick.current {
+    border-color: var(--gold);
+    background: linear-gradient(#fff6dc, #ffe2a8);
+    box-shadow: 0 0 0 2px #ffcf6b;
+}
+
+.pick:disabled {
+    cursor: not-allowed;
+    filter: grayscale(1);
+    opacity: .55;
+}
+
+.pick:focus-visible {
+    outline: 3px solid var(--accent, #1d6fe0);
+    outline-offset: 1px;
+}
+
+/* --- tabs -------------------------------------------------------------------------------- */
+
+.tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 3px;
+    padding: 6px 4px 0;
+    background: var(--menu-bar);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 9px 4px 8px;
+    border: 2px solid var(--gold);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: linear-gradient(180deg, #6b2a0c, #451703);
+    color: #ffe6b3;
+    font: bold 14px Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+
+.tab-btn.active {
+    background: linear-gradient(180deg, #ffcf5a, #f08a1c);
+    color: #fff;
+    text-shadow: 0 1px 0 var(--brown), 1px 0 0 var(--brown), -1px 0 0 var(--brown), 0 -1px 0 var(--brown);
+}
+
+.tab-btn:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: -4px;
+}
+
+.tab-panel {
+    margin-top: 0;
+}
+
+.tab-panel .box-title {
+    margin-top: 10px;
+}
+
+.tab-panel .box-title:first-child {
+    margin-top: 3px;
+}
+
+.muted-count {
+    color: #5b77c9;
+    font-weight: normal;
+}
+
+/* --- stat points ------------------------------------------------------------------------- */
+
+.points-left {
+    margin: 10px 0 6px;
+    font-size: 15px;
+}
+
+.points-left b {
+    padding: 1px 10px;
+    border-radius: 10px;
+    background: linear-gradient(#ffd27a, #ff9d2e);
+    color: var(--menu-active-text);
+    font-size: 17px;
+}
+
+.stats {
+    display: grid;
+    gap: 6px;
+}
+
+.stat {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border: 1px solid #9fbbe8;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .55);
+}
+
+.stat-name {
+    color: #1d3a8a;
+    font-weight: bold;
+}
+
+.stat-name small {
+    display: block;
+    color: #5268a8;
+    font-weight: normal;
+    font-size: 12px;
+}
+
+.stat-value {
+    min-width: 92px;
+    color: #1d3a8a;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: right;
+}
+
+.stat-value .pending {
+    color: #1d8a4f;
+}
+
+.stepper {
+    display: flex;
+    gap: 4px;
+}
+
+.round {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    background: linear-gradient(180deg, #6b2a0c, #451703);
+    color: #fff;
+    font: bold 15px Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+
+.round.wide {
+    width: 40px;
+    border-radius: 15px;
+    font-size: 12px;
+}
+
+.round:disabled {
+    cursor: default;
+    opacity: .35;
+}
+
+.round:focus-visible {
+    outline: 3px solid var(--accent, #1d6fe0);
+    outline-offset: 1px;
+}
+
+.actions-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.game-btn.small-btn {
+    min-width: 120px;
+    padding: 5px 16px 4px;
+}
+
+.game-btn.small-btn .big {
+    font-size: 16px;
+}
+
+.text-btn {
+    padding: 4px;
+    border: 0;
+    background: none;
+    color: var(--link);
+    font: bold 14px Arial, Helvetica, sans-serif;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.hint {
+    margin: 10px 0 2px;
+    color: #4a64ae;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* --- bag and shop cards ------------------------------------------------------------------ */
+
+.slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+    gap: 6px;
+    margin: 8px 0 4px;
+}
+
+.slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border: 2px dashed #8fb4e6;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .45);
+    color: #5268a8;
+    font-size: 12px;
+    text-align: center;
+}
+
+.slot.filled {
+    border-style: solid;
+    border-color: #d9a35b;
+    background: #fff9ea;
+    color: #4a2508;
+}
+
+.slot b {
+    font-size: 12px;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+    margin: 8px 0 6px;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 9px;
+    border: 2px solid #d9a35b;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fffaf0, #fdecc6);
+    color: #4a2508;
+}
+
+.card.worn {
+    border-color: #2e9b55;
+    box-shadow: 0 0 0 2px #bfe8cb;
+}
+
+.card-top {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+}
+
+.card-name {
+    margin: 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.card-meta {
+    margin: 2px 0 0;
+    color: #8a5a2b;
+    font-size: 12px;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.tag-stat {
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: #ffe9b8;
+    color: #7a3a10;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.tag-stat.pct {
+    background: #ddeeff;
+    color: #1d3a8a;
+}
+
+.card-detail {
+    margin: 0;
+    color: #8a5a2b;
+    font-size: 12px;
+}
+
+.card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: auto;
+}
+
+.buy {
+    flex: 1 1 auto;
+    padding: 5px 8px;
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    background: linear-gradient(180deg, #6b2a0c, #451703);
+    color: #fff;
+    font: bold 13px Arial, Helvetica, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.buy:hover:not(:disabled) {
+    border-color: #ffd34d;
+    background: linear-gradient(180deg, #84380f, #5a1f05);
+}
+
+.buy.secondary {
+    border-color: #8fb4e6;
+    background: #fff;
+    color: #1d3a8a;
+}
+
+.buy:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
+.buy:focus-visible {
+    outline: 3px solid var(--accent, #1d6fe0);
+    outline-offset: 1px;
+}
+
+.note-line {
+    color: #b04a00;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.amount {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 12px;
+}
+
+.amount input {
+    width: 54px;
+    padding: 4px;
+    border: 2px solid #d9a35b;
+    border-radius: 6px;
+    font: 14px Arial, Helvetica, sans-serif;
+    text-align: center;
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 6px;
+}
+
+.chip {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 3px 9px 3px 4px;
+    border: 1px solid #9fbbe8;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .6);
+    color: #1d3a8a;
+    font-size: 12px;
+}
+
+.empty {
+    margin: 8px 0;
+    color: #4a64ae;
+    font-style: italic;
+}
+
+/* --- shop pills -------------------------------------------------------------------------- */
+
+.pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0 4px;
+}
+
+.pill {
+    padding: 5px 13px;
+    border: 2px solid #7b9fe0;
+    border-radius: 16px;
+    background: #fff;
+    color: #1d3a8a;
+    font: bold 13px Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+
+.pill.active {
+    border-color: var(--brown);
+    background: linear-gradient(#ffd27a, #ff9d2e);
+    color: var(--menu-active-text);
+}
+
+.filters .pill {
+    padding: 3px 10px;
+    font-size: 12px;
+}
+
+.pill:focus-visible {
+    outline: 3px solid var(--accent, #1d6fe0);
+    outline-offset: 1px;
+}
+
+/* --- confirm dialog and toast ------------------------------------------------------------ */
+
+dialog#confirm {
+    width: min(340px, calc(100vw - 32px));
+    padding: 0;
+    border: 3px solid var(--brown);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #fff9ea, #ffeec7);
+    box-shadow: inset 0 0 0 2px #f2b04c, 0 10px 30px rgba(0, 0, 0, .35);
+    color: #4a2508;
+}
+
+dialog#confirm::backdrop {
+    background: rgba(20, 26, 60, .55);
+}
+
+.confirm-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 16px 14px;
+    text-align: center;
+}
+
+.confirm-box p {
+    margin: 0;
+    font-size: 15px;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    z-index: 10;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 10px 16px;
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    background: #2e1206;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+    color: #fff;
+    font-size: 14px;
+    transform: translateX(-50%);
+}
+
+.toast.error {
+    border-color: #ff8a80;
+    background: #6b1010;
+}
+
+@keyframes idle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+@keyframes cheer {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(-14px); }
+    100% { transform: translateY(0); }
+}
+
+/* --- small screens ----------------------------------------------------------------------- */
+
+@media (max-width: 520px) {
+    .hero-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .exp {
+        margin: 0 auto;
+    }
+
+    .wallet {
+        justify-content: center;
+    }
+
+    .logout {
+        position: static;
+        margin-top: 6px;
+    }
+
+    .stat {
+        grid-template-columns: 1fr auto;
+    }
+
+    .stat .stepper {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+    }
+
+    .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .card {
+        padding: 7px;
+    }
+
+    .card-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .buy {
+        padding: 5px 4px;
+        font-size: 12px;
+    }
+
+    .tab-btn {
+        font-size: 13px;
+    }
+}

@@ -142,6 +142,11 @@ public class EquipScreen extends TabScreen {
             }
 
             menu.addElement(inventory);
+            if (player.ThorSkin.isEquipped(TerrainMidlet.myInfo.myEquip)) {
+               menu.addElement(new Command("Tháo Skin Thor", new IAction() {
+                  public void perform() { EquipScreen.this.removeThorSkin(); }
+               }));
+            }
             CCanvas.menu.startAt(menu, 0);
          }
       });
@@ -415,6 +420,18 @@ public class EquipScreen extends TabScreen {
    public void doAgree() {
       CCanvas.startWaitDlg(Language.pleaseWait());
       GameService.gI().changeEquip(this.dbKeyChange);
+   }
+
+   public void removeThorSkin() {
+      PlayerInfo info = TerrainMidlet.myInfo;
+      if (!player.ThorSkin.isEquipped(info.myEquip)) return;
+      Equip basicArmor = PlayerEquip.createEquip((byte)8, (byte)2, (short)0);
+      if (basicArmor == null) return;
+      basicArmor.dbKey = -1;
+      info.myEquip.equips[2] = basicArmor;
+      this.dbKeyChange[2] = -1;
+      this.setCurrEquip();
+      this.getBaseAttribute();
    }
 
    public void doFire() {
@@ -710,9 +727,9 @@ public class EquipScreen extends TabScreen {
       for(j = 0; j < 5; ++j) {
          eq = info.myEquip.equips[j];
          if (eq != null) {
-            for(j = 0; j < 5; ++j) {
-               ability[j] += eq.inv_ability[j];
-               percen[j] += eq.inv_percen[j];
+            for(int k = 0; k < 5; ++k) {
+               ability[k] += eq.inv_ability[k];
+               percen[k] += eq.inv_percen[k];
             }
          }
       }
@@ -742,6 +759,7 @@ public class EquipScreen extends TabScreen {
       this.atts[4] = teamPoint * 10;
       var10000 = this.atts;
       var10000[4] += this.atts[4] * percen[4] / 100;
+      player.ThorSkin.addBonus(info.myEquip, this.atts);
    }
 
    public void paintAbility(mGraphics g) {

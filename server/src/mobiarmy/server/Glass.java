@@ -149,6 +149,7 @@ public class Glass {
         //DD
         iArr[4] = ((this.ability[4] + envAdd[4]) * 10);
         iArr[4] = iArr[4] + (iArr[4] * percenAdd[4] / 100);
+        ThorSkin.addBonus(this, iArr);
         return iArr;
     }
 

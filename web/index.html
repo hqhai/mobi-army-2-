@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mobi Army 2 LAN - Đăng ký tài khoản</title>
+    <meta name="description" content="Đăng ký tài khoản Mobi Army 2 cho máy chủ LAN nội bộ.">
+    <link rel="icon" href="img/favicon.png" type="image/png">
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<div class="page" id="top">
+    <p class="health">Chơi quá 180 phút một ngày sẽ ảnh hưởng xấu đến sức khỏe.</p>
+
+    <header class="banner">
+        <a href="#top" class="logo" title="Mobi Army 2 LAN">
+            <img src="img/logo.png" alt="Mobi Army" width="106" height="84">
+            <span class="logo-tag">2 · LAN</span>
+        </a>
+    </header>
+
+    <nav class="menu" aria-label="Điều hướng chính">
+        <a href="#top" class="selected" aria-current="page">Trang Chủ</a>
+        <a href="#dang-ky">Đăng Ký</a>
+        <a href="nhan-vat/">Nhân Vật</a>
+        <a href="#huong-dan">Hướng Dẫn</a>
+    </nav>
+
+    <div class="hero" aria-hidden="true">
+        <div class="sun"></div>
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+        <div class="blimp"></div>
+        <div class="hill hill-back"></div>
+        <div class="hill hill-front"></div>
+        <div class="ground"></div>
+        <div class="crew">
+            <span class="char gorilla"></span>
+            <span class="char rocketer"></span>
+            <span class="char cutegirl"></span>
+            <span class="char greenp"></span>
+            <span class="char yellowp"></span>
+            <span class="char cowg"></span>
+            <span class="char dragon"></span>
+        </div>
+    </div>
+
+    <main>
+        <section class="band" id="dang-ky" aria-labelledby="register-title">
+            <div class="panel">
+                <h1 class="panel-title" id="register-title">Đăng ký tài khoản</h1>
+                <p class="panel-sub">Tạo tài khoản ở đây, mở game đăng nhập là chiến được ngay.</p>
+
+                <form id="register-form" class="register" novalidate>
+                    <div class="field">
+                        <label for="username">Tên đăng nhập</label>
+                        <input id="username" name="username" type="text" maxlength="20" autocomplete="username"
+                               autocapitalize="none" spellcheck="false" required aria-describedby="username-hint">
+                        <p class="hint" id="username-hint">3-20 chữ cái không dấu hoặc chữ số. Tên được lưu bằng chữ thường.</p>
+                    </div>
+                    <div class="field">
+                        <label for="password">Mật khẩu</label>
+                        <input id="password" name="password" type="password" maxlength="30" autocomplete="new-password"
+                               required aria-describedby="password-hint">
+                        <p class="hint" id="password-hint">6-30 chữ cái không dấu hoặc chữ số (ô mật khẩu trong game không gõ được ký tự đặc biệt).</p>
+                    </div>
+                    <div class="field">
+                        <label for="confirm">Nhập lại mật khẩu</label>
+                        <input id="confirm" type="password" maxlength="30" autocomplete="new-password" required>
+                    </div>
+                    <label class="toggle"><input type="checkbox" id="show-password"> Hiện mật khẩu</label>
+                    <p class="form-error" id="form-error" role="alert" hidden></p>
+                    <button type="submit" class="game-btn" id="submit-btn">
+                        <span class="big">Đăng ký</span>
+                        <span class="small">miễn phí</span>
+                    </button>
+                </form>
+
+                <div class="success" id="success" hidden>
+                    <h2 class="success-title" id="success-title" tabindex="-1">Tạo tài khoản thành công!</h2>
+                    <p>Tên đăng nhập: <strong id="success-name"></strong></p>
+                    <p>Mở game, nhập tên đăng nhập và mật khẩu vừa tạo là vào chơi được ngay.</p>
+                    <p class="small-print">Nhớ kỹ mật khẩu nhé: trang này chưa có chức năng lấy lại mật khẩu.</p>
+                    <p><a class="link-btn" href="nhan-vat/">Mua đồ, mặc đồ và cộng điểm trên web →</a></p>
+                    <button type="button" class="link-btn" id="again">Đăng ký thêm tài khoản khác</button>
+                </div>
+                <noscript><p class="form-error">Trình duyệt cần bật JavaScript để đăng ký.</p></noscript>
+            </div>
+
+            <div class="downloads" id="downloads" hidden>
+                <figure>
+                    <a class="game-btn" href="downloads/MobiArmy2-PC.zip" download>
+                        <span class="big">PC</span>
+                        <span class="small">Tải game</span>
+                    </a>
+                    <figcaption id="download-size">Bản cho Windows</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="box" aria-labelledby="news-title">
+            <h2 class="box-title" id="news-title">Thông báo mới</h2>
+            <div class="box-content">
+                <p><strong>Máy chủ Mobi Army 2 LAN đã mở cho anh em trong công ty!</strong> Đăng ký tài khoản ở khung phía trên, mở game rồi vào phòng chiến cùng nhau.</p>
+                <p class="server-line">Địa chỉ máy chủ: <strong data-host>...</strong> · cổng game <strong data-game-port>8122</strong></p>
+                <p class="local-note" id="local-note" hidden>Bạn đang mở trang ngay trên máy chủ. Anh em khác trong mạng LAN cần dùng địa chỉ IP của máy này (ví dụ 192.168.x.x).</p>
+                <p>Mobi Army 2 là game bắn súng theo lượt: mỗi phát bắn phải canh góc, lực và hướng gió cho chuẩn mới trúng đối thủ. Lập đội với đồng nghiệp, săn boss, hoặc so tài 1-1 xem ai canh góc giỏi nhất văn phòng.</p>
+            </div>
+            <p class="box-date">Hôm nay</p>
+        </section>
+
+        <section class="box" id="huong-dan" aria-labelledby="guide-title">
+            <h2 class="box-title" id="guide-title">Hướng Dẫn Tân Thủ</h2>
+            <div class="box-content">
+                <h3>1. Đăng ký tài khoản</h3>
+                <p>Điền tên đăng nhập và mật khẩu ở khung <a href="#dang-ky">Đăng ký tài khoản</a>. Chỉ dùng chữ cái không dấu và chữ số.</p>
+
+                <h3>2. Mở game</h3>
+                <p>Chạy game trên máy của bạn bằng bộ cài admin gửi (hoặc nút <strong>PC</strong> phía trên nếu có). Nếu dùng <code>Start-Client.cmd</code>, chạy kèm địa chỉ máy chủ:</p>
+                <p class="command"><code>Start-Client.cmd <span data-host>...</span></code></p>
+
+                <h3>3. Đăng nhập</h3>
+                <p>Nhập tên đăng nhập và mật khẩu vừa tạo. Tên không phân biệt chữ hoa/thường, mật khẩu thì có.</p>
+
+                <h3>4. Phím điều khiển trong trận</h3>
+                <table class="keys">
+                    <caption class="visually-hidden">Phím tắt trong trận</caption>
+                    <tbody>
+                    <tr><th scope="row">← → / A D</th><td>Giữ để di chuyển trái/phải</td></tr>
+                    <tr><th scope="row">↑ ↓ / W S</th><td>Nhấn để nâng/hạ góc bắn 1°, giữ để chỉnh liên tục</td></tr>
+                    <tr><th scope="row">Enter</th><td>Giữ để căn lực, thả ra để bắn</td></tr>
+                    <tr><th scope="row">R</th><td>Bật/tắt camera tự do để xem bản đồ (dùng WASD hoặc mũi tên)</td></tr>
+                    <tr><th scope="row">Space</th><td>Tung kỹ năng đặc biệt khi đủ nộ</td></tr>
+                    <tr><th scope="row">Q</th><td>Mở/đóng bảng vật phẩm trong lượt của mình</td></tr>
+                    <tr><th scope="row">1 - 8</th><td>Dùng nhanh ô vật phẩm tương ứng</td></tr>
+                    <tr><th scope="row">Esc</th><td>Mở/đóng menu trận</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>5. Luật cược của server</h3>
+                <p>Thắng nhận thêm đúng tiền cược, thua hoặc rời trận giữa chừng mất tiền cược, hòa thì giữ nguyên. Đánh boss cược 100.</p>
+            </div>
+            <p class="box-date">Cập nhật cho bản LAN</p>
+        </section>
+    </main>
+
+    <footer class="copyright">
+        <p>Mobi Army 2 LAN · máy chủ nội bộ cho anh em công ty</p>
+        <p>Dựa trên mã nguồn mở MobiArmy2 Client/Server. Đây không phải website chính thức của Teamobi.</p>
+    </footer>
+</div>
+<script src="js/site.js"></script>
+</body>
+</html>

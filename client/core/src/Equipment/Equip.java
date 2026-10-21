@@ -223,6 +223,7 @@ public class Equip {
     }
 
     public String getStrInvDetail() {
+        if (player.ThorSkin.is(this)) return "Skin Thor - Apache. HP +10000. Sức mạnh +1000. May mắn +10000. Vĩnh viễn. Trang bị ô giáp.";
         String attribute = "";
         if (this.inv_ability[0] != 0) {
             attribute = attribute + Language.sinhluc() + " +" + this.inv_ability[0] + ".";
@@ -282,6 +283,12 @@ public class Equip {
         String attribute = "";
         this.shopDetailNunmLines = 0;
         this.shopDetailNunStrs = new Vector();
+        if (player.ThorSkin.is(this)) {
+            String[] lines = {"HP +10000", "Sức mạnh +1000", "May mắn +10000", "Vĩnh viễn - ô giáp Apache"};
+            for (String line : lines) this.shopDetailNunStrs.addElement(line);
+            this.shopDetailNunmLines = lines.length;
+            return "HP +10000. Sức mạnh +1000. May mắn +10000. Vĩnh viễn - ô giáp Apache.";
+        }
         if (this.shop_ability[0] != 0) {
             attribute = attribute + Language.sinhluc() + " +" + this.shop_ability[0] + " ";
             this.shopDetailNunStrs.addElement(Language.sinhluc() + " +" + this.shop_ability[0] + " ");
@@ -385,7 +392,11 @@ public class Equip {
     }
 
     public void drawIcon(mGraphics g, int X, int Y, boolean isClip) {
-        if (!this.isMaterial) {
+        if (player.PhotonSkin.icon(g, this, X, Y, isClip)) {
+            // Owned Photon VIP uses its own portrait.
+        } else if (player.ThorSkin.paintIcon(g, this, X, Y, isClip)) {
+            // The skin icon is bundled with the desktop client.
+        } else if (!this.isMaterial) {
             int offset = this.icon * 16;
 
             int index;

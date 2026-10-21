@@ -435,6 +435,10 @@ public class GameScr extends CScreen {
     }
 
     public void initGame(byte MapID, byte timeInterval, short[] playerX, short[] playerY, short[] maxHP, int team) {
+        desktopCameraMode = false;
+        desktopCameraToggleHeld = false;
+        desktopKeys.clear();
+        desktopMovementPending = false;
         isDarkEffect = false;
         s_iPlane_x = -1;
         s_iPlane_y = -1;
@@ -789,9 +793,17 @@ public class GameScr extends CScreen {
     }
 
     private final java.util.HashSet<Integer> desktopKeys = new java.util.HashSet<Integer>();
+    private long nextDesktopAngleAt;
+    private boolean desktopCameraMode;
+    private boolean desktopCameraToggleHeld;
+    private boolean desktopMovementPending;
+    private static final long DESKTOP_ANGLE_DELAY_MS = 180L;
+    private static final long DESKTOP_ANGLE_REPEAT_MS = 40L;
 
     public void clearDesktopKeys() {
         desktopKeys.clear();
+        nextDesktopAngleAt = 0L;
+        desktopCameraToggleHeld = false;
         if (PM.getMyPlayer() != null) {
             PM.getMyPlayer().force = 0;
             PM.getMyPlayer().force_2 = 0;
@@ -799,15 +811,66 @@ public class GameScr extends CScreen {
     }
 
     private boolean desktopCanAct() {
-        return CCanvas.currentDialog == null && !isShowPausemenu && !isSelectItem
+        return !desktopCameraMode && CCanvas.currentDialog == null && !isShowPausemenu && !isSelectItem
                 && !isChat && pm.isYourTurn() && PM.getMyPlayer() != null
                 && PM.getMyPlayer().active
                 && !BM.active && !CPlayer.isShooting;
     }
 
+    private boolean desktopHeld(int arrow, int letter) {
+        return desktopKeys.contains(arrow) || desktopKeys.contains(letter);
+    }
+
+    private int desktopAngleDirection() {
+        return (desktopHeld(com.badlogic.gdx.Input.Keys.UP, com.badlogic.gdx.Input.Keys.W) ? 1 : 0)
+                - (desktopHeld(com.badlogic.gdx.Input.Keys.DOWN, com.badlogic.gdx.Input.Keys.S) ? 1 : 0);
+    }
+
+    private void changeDesktopAngle(int direction) {
+        CPlayer player = PM.getMyPlayer();
+        player.angle = Math.max(0, Math.min(180,
+                player.angle + (player.look == 0 ? -direction : direction)));
+        player.angleUpdate();
+        player.checkAngleForSprite();
+    }
+
+    private boolean desktopCameraCanAct() {
+        return CCanvas.currentDialog == null && !isShowPausemenu && !isSelectItem && !isChat;
+    }
+
+    private boolean isDesktopDirection(int key) {
+        return key == com.badlogic.gdx.Input.Keys.UP || key == com.badlogic.gdx.Input.Keys.W
+                || key == com.badlogic.gdx.Input.Keys.DOWN || key == com.badlogic.gdx.Input.Keys.S
+                || key == com.badlogic.gdx.Input.Keys.LEFT || key == com.badlogic.gdx.Input.Keys.A
+                || key == com.badlogic.gdx.Input.Keys.RIGHT || key == com.badlogic.gdx.Input.Keys.D;
+    }
+
+    private void toggleDesktopCamera() {
+        clearDesktopKeys();
+        desktopCameraMode = !desktopCameraMode;
+        if (desktopCameraMode) {
+            cam.setFreeMode();
+        } else if (BM.active && bm.bullets.size() > 0) {
+            cam.setBulletMode((Bullet) bm.bullets.elementAt(0));
+        } else {
+            cam.setPlayerMode(PM.curP);
+        }
+    }
+
     public boolean desktopKeyDown(int key) {
+        if (key == com.badlogic.gdx.Input.Keys.R) {
+            if (!desktopCameraToggleHeld && desktopCameraCanAct()) {
+                toggleDesktopCamera();
+            }
+            desktopCameraToggleHeld = true;
+            return true;
+        }
+        if (desktopCameraMode && isDesktopDirection(key)) {
+            if (desktopCameraCanAct()) desktopKeys.add(key);
+            return true;
+        }
         if (key >= com.badlogic.gdx.Input.Keys.NUM_1 && key <= com.badlogic.gdx.Input.Keys.NUM_8) {
-            if (desktopKeys.add(key) && CCanvas.currentDialog == null && !isShowPausemenu
+            if (desktopKeys.add(key) && !desktopCameraMode && CCanvas.currentDialog == null && !isShowPausemenu
                     && !isChat && pm.isYourTurn() && PM.getMyPlayer() != null
                     && PM.getMyPlayer().active && !BM.active && !CPlayer.isShooting) {
                 int slot = key - com.badlogic.gdx.Input.Keys.NUM_1;
@@ -853,17 +916,20 @@ public class GameScr extends CScreen {
             }
             return true;
         }
-        if (key == com.badlogic.gdx.Input.Keys.UP || key == com.badlogic.gdx.Input.Keys.DOWN) {
+        if (key == com.badlogic.gdx.Input.Keys.UP || key == com.badlogic.gdx.Input.Keys.DOWN
+                || key == com.badlogic.gdx.Input.Keys.W || key == com.badlogic.gdx.Input.Keys.S) {
+            int previousDirection = desktopAngleDirection();
             if (desktopCanAct() && !PM.getMyPlayer().falling && desktopKeys.add(key)) {
-                CPlayer player = PM.getMyPlayer();
-                int direction = key == com.badlogic.gdx.Input.Keys.UP ? 1 : -1;
-                player.angle = Math.max(0, Math.min(180, player.angle + (player.look == 0 ? -direction : direction)));
-                player.angleUpdate();
-                player.checkAngleForSprite();
+                int direction = desktopAngleDirection();
+                if (direction != previousDirection) {
+                    if (direction != 0) changeDesktopAngle(direction);
+                    nextDesktopAngleAt = mSystem.currentTimeMillis() + DESKTOP_ANGLE_DELAY_MS;
+                }
             }
             return true;
         }
         if (key == com.badlogic.gdx.Input.Keys.LEFT || key == com.badlogic.gdx.Input.Keys.RIGHT
+                || key == com.badlogic.gdx.Input.Keys.A || key == com.badlogic.gdx.Input.Keys.D
                 || key == com.badlogic.gdx.Input.Keys.ENTER) {
             if (desktopCanAct()) desktopKeys.add(key);
             return true;
@@ -872,30 +938,74 @@ public class GameScr extends CScreen {
     }
 
     public boolean desktopKeyUp(int key) {
+        if (key == com.badlogic.gdx.Input.Keys.R) {
+            desktopCameraToggleHeld = false;
+            return true;
+        }
         if (desktopKeys.remove(key) && key == com.badlogic.gdx.Input.Keys.ENTER && desktopCanAct()
                 && !PM.getMyPlayer().falling) {
             PM.getMyPlayer().fire();
         }
         return key == com.badlogic.gdx.Input.Keys.LEFT || key == com.badlogic.gdx.Input.Keys.RIGHT
                 || key == com.badlogic.gdx.Input.Keys.UP || key == com.badlogic.gdx.Input.Keys.DOWN
+                || key == com.badlogic.gdx.Input.Keys.W || key == com.badlogic.gdx.Input.Keys.S
+                || key == com.badlogic.gdx.Input.Keys.A || key == com.badlogic.gdx.Input.Keys.D
                 || key == com.badlogic.gdx.Input.Keys.ENTER || key == com.badlogic.gdx.Input.Keys.ESCAPE
                 || key == com.badlogic.gdx.Input.Keys.SPACE || key == com.badlogic.gdx.Input.Keys.Q
                 || (key >= com.badlogic.gdx.Input.Keys.NUM_1 && key <= com.badlogic.gdx.Input.Keys.NUM_8);
     }
 
     private void updateDesktopKeys() {
+        if (desktopMovementPending) {
+            CPlayer movedPlayer = PM.getMyPlayer();
+            if (!pm.isYourTurn()) {
+                desktopMovementPending = false;
+            } else if (movedPlayer != null && !movedPlayer.falling
+                    && ((!desktopHeld(com.badlogic.gdx.Input.Keys.LEFT, com.badlogic.gdx.Input.Keys.A)
+                            && !desktopHeld(com.badlogic.gdx.Input.Keys.RIGHT, com.badlogic.gdx.Input.Keys.D))
+                        || desktopKeys.contains(com.badlogic.gdx.Input.Keys.ENTER) || !desktopCanAct())) {
+                movedPlayer.syncMovementPosition();
+                desktopMovementPending = false;
+            }
+        }
+        if (desktopCameraMode) {
+            cam.setFreeMode();
+            if (!desktopCameraCanAct()) {
+                desktopKeys.clear();
+                return;
+            }
+            int horizontal = (desktopHeld(com.badlogic.gdx.Input.Keys.RIGHT, com.badlogic.gdx.Input.Keys.D) ? 1 : 0)
+                    - (desktopHeld(com.badlogic.gdx.Input.Keys.LEFT, com.badlogic.gdx.Input.Keys.A) ? 1 : 0);
+            int vertical = (desktopHeld(com.badlogic.gdx.Input.Keys.DOWN, com.badlogic.gdx.Input.Keys.S) ? 1 : 0)
+                    - (desktopHeld(com.badlogic.gdx.Input.Keys.UP, com.badlogic.gdx.Input.Keys.W) ? 1 : 0);
+            Camera.x = Math.max(0, Math.min(Math.max(0, MM.mapWidth - CScreen.w), Camera.x + horizontal * 8));
+            Camera.y = Math.max(-1000, Math.min(Math.max(-1000, MM.mapHeight - CScreen.h), Camera.y + vertical * 8));
+            return;
+        }
         if (!desktopCanAct()) {
             desktopKeys.clear();
+            nextDesktopAngleAt = 0L;
             return;
         }
         CPlayer player = PM.getMyPlayer();
         if (player.falling) return;
+        int angleDirection = desktopAngleDirection();
+        long now = mSystem.currentTimeMillis();
+        if (angleDirection != 0 && now >= nextDesktopAngleAt) {
+            changeDesktopAngle(angleDirection);
+            nextDesktopAngleAt = now + DESKTOP_ANGLE_REPEAT_MS;
+        }
         if (desktopKeys.contains(com.badlogic.gdx.Input.Keys.ENTER)) {
             player.holdFire();
-        } else if (desktopKeys.contains(com.badlogic.gdx.Input.Keys.LEFT)) {
-            player.move(0);
-        } else if (desktopKeys.contains(com.badlogic.gdx.Input.Keys.RIGHT)) {
-            player.move(2);
+        } else {
+            boolean left = desktopHeld(com.badlogic.gdx.Input.Keys.LEFT, com.badlogic.gdx.Input.Keys.A);
+            boolean right = desktopHeld(com.badlogic.gdx.Input.Keys.RIGHT, com.badlogic.gdx.Input.Keys.D);
+            if (left != right) {
+                int oldX = player.x;
+                int oldY = player.y;
+                player.move(left ? 0 : 2);
+                desktopMovementPending |= player.x != oldX || player.y != oldY;
+            }
         }
     }
 
@@ -925,6 +1035,7 @@ public class GameScr extends CScreen {
         bm.update();
         pm.update();
         sm.update();
+        if (desktopCameraMode) cam.setFreeMode();
         cam.update();
         if (this.snow != null) {
             this.snow.update();
@@ -1407,6 +1518,9 @@ public class GameScr extends CScreen {
         if (Camera.mode == 0) {
             this.drawWhenFreeCam(g);
         }
+        if (desktopCameraMode) {
+            Font.smallFontYellow.drawString(g, "CAMERA: WASD / mui ten | R: tro lai", CScreen.w / 2, 45, 2);
+        }
 
         if (CCanvas.currentDialog == null && !this.isSelectItem) {
             this.drawMenuCameraIcon(g);
@@ -1778,6 +1892,10 @@ public class GameScr extends CScreen {
             }
 
             if (PM.getCurPlayer() != null && CCanvas.isPointer(CCanvas.width - 50, 0, 50, 50, index)) {
+                if (CCanvas.isPc()) {
+                    toggleDesktopCamera();
+                    return;
+                }
                 if (Camera.mode != 0) {
                     if (!(PM.getCurPlayer() instanceof Boss) && CCanvas.isPointer(CCanvas.width - 50, 0, 50, 50, index)) {
                         Camera.mode = 0;

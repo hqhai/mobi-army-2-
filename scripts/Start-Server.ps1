@@ -26,6 +26,10 @@ try {
         '-Darmy.db.url=jdbc:mysql://127.0.0.1:3307/army',
         '-Darmy.db.user=root',
         '-Darmy.bot.count=0',
+        '-Dstdout.encoding=UTF-8',
+        '-Dstderr.encoding=UTF-8',
+        '-Darmy.web.port=8123',
+        "-Darmy.web.root=$root/web",
         "-Darmy.stopFile=$root/runtime/stop-server",
         '-cp', "$root/runtime/server-classes;$root/server/lib/*", 'LanServer'
     ) -WindowStyle Hidden -PassThru -RedirectStandardOutput "$root/logs/server.out.log" -RedirectStandardError "$root/logs/server.err.log"
@@ -36,6 +40,13 @@ try {
 for ($i = 0; $i -lt 30; $i++) {
     if (Get-NetTCPConnection -State Listen -LocalPort 8122 -ErrorAction SilentlyContinue) {
         Write-Host 'MobiArmy 2 server is listening on TCP 8122.'
+        if (Get-NetTCPConnection -State Listen -LocalPort 8123 -ErrorAction SilentlyContinue) {
+            $addresses = @(Get-NetIPConfiguration | Where-Object IPv4DefaultGateway | ForEach-Object { $_.IPv4Address.IPAddress })
+            if (-not $addresses) { $addresses = @('<server-ip>') }
+            foreach ($address in $addresses) { Write-Host "Registration page: http://${address}:8123/" }
+        } else {
+            Write-Host "Registration page is not running. See $root/logs/server.err.log"
+        }
         return
     }
     if ($server.HasExited) { throw "Game server exited. See $root/logs/server.err.log" }

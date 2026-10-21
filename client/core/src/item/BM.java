@@ -104,6 +104,7 @@ public class BM {
    public static byte force2;
    public static boolean isBombBalloon;
    public byte critical;
+   public boolean heroPowShot;
    private int idBullet;
    boolean isDouble = false;
    boolean endShoot;
@@ -141,6 +142,9 @@ public class BM {
       xChicken = this.x;
       yChicken = this.y;
       this.whoShot = whoShot;
+      // Snapshot before the next turn resets itemUsed; child Apache hammers inherit it.
+      this.heroPowShot = PM.p != null && whoShot >= 0 && whoShot < PM.p.length
+              && PM.p[whoShot] != null && PM.p[whoShot].itemUsed == 100;
       BM.force2 = force2;
       active = true;
       this.numShoot = nShoot;

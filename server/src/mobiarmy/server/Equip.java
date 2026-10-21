@@ -82,6 +82,7 @@ public class Equip {
     }
     
     public int date() {
+        if (ThorSkin.is(this)) return 127; // Permanent; legacy wire field is a byte.
         int d = (int) (this.date - ((System.currentTimeMillis() - this.renewalDate) / (1000 * 60 * 60 * 24)));
         if (d < 0) {
             d = 0;
@@ -119,6 +120,7 @@ public class Equip {
             entrys[i].name = rows.get(i).getString("name");
             entrys[i].vip = rows.get(i).getByte("vip");
             entrys[i].data = new Gson().fromJson(rows.get(i).getString("data"), short[].class);
+            if (ThorSkin.is(entrys[i])) entrys[i].slot = new short[0];
             equipsByGlassIDAndType
                 .computeIfAbsent(entrys[i].glassID, k -> new HashMap<>())  // Tạo HashMap cho glassID nếu chưa có
                 .computeIfAbsent(entrys[i].type, k -> new ArrayList<>())   // Tạo ArrayList cho type nếu chưa có

@@ -184,6 +184,7 @@ public class SessionHandler {
     }
     
     public void dataInfo(int version, int version2) {
+        version = Server.dataVersion(version);
         try {
             Message message = new Message(90);
             message.writer().writeByte(4);

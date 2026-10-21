@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quản trị - Mobi Army 2 LAN</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="../img/favicon.png" type="image/png">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="login" id="login-view" hidden>
+    <form class="login-card" id="login-form" novalidate>
+        <img src="../img/logo.png" alt="Mobi Army" class="login-logo" width="106" height="84">
+        <h1>Quản trị máy chủ</h1>
+        <label for="login-username">Tên đăng nhập</label>
+        <input id="login-username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <label for="login-password">Mật khẩu</label>
+        <input id="login-password" type="password" autocomplete="current-password" required>
+        <p class="message error" id="login-error" role="alert" hidden></p>
+        <button type="submit" class="btn primary wide" id="login-submit">Đăng nhập</button>
+        <a class="muted small" href="../">← Về trang đăng ký</a>
+    </form>
+</div>
+
+<div class="app" id="app" hidden>
+    <header class="topbar">
+        <span class="brand"><b>MOBI ARMY 2 LAN</b> · Quản trị</span>
+        <span class="account">
+            <span id="who"></span>
+            <button type="button" class="link light" id="open-password">Đổi mật khẩu</button>
+            <button type="button" class="link light" id="logout">Đăng xuất</button>
+        </span>
+    </header>
+    <p class="banner" id="default-warning" hidden>
+        Bạn vẫn dùng mật khẩu mặc định <b>admin123</b>, ai trong mạng LAN cũng có thể đoán ra.
+        <button type="button" class="link" id="warning-password">Đổi ngay</button>
+    </p>
+    <div class="layout">
+        <nav class="sidebar" aria-label="Mục quản trị">
+            <button type="button" data-tab="players" class="active" aria-current="page">Người chơi</button>
+            <button type="button" data-tab="characters">Nhân vật</button>
+            <button type="button" data-tab="equipment">Trang bị</button>
+            <button type="button" data-tab="items">Vật phẩm</button>
+            <button type="button" data-tab="specials">Đồ đặc biệt</button>
+        </nav>
+
+        <main class="content">
+            <section class="tab" id="tab-players" aria-labelledby="players-title">
+                <div class="toolbar">
+                    <h1 id="players-title">Người chơi</h1>
+                    <span class="muted" id="players-summary"></span>
+                    <input type="search" id="players-search" placeholder="Tìm tên..." aria-label="Tìm người chơi">
+                    <button type="button" class="btn" id="players-refresh">Tải lại</button>
+                </div>
+                <div class="split">
+                    <div class="table-wrap">
+                        <table class="grid clickable">
+                            <thead><tr><th>Tên</th><th class="num">Xu</th><th class="num">Lượng</th><th class="num">Cúp</th><th>Nhân vật đang dùng</th></tr></thead>
+                            <tbody id="players-body"></tbody>
+                        </table>
+                    </div>
+                    <aside class="panel" id="player-panel" aria-live="polite">
+                        <p class="muted">Chọn một người chơi trong bảng để cộng xu, lượng hoặc tăng cấp.</p>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="tab" id="tab-characters" aria-labelledby="characters-title" hidden>
+                <div class="toolbar"><h1 id="characters-title">Nhân vật</h1></div>
+                <p class="note">Lưu xong, server áp dụng giá và sát thương mới ngay; người chơi thấy giá mới từ lần đăng nhập sau. Giá xu là bội số của 1.000. Ma sát, góc, tầm, đạn chỉ để xem vì server không dùng.</p>
+                <div class="table-wrap"><table class="grid" id="characters-table"></table></div>
+            </section>
+
+            <section class="tab" id="tab-equipment" aria-labelledby="equipment-title" hidden>
+                <div class="toolbar">
+                    <h1 id="equipment-title">Trang bị</h1>
+                    <select id="equipment-glass" aria-label="Lọc theo nhân vật"></select>
+                    <select id="equipment-type" aria-label="Lọc theo loại"></select>
+                    <input type="search" id="equipment-search" placeholder="Tìm tên đồ..." aria-label="Tìm trang bị">
+                    <span class="muted" id="equipment-count"></span>
+                </div>
+                <p class="note">Áp dụng từ lần mở shop tiếp theo; shop hiện chỉ số mới sau khi người chơi đăng nhập lại. Đồ đã mua giữ chỉ số cũ nhưng bán lại và gia hạn theo giá mới. Giá -1 nghĩa là không bán bằng loại tiền đó.</p>
+                <div class="table-wrap"><table class="grid" id="equipment-table"></table></div>
+            </section>
+
+            <section class="tab" id="tab-items" aria-labelledby="items-title" hidden>
+                <div class="toolbar"><h1 id="items-title">Vật phẩm</h1></div>
+                <p class="note">Server tính giá mới ngay; người chơi thấy giá mới từ lần đăng nhập sau. Giá -1 nghĩa là không bán bằng loại tiền đó.</p>
+                <div class="table-wrap"><table class="grid" id="items-table"></table></div>
+            </section>
+
+            <section class="tab" id="tab-specials" aria-labelledby="specials-title" hidden>
+                <div class="toolbar"><h1 id="specials-title">Đồ đặc biệt</h1></div>
+                <p class="note">Áp dụng từ lần mở shop tiếp theo. Giá bán lại ngọc người chơi đang có, phí tháo ngọc và phí gia hạn đổi theo giá mới ngay. Giá -1 nghĩa là không bán bằng loại tiền đó.</p>
+                <div class="table-wrap"><table class="grid" id="specials-table"></table></div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<dialog id="password-dialog" aria-labelledby="password-title">
+    <form id="password-form" novalidate>
+        <h2 id="password-title">Đổi mật khẩu admin</h2>
+        <label for="password-current">Mật khẩu hiện tại</label>
+        <input id="password-current" type="password" autocomplete="current-password" required>
+        <label for="password-next">Mật khẩu mới (6-64 ký tự)</label>
+        <input id="password-next" type="password" autocomplete="new-password" required>
+        <label for="password-confirm">Nhập lại mật khẩu mới</label>
+        <input id="password-confirm" type="password" autocomplete="new-password" required>
+        <p class="message error" id="password-error" role="alert" hidden></p>
+        <div class="actions">
+            <button type="button" class="btn" id="password-cancel">Hủy</button>
+            <button type="submit" class="btn primary">Đổi mật khẩu</button>
+        </div>
+    </form>
+</dialog>
+<script src="admin.js"></script>
+</body>
+</html>

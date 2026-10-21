@@ -105,6 +105,9 @@ public class Bullet {
     public static mImage rocket;
     public static mImage superShoot;
     public boolean isSuper;
+    private boolean heroPow;
+    private boolean thorVisual;
+    private boolean photonVisual;
     int sFrame = 0;
     int ts = 0;
     public static mImage rocket2;
@@ -395,6 +398,9 @@ public class Bullet {
         CRes.err("======> init = " + type);
         this.type = type;
         this.whoShot = whoShot;
+        this.heroPow = GameScr.bm != null && GameScr.bm.heroPowShot;
+        this.thorVisual = (type == 17 || type == 18) && effect.HeroEffects.thor(whoShot);
+        this.photonVisual = type == 49 && effect.HeroEffects.photon(whoShot);
         this.xPaint = X;
         this.yPaint = Y;
         this.x = this.xPaint[0];
@@ -486,7 +492,17 @@ public class Bullet {
             }
         }
 
-        if (GameScr.curGRAPHIC_LEVEL != 2) {
+        if (this.photonVisual) {
+            int phase = effect.HeroEffects.phase();
+            effect.HeroEffects.beam(g, this.xPaint[0], this.yPaint[0],
+                    this.xPaint[0]+this.xLaser1, this.yPaint[0]+this.yLaser1,
+                    this.heroPow, GameScr.curGRAPHIC_LEVEL == 2, phase);
+            if (this.isMirror) {
+                effect.HeroEffects.beam(g, this.xLG, this.yLG,
+                        this.xLG+this.xLaser2, this.yLG-this.yLaser2,
+                        this.heroPow, GameScr.curGRAPHIC_LEVEL == 2, phase);
+            }
+        } else if (GameScr.curGRAPHIC_LEVEL != 2) {
             int i;
             for (i = 0; i < this.n1; ++i) {
                 if (i < this.n1 / 2 + this.n1 / 4 && i > this.n1 / 2 - this.n1 / 4) {
@@ -697,7 +713,7 @@ public class Bullet {
                 break;
             case 17:
             case 18:
-                this.frmImg = GameScr.bm.frameBulletSpecial[17][0];
+                this.frmImg = player.ThorSkin.projectile(GameScr.bm.frameBulletSpecial[17][0], this.whoShot, this.heroPow);
                 if (critical == 1) {
                     this.fireSmoke = true;
                 }
@@ -1694,6 +1710,14 @@ public class Bullet {
     public void paint(mGraphics g) {
         if (!this.notPaint) {
             if (this.type != 31) {
+                if (this.thorVisual && this.heroPow) {
+                    if (GameScr.curGRAPHIC_LEVEL == 2) {
+                        effect.HeroEffects.ring(g, this.x, this.y, 9, 0x63cfff, 0);
+                    } else {
+                        effect.HeroEffects.hammer(g, this.x, this.y, this.x_Last, this.y_Last,
+                                effect.HeroEffects.phase());
+                    }
+                }
                 if (this.isSuper) {
                     ++this.sFrame;
                     if (this.sFrame == 5) {

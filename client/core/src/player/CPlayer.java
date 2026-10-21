@@ -1088,6 +1088,8 @@ public class CPlayer {
         if (GameScr.trainingMode) {
             GameService.gI().waitForFIRETraining(bulletType, (short) this.x, (short) this.y, (short) this.angle, this.force, this.force_2, numShoot);
         } else {
+            // The server uses its stored position, not the coordinates in the shot packet.
+            syncMovementPosition();
             GameService.gI().waitForFIRE(bulletType, (short) this.x, (short) this.y, (short) this.angle, this.force, this.force_2, numShoot);
         }
 
@@ -1322,7 +1324,11 @@ public class CPlayer {
     }
 
     private void paintPlayer(mGraphics g) {
-        if (this.state != 5 && this.gun < 11 && this.isAngry) {
+        boolean heroAura = this.gun == 9;
+        if (this.state != 5 && heroAura && (this.isAngry || this.itemUsed == 100)) {
+            effect.HeroEffects.aura(g, this.x, this.y, false,
+                    this.itemUsed == 100, effect.HeroEffects.phase());
+        } else if (this.state != 5 && this.gun < 11 && this.isAngry) {
             ++this.ta;
             if (this.ta == 2) {
                 this.ta = 0;
@@ -1352,7 +1358,8 @@ public class CPlayer {
                                         if (this.equip != null) {
                                             this.equip.paint(g, Look, this.curFrame, this.x, this.y);
                                         } else {
-                                            this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
+                                            if (!PhotonSkin.paint(g, this.gun, Look, this.curFrame, this.x, this.y))
+                                                this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
                                         }
                                     }
 
@@ -1978,6 +1985,14 @@ public class CPlayer {
 
     }
 
+    public void syncMovementPosition() {
+        if (this.index == GameScr.myIndex && GameScr.pm.isYourTurn()) {
+            this.resetLastUpdateXY(this.x, this.y);
+            this.lastx = (short) this.x;
+            GameService.gI().move((short) this.x, (short) this.y);
+        }
+    }
+
     public void resetXYwhenNEXTTURN() {
         if (this.x != this.lastUpdateX) {
             this.x = this.lastUpdateX;
@@ -2102,7 +2117,7 @@ public class CPlayer {
                             CRes.out("Camera " + Camera.x + "/" + Camera.y);
                             CRes.out("mouse " + xScreen + "/" + yScreen);
                             CRes.out("range3 " + range3);
-                            if (!this.isHoldFire) {
+                            if (!this.isHoldFire && !CCanvas.isPc()) {
                                 if (xScreen <= this.x - Camera.x) {
                                     this.look = 0;
                                 } else {

@@ -245,6 +245,16 @@ public class User {
     }
     
     public void setEquipVip(byte action, int dbKey) {
+        if (action != 0 && action != 1) return;
+        Equip selectedVip = this.getEquip(dbKey);
+        if (action == 1 && (selectedVip == null || selectedVip.glassID != this.selectGlass
+                || selectedVip.vip == 0 || selectedVip.date() <= 0)) return;
+        if (action == 1 && this.selectGlass == ThorSkin.GLASS) {
+            for (Equip owned : this.equips) if (ThorSkin.is(owned) && owned.isUse) {
+                if (this.session != null) this.session.sessionHandler.log(__("Hãy tháo Skin Thor trước khi mặc trang phục VIP."));
+                return;
+            }
+        }
         for (Equip equip : this.equips) {
             if (equip.glassID == this.glass().id && equip.vip != 0) {
                 equip.isUse = false;
@@ -255,24 +265,37 @@ public class User {
             equip.isUse = action == 1;
         }
         this.glass().updateAll();
+        Server.requestSave();
         if (this.session != null) {
             this.session.sessionHandler.setEquipItem(action, this.glass().data);
         }
     }
     
     public void setEquip(int[] dbKey) {
+        if (dbKey == null || dbKey.length != 5) return;
         for (int i = 0; i < dbKey.length; i++) {
+            if (dbKey[i] == -1 || dbKey[i] == 0xFFFF) continue;
             Equip equip = this.getEquip(dbKey[i]);
-            if (equip != null && equip.date() > 0) {
-                for (Equip e : this.equips) {
-                    if (e.glassID == equip.glassID && e.type == equip.type) {
-                        e.isUse = false;
-                    }
+            if (equip == null || equip.glassID != this.selectGlass || equip.type != i
+                    || equip.vip != 0 || equip.date() <= 0) return;
+        }
+        for (Equip equip : this.equips) {
+            if (equip.glassID == this.selectGlass && equip.vip == 0)
+                equip.isUse = equip.dbKey == dbKey[equip.type];
+        }
+        Equip armor = this.getEquip(dbKey[2]);
+        if (ThorSkin.is(armor)) {
+            boolean removedVip = false;
+            for (Equip equip : this.equips) {
+                if (equip.glassID == this.selectGlass && equip.vip != 0 && equip.isUse) {
+                    equip.isUse = false;
+                    removedVip = true;
                 }
-                equip.isUse = true;
             }
+            if (removedVip && this.session != null) this.session.sessionHandler.setEquipItem(0, null);
         }
         this.glass().updateAll();
+        Server.requestSave();
         if (this.session != null) {
             this.session.sessionHandler.setEquip();
         }
@@ -332,6 +355,18 @@ public class User {
         if (buyLuong != 0 && buyLuong != 1) return;
         if (this.generates != null && index >= 0 && index < this.generates.size()) {
             Equip equip = this.generates.get(index);
+            if (ThorSkin.is(equip)) {
+                for (Equip owned : this.equips) {
+                    if (ThorSkin.is(owned)) {
+                        if (this.session != null) this.session.sessionHandler.log(__("Bạn đã sở hữu Skin Thor. Hãy trang bị trong rương."));
+                        return;
+                    }
+                }
+                if (this.equips.size() >= 120) {
+                    if (this.session != null) this.session.sessionHandler.log(__("Rương đã đầy."));
+                    return;
+                }
+            }
             int num = 1;
             int price = buyLuong == 1 ? equip.luong != -1 ? equip.luong * num : -1 : equip.xu != -1 ? equip.xu * num : -1;
             if (price >= 0 && price <= (buyLuong == 1 ? this.luong : this.xu)) {
@@ -343,9 +378,10 @@ public class User {
                 equip = equip.deepCopy();
                 equip.renewalDate = System.currentTimeMillis();
                 this.addEquip(equip);
-                this.session.sessionHandler.log(__("Giao dịch thành công. Xin cảm ơn."));
+                Server.requestSave();
+                if (this.session != null) this.session.sessionHandler.log(__("Giao dịch thành công. Xin cảm ơn."));
             } else {
-                this.session.sessionHandler.log(__("Bạn không đủ tiền để mua vật phẩm"));
+                if (this.session != null) this.session.sessionHandler.log(__("Bạn không đủ tiền để mua vật phẩm"));
             }
         }
     }

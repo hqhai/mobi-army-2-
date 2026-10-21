@@ -1,0 +1,3 @@
+Built-in imagegen. Identity reference: photon-squat-v3.png. Pose and size reference: native-ironman-comparison.png top row only.
+Exactly ten Photon sprites, one horizontal row: right down aim, horizontal, diagonal up, vertical up, wide walk, narrow walk; left down aim, horizontal, diagonal up, vertical up. Exposed female face, short white/cyan bob, violet eye, charcoal/violet armor, cyan diamond core. Strict native Iron Man squat proportions, approximately 24x28 logical pixel footprints, consistent baseline and scale. Preserve red/cyan gun. Transparent, hard pixel art, no labels, no background.
+Output is a generated large concept sheet, not yet a validated native-size sprite atlas.

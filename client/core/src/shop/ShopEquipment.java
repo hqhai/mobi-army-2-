@@ -217,9 +217,11 @@ public class ShopEquipment extends TabScreen {
       }
 
       this.eSelect = (Equip)this.myShop.elementAt(this.select);
+      this.hTabScreen = player.ThorSkin.is(this.eSelect) ? 210 : 180;
       this.equipDetail = this.eSelect.getStrShopDetail();
       this.equipName = this.eSelect.name;
       this.price = "Giờ: " + this.eSelect.xu + Language.xu() + " (" + this.eSelect.date + "ngày " + ")";
+      if (player.ThorSkin.is(this.eSelect)) this.price = "Giá: 1000 lượng - Vĩnh viễn";
       this.cmyILim = this.hLine * this.wTab - 70;
       if (this.eSelect != null && this.eSelect.shopDetailNunStrs != null) {
          this.cmyIDLim = this.eSelect.shopDetailNunStrs.size() * this.wTab;
@@ -281,6 +283,14 @@ public class ShopEquipment extends TabScreen {
       g.fillRoundRect(X, Y + 54, 170, 16, 6, 6, false);
       Font.normalGFont.drawString(g, this.equipName, X + 6, Y + 15, 0);
       Font.normalYFont.drawString(g, this.price, X + 6 + dd, Y + 35, 0);
+      if (player.ThorSkin.is(this.eSelect)) {
+         g.setColor(2378093);
+         g.fillRoundRect(X, Y + 54, 170, 52, 6, 6, false);
+         String[] bonuses = {"HP +10000", "Sức mạnh +1000", "May mắn +10000"};
+         for (int i = 0; i < bonuses.length; i++)
+            Font.normalYFont.drawString(g, bonuses[i], X + 6, Y + 55 + i * 17, 0);
+         return;
+      }
       if (this.eSelect != null || this.eSelect.shopDetailNunStrs != null) {
          this.xExpand = X + 6 + cc + 100 + 50;
          this.yExpand = Y + 55;
@@ -314,6 +324,7 @@ public class ShopEquipment extends TabScreen {
    public void getDetail() {
       if (this.select < this.size) {
          this.eSelect = (Equip)this.myShop.elementAt(this.select);
+         this.hTabScreen = player.ThorSkin.is(this.eSelect) ? 210 : 180;
          this.equipDetail = this.eSelect.getStrShopDetail();
          String glass = null;
          if (this.eSelect.glass == 0) {
@@ -369,6 +380,7 @@ public class ShopEquipment extends TabScreen {
 
          String ngay = this.eSelect.date >= 0 ? " (" + this.eSelect.date + Language.ngay() + ")" : "";
          this.price = Language.price() + ": " + xu + luong + ngay;
+         if (player.ThorSkin.is(this.eSelect)) this.price = "Giá: 1000 lượng - Vĩnh viễn";
          this.getCommand();
          this.transText1.x = 0;
       }

@@ -2,6 +2,7 @@
 /runtime/
 /logs/
 /downloads/
+/web/downloads/
 /verification/
 /work/
 /Player-Client/
@@ -19,3 +20,4 @@
 *-credential*.xml
 .env
 .env.*
+/desktop-build/bin/

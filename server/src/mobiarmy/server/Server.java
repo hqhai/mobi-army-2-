@@ -4,7 +4,11 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import mobiarmy.io.Message;
 import mobiarmy.war.MapData;
 import mobiarmy.war.Player;
@@ -24,6 +28,8 @@ public class Server {
     private long nextSaveAt = System.currentTimeMillis() + 30000L;
     private static boolean saveRequested;
     public static final ArrayList<Command> CMD = new ArrayList<>();
+    // Admin edits to character/equipment data bump this; clients re-download cached dataInfo when the version differs.
+    public static volatile int dataRevision = 0;
     
     public static class Command  {
         
@@ -50,6 +56,8 @@ public class Server {
                 Glass.loadGlass();
                 Map.loadMap();
                 MapBoss.loadMapBoss();
+                ThorSkin.ensureCatalog();
+                PhotonSkin.ensureCatalog();
                 Equip.loadEquip();
                 Item.loadItem();
                 LinhTinh.loadLinhTinh();
@@ -140,6 +148,7 @@ public class Server {
                             }
                         }
                     }
+                    case 2 -> ((FutureTask<?>) command.object[0]).run();
                 }
             } catch (IOException | RuntimeException e) {
                 if (command.cmd == 0) {
@@ -217,5 +226,25 @@ public class Server {
             CMD.remove(command);
         }
     }
-    
+
+    /** The dataInfo version sent to clients: the code's baseline shifted by admin edits, kept within 1..127. */
+    public static int dataVersion(int baseline) {
+        return Math.floorMod(baseline - 1 + dataRevision, 127) + 1;
+    }
+
+    /** Runs a task on the game loop thread (where all game state changes happen) and waits for its result. */
+    public static <T> T callOnGameThread(Callable<T> task, long timeoutMillis) throws Exception {
+        FutureTask<T> future = new FutureTask<>(task);
+        addCommand(2, future);
+        try {
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(false); // never apply it later if the loop picks it up after we gave up
+            throw e;
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof Exception cause) throw cause;
+            throw e;
+        }
+    }
+
 }

@@ -16,7 +16,7 @@ public class ShopEquipment {
         ArrayList<DBManager.DataRow> rows = Server.dbManager.selectColumnName("SELECT * FROM shop_equipment");
         entrys = new Equip[rows.size()];
         for (int i = 0; i < rows.size(); i++) {
-            entrys[i] = Equip.get(rows.get(i).getByte("glassID"), rows.get(i).getByte("equipId")).deepCopy();
+            entrys[i] = Equip.get(rows.get(i).getByte("glassID"), rows.get(i).getShort("equipId")).deepCopy();
             entrys[i].name = rows.get(i).getString("name");
             entrys[i].xu = rows.get(i).getInt("xu");
             entrys[i].luong = rows.get(i).getInt("luong");
@@ -29,7 +29,8 @@ public class ShopEquipment {
         ArrayList<Equip> equips = new ArrayList<>();
         for (Equip entry : entrys) {
             if (entry.glassID == glassID) {
-                equips.add(entry);
+                if (ThorSkin.is(entry)) equips.add(0, entry);
+                else equips.add(entry);
             }
         }
         return equips;

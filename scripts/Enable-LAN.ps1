@@ -10,4 +10,9 @@ if (-not (Get-NetFirewallRule -Name 'MobiArmy2-LAN-8122' -ErrorAction SilentlyCo
         -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8122 `
         -RemoteAddress LocalSubnet -Profile Any -Program $java | Out-Null
 }
-Write-Host 'Allowed TCP 8122 from the local subnet for this game server only.'
+if (-not (Get-NetFirewallRule -Name 'MobiArmy2-LAN-8123' -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -Name 'MobiArmy2-LAN-8123' -DisplayName 'MobiArmy2 LAN registration page TCP 8123' `
+        -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8123 `
+        -RemoteAddress LocalSubnet -Profile Any -Program $java | Out-Null
+}
+Write-Host 'Allowed TCP 8122 (game) and 8123 (registration page) from the local subnet for this game server only.'

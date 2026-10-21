@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nhân vật - Mobi Army 2 LAN</title>
+    <meta name="description" content="Mua đồ, mặc đồ và cộng điểm cho nhân vật Mobi Army 2 trên máy chủ LAN.">
+    <link rel="icon" href="../img/favicon.png" type="image/png">
+    <link rel="stylesheet" href="../css/site.css">
+    <link rel="stylesheet" href="player.css">
+</head>
+<body>
+<div class="page" id="top">
+    <p class="health">Chơi quá 180 phút một ngày sẽ ảnh hưởng xấu đến sức khỏe.</p>
+
+    <header class="banner">
+        <a href="../" class="logo" title="Mobi Army 2 LAN">
+            <img src="../img/logo.png" alt="Mobi Army" width="106" height="84">
+            <span class="logo-tag">2 · LAN</span>
+        </a>
+    </header>
+
+    <nav class="menu" aria-label="Điều hướng chính">
+        <a href="../">Trang Chủ</a>
+        <a href="./" class="selected" aria-current="page">Nhân Vật</a>
+        <a href="../#huong-dan">Hướng Dẫn</a>
+    </nav>
+
+    <main>
+        <section class="band" id="login-view" aria-labelledby="login-title" hidden>
+            <div class="panel">
+                <h1 class="panel-title" id="login-title">Đăng nhập</h1>
+                <p class="panel-sub">Dùng tài khoản game để mua đồ, mặc đồ và cộng điểm ngay trên web.</p>
+                <form id="login-form" class="register" novalidate>
+                    <div class="field">
+                        <label for="login-username">Tên đăng nhập</label>
+                        <input id="login-username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required>
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Mật khẩu</label>
+                        <input id="login-password" type="password" autocomplete="current-password" maxlength="30" required>
+                    </div>
+                    <p class="form-error" id="login-error" role="alert" hidden></p>
+                    <button type="submit" class="game-btn" id="login-submit">
+                        <span class="big">Vào</span>
+                        <span class="small">đăng nhập</span>
+                    </button>
+                </form>
+                <p class="panel-foot">Chưa có tài khoản? <a href="../#dang-ky">Đăng ký tại đây</a>.</p>
+            </div>
+        </section>
+
+        <div id="app" hidden>
+            <section class="band hero-card" aria-label="Nhân vật đang dùng">
+                <div class="stage">
+                    <div class="portrait" id="portrait" aria-hidden="true"></div>
+                    <div class="platform" aria-hidden="true"></div>
+                </div>
+                <div class="hero-info">
+                    <p class="hello">Xin chào, <b id="player-name"></b></p>
+                    <h1 class="hero-name"><span id="char-name"></span> <span class="level-badge" id="char-level"></span></h1>
+                    <div class="exp" title="Kinh nghiệm">
+                        <div class="exp-fill" id="exp-fill"></div>
+                        <span class="exp-text" id="exp-text"></span>
+                    </div>
+                    <div class="wallet">
+                        <span class="coin xu" title="Xu"><b id="wallet-xu"></b> xu</span>
+                        <span class="coin luong" title="Lượng"><b id="wallet-luong"></b> lượng</span>
+                    </div>
+                    <p class="state" id="player-state"></p>
+                    <button type="button" class="logout" id="logout">Đăng xuất</button>
+                </div>
+            </section>
+
+            <section class="box picker-box" aria-labelledby="picker-title">
+                <h2 class="box-title" id="picker-title">Chọn nhân vật</h2>
+                <div class="picker" id="picker"></div>
+            </section>
+
+            <div class="tabs" role="tablist" aria-label="Chức năng">
+                <button type="button" role="tab" class="tab-btn active" aria-selected="true" data-tab="points">Cộng điểm</button>
+                <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="bag">Rương đồ</button>
+                <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="shop">Cửa hàng</button>
+            </div>
+
+            <section class="box tab-panel" id="tab-points" role="tabpanel" aria-labelledby="points-title">
+                <h2 class="box-title" id="points-title">Cộng điểm tiềm năng</h2>
+                <p class="points-left">Điểm còn lại: <b id="points-left">0</b></p>
+                <div class="stats" id="stats"></div>
+                <div class="actions-row">
+                    <button type="button" class="game-btn small-btn" id="points-save"><span class="big">Xác nhận</span></button>
+                    <button type="button" class="text-btn" id="points-reset">Đặt lại</button>
+                </div>
+                <p class="hint">Mỗi lần lên cấp được 3 điểm. Điểm đã cộng không trả lại được.</p>
+            </section>
+
+            <section class="box tab-panel" id="tab-bag" role="tabpanel" aria-labelledby="bag-title" hidden>
+                <h2 class="box-title" id="bag-title">Đang mặc</h2>
+                <div class="slots" id="slots"></div>
+                <h2 class="box-title">Rương đồ <span class="muted-count" id="bag-count"></span></h2>
+                <div class="cards" id="bag"></div>
+                <h2 class="box-title">Túi vật phẩm</h2>
+                <div class="chips" id="pocket"></div>
+            </section>
+
+            <section class="box tab-panel" id="tab-shop" role="tabpanel" aria-labelledby="shop-title" hidden>
+                <h2 class="box-title" id="shop-title">Cửa hàng</h2>
+                <div class="pills" role="group" aria-label="Loại hàng">
+                    <button type="button" class="pill active" data-shop="equipment">Trang bị</button>
+                    <button type="button" class="pill" data-shop="items">Vật phẩm</button>
+                    <button type="button" class="pill" data-shop="specials">Đồ đặc biệt</button>
+                </div>
+                <div class="pills filters" id="type-filter" role="group" aria-label="Lọc trang bị"></div>
+                <div class="cards" id="shop-list"></div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="copyright">
+        <p>Mobi Army 2 LAN · máy chủ nội bộ cho anh em công ty</p>
+        <p>Dựa trên mã nguồn mở MobiArmy2 Client/Server. Đây không phải website chính thức của Teamobi.</p>
+    </footer>
+</div>
+
+<dialog id="confirm" aria-labelledby="confirm-text">
+    <form method="dialog" class="confirm-box">
+        <div class="confirm-pic" id="confirm-pic" aria-hidden="true"></div>
+        <p id="confirm-text"></p>
+        <div class="confirm-actions">
+            <button value="cancel" class="text-btn">Thôi</button>
+            <button value="ok" class="game-btn small-btn" id="confirm-ok"><span class="big">Mua</span></button>
+        </div>
+    </form>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="player.js"></script>
+</body>
+</html>
