@@ -219,6 +219,7 @@
         renderBag();
         renderGems();
         renderUpgrade();
+        renderStats();
         if (state.tab === 'shop') {
             if (state.shop) renderShop();
             else loadShop();
@@ -382,6 +383,55 @@
             pocket.append(el('span', {className: 'chip', title: item.detail}, [specialIcon(item.id, 1.5), item.name + ' ×' + item.num]));
         });
         if (!pocket.children.length) pocket.append(el('p', {className: 'empty', text: 'Túi đang trống.'}));
+    }
+
+    // --- final stats ---------------------------------------------------------------------------
+
+    function pct(value) {
+        return (Math.round(value * 10) / 10).toLocaleString('vi-VN') + '%';
+    }
+
+    /** Same formulas as the server (Glass.createAbility and the battle code in Player). */
+    function renderStats() {
+        var c = state.profile.character;
+        var s = c.stats, pts = c.ability, flat = c.gearFlat, per = c.gearPercent;
+        $('stats-worn').textContent = '(đang mặc ' + c.wornCount + ' món)';
+        var damagePct = c.baseAttack ? s[1] * 100 / c.baseAttack : 100;
+        var reduce = (1 - Math.exp(-s[2] / 6000)) * 100;
+        var luck = (1 - Math.exp(-s[3] / 6000)) * 100;
+        var cards = [
+            {name: 'Máu', value: number.format(s[0]), note: 'Lượng máu khi vào trận'},
+            {name: 'Sát thương', value: number.format(s[1]), note: pct(damagePct) + ' so với gốc ' + number.format(c.baseAttack)},
+            {name: 'Phòng thủ', value: number.format(s[2]), note: 'Giảm ' + pct(reduce) + ' sát thương nhận vào'},
+            {name: 'May mắn', value: number.format(s[3]), note: pct(luck) + ' mỗi lượt: x2 sát thương, +3.000 thủ, không chết'},
+            {name: 'Đồng đội', value: number.format(s[4]), note: 'Góp ' + number.format(Math.floor(s[4] / 200)) + ' vào quỹ đồng đội của đội'}
+        ];
+        var box = $('final-stats');
+        box.replaceChildren();
+        cards.forEach(function (card, i) {
+            box.append(el('div', {className: 'final-stat stat-' + i}, [
+                el('span', {className: 'final-name', text: card.name}),
+                el('b', {className: 'final-value', text: card.value}),
+                el('small', {text: card.note})
+            ]));
+        });
+
+        var hpPercent = Math.floor((1000 + pts[0]) * per[0] / 100);
+        var rows = [
+            ['Máu', '1.000', '+' + number.format(pts[0] * 10), '+' + number.format(flat[0] * 10), per[0] ? '+' + number.format(hpPercent) + ' (' + per[0] + '%)' : '–', number.format(s[0])],
+            ['Sức mạnh', number.format(c.baseAttack), '+' + pct(pts[1] / 3), '+' + pct(flat[1] / 3), per[1] ? '+' + per[1] + '%' : '–', number.format(s[1])],
+            ['Phòng thủ', '0', '+' + number.format(pts[2] * 10), '+' + number.format(flat[2] * 10), per[2] ? '+' + per[2] + '%' : '–', number.format(s[2])],
+            ['May mắn', '0', '+' + number.format(pts[3] * 10), '+' + number.format(flat[3] * 10), per[3] ? '+' + per[3] + '%' : '–', number.format(s[3])],
+            ['Đồng đội', '0', '+' + number.format(pts[4] * 10), '+' + number.format(flat[4] * 10), per[4] ? '+' + per[4] + '%' : '–', number.format(s[4])]
+        ];
+        var table = $('stats-table');
+        table.replaceChildren(
+            el('thead', null, [el('tr', null, ['Chỉ số', 'Gốc', 'Điểm cộng', 'Trang bị (gồm ngọc, nâng cấp)', 'Trang bị %', 'Tổng']
+                .map(function (h) { return el('th', {text: h}); }))]),
+            el('tbody', null, rows.map(function (row) {
+                return el('tr', null, row.map(function (cell, i) { return el(i === 5 ? 'th' : 'td', {text: cell}); }));
+            }))
+        );
     }
 
     // --- upgrade (+1 to +12) -------------------------------------------------------------------

@@ -79,6 +79,7 @@
 
             <div class="tabs" role="tablist" aria-label="Chức năng">
                 <button type="button" role="tab" class="tab-btn active" aria-selected="true" data-tab="points">Cộng điểm</button>
+                <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="stats">Chỉ số</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="bag">Rương đồ</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="upgrade">Nâng cấp</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="gems">Khảm ngọc</button>
@@ -108,6 +109,14 @@
                 <h2 class="box-title">Khảm vào trang bị <span class="muted-count">(đồ của nhân vật đang chọn)</span></h2>
                 <p class="hint">Mỗi món có 3 lỗ. Tháo ngọc lấy lại tất cả ngọc, phí 25% giá xu của ngọc; phải tháo đồ ra trước.</p>
                 <div class="cards" id="socket-list"></div>
+            </section>
+
+            <section class="box tab-panel" id="tab-stats" role="tabpanel" aria-labelledby="stats-title" hidden>
+                <h2 class="box-title" id="stats-title">Chỉ số khi vào trận <span class="muted-count" id="stats-worn"></span></h2>
+                <div class="final-stats" id="final-stats"></div>
+                <h2 class="box-title">Nguồn chỉ số</h2>
+                <div class="table-scroll"><table class="upgrade-table" id="stats-table"></table></div>
+                <p class="hint">Chỉ tính đồ đang mặc của nhân vật đang chọn. Trong trận 4vs4, điểm Đồng đội của cả đội còn cộng thêm cho mọi thành viên.</p>
             </section>
 
             <section class="box tab-panel" id="tab-points" role="tabpanel" aria-labelledby="points-title">

@@ -539,7 +539,23 @@ final class LanPlayerGame {
         character.put("expPercent", Exp.get(glass.level) == null ? 0 : Math.max(0, Math.min(100, glass.getPercentLevel())));
         character.put("points", glass.point);
         character.put("ability", glass.ability.clone());
-        character.put("stats", glass.createAbility());
+        int[] stats = glass.createAbility();
+        character.put("stats", stats);
+        // Same sums as Glass.createAbility, kept apart so the page can show where each stat comes from.
+        int[] gearFlat = new int[5], gearPercent = new int[5];
+        int worn = 0;
+        for (Equip equip : user.equips) {
+            if (equip.glassID != glass.id || !equip.isUse) continue;
+            worn++;
+            for (int i = 0; i < 5; i++) {
+                if (equip.inv_ability != null && i < equip.inv_ability.length) gearFlat[i] += equip.inv_ability[i];
+                if (equip.inv_percen != null && i < equip.inv_percen.length) gearPercent[i] += equip.inv_percen[i];
+            }
+        }
+        character.put("gearFlat", gearFlat);
+        character.put("gearPercent", gearPercent);
+        character.put("wornCount", worn);
+        character.put("baseAttack", glass.att);
         view.put("character", character);
         List<Map<String, Object>> bag = new ArrayList<>();
         user.equips.stream()

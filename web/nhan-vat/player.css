@@ -957,3 +957,24 @@ dialog#confirm::backdrop {
     .aura, .aura::before, .aura .spark, .upgrade-fx, .upgrade-fx *, .card.shake { animation: none !important; }
     .aura .spark { display: none; }
 }
+
+/* Final stats */
+.final-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.final-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 2px solid var(--c);
+    background: linear-gradient(180deg, #fff, var(--bg));
+    color: #3a2208;
+}
+.final-stat .final-name { font-weight: 700; color: var(--c); }
+.final-stat .final-value { font-size: 24px; line-height: 1.1; }
+.final-stat small { font-size: 12px; opacity: .85; }
+.stat-0 { --c: #d62d2d; --bg: #ffe3e3; }
+.stat-1 { --c: #8a3cd6; --bg: #f1e3ff; }
+.stat-2 { --c: #2f6fd6; --bg: #e2eeff; }
+.stat-3 { --c: #c98a00; --bg: #fff3cf; }
+.stat-4 { --c: #2b9a4e; --bg: #e0f6e7; }
