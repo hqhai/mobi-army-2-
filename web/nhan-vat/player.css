@@ -790,3 +790,170 @@ dialog#confirm::backdrop {
     padding: 4px 6px;
     max-width: 100%;
 }
+
+/* --- Upgrade +1..+12: blue 1-4, purple 5-7, gold 8-10, red 11-12 ------------------------- */
+.tier-1 { --tier: #2f8cff; --tier-2: #8fd0ff; --tier-dark: #0b4fa8; }
+.tier-2 { --tier: #9b45ff; --tier-2: #e0b8ff; --tier-dark: #5a1aa8; }
+.tier-3 { --tier: #ffb400; --tier-2: #fff27a; --tier-dark: #a86400; }
+.tier-4 { --tier: #ff2e2e; --tier-2: #ffb03a; --tier-dark: #8e0000; }
+
+.plus-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #fff;
+    background: linear-gradient(180deg, var(--tier-2, #bbb), var(--tier, #888) 55%, var(--tier-dark, #555));
+    text-shadow: 0 1px 0 rgba(0, 0, 0, .45);
+    box-shadow: 0 0 6px var(--tier, transparent);
+}
+
+.tier-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+
+.aura {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    border-radius: 12px;
+    isolation: isolate;
+}
+.aura > .plus-badge { position: absolute; right: -6px; top: -7px; z-index: 3; }
+
+/* Blue: calm steady glow. */
+.aura.tier-1 { box-shadow: 0 0 0 2px var(--tier), 0 0 10px var(--tier); }
+
+/* Purple: breathing glow. */
+.aura.tier-2 { box-shadow: 0 0 0 2px var(--tier), 0 0 12px var(--tier); animation: aura-breathe 2.4s ease-in-out infinite; }
+
+/* Gold and red: a light band runs around the frame. */
+.aura.tier-3, .aura.tier-4 { padding: 3px; overflow: visible; }
+.aura.tier-3::before, .aura.tier-4::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 12px;
+    background: conic-gradient(from var(--spin, 0deg), var(--tier-dark), var(--tier), var(--tier-2), #fff, var(--tier-2), var(--tier), var(--tier-dark));
+    animation: aura-spin 2.6s linear infinite;
+    box-shadow: 0 0 14px var(--tier);
+}
+.aura.tier-4::before { animation-duration: 1.4s; box-shadow: 0 0 18px var(--tier), 0 0 34px var(--tier-2); }
+.aura.tier-4 { animation: aura-flicker 1.8s steps(1) infinite; }
+
+/* Sparkles (gold) and embers (red) around the frame. */
+.aura .spark {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--tier-2);
+    box-shadow: 0 0 6px var(--tier), 0 0 2px #fff;
+    pointer-events: none;
+    z-index: 2;
+    animation: spark-orbit 3s linear infinite;
+    animation-delay: calc(var(--i) * -0.5s);
+}
+.aura.tier-4 .spark { animation: ember-rise 1.6s ease-out infinite; animation-delay: calc(var(--i) * -0.27s); }
+
+@property --spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes aura-spin { to { --spin: 360deg; } }
+@keyframes aura-breathe { 50% { box-shadow: 0 0 0 2px var(--tier), 0 0 22px var(--tier), 0 0 4px var(--tier-2) inset; } }
+@keyframes aura-flicker { 0%, 100% { filter: none; } 40% { filter: brightness(1.15) saturate(1.2); } 70% { filter: brightness(.95); } }
+@keyframes spark-orbit {
+    0% { transform: rotate(0deg) translateX(42px) scale(.6); opacity: 0; }
+    15% { opacity: 1; }
+    50% { transform: rotate(180deg) translateX(42px) scale(1); }
+    85% { opacity: 1; }
+    100% { transform: rotate(360deg) translateX(42px) scale(.6); opacity: 0; }
+}
+@keyframes ember-rise {
+    0% { transform: translate(calc((var(--i) - 2.5) * 11px), 30px) scale(1); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(calc((var(--i) - 2.5) * 13px), -48px) scale(.3); opacity: 0; }
+}
+
+/* Card border follows the tier. */
+.card.upgrade-card { position: relative; overflow: hidden; }
+.card.upgrade-card.tier-1 { border-color: var(--tier); }
+.card.upgrade-card.tier-2 { border-color: var(--tier); box-shadow: 0 0 10px rgba(155, 69, 255, .35); }
+.card.upgrade-card.tier-3 { border-color: var(--tier); box-shadow: 0 0 12px rgba(255, 180, 0, .45); background: linear-gradient(180deg, #fffbe6, #ffe9a8); }
+.card.upgrade-card.tier-4 { border-color: var(--tier); box-shadow: 0 0 14px rgba(255, 46, 46, .5); background: linear-gradient(180deg, #fff1ea, #ffd0b8); }
+.card.upgrade-card.tier-3 .card-name, .card.upgrade-card.tier-4 .card-name {
+    background: linear-gradient(90deg, var(--tier-dark), var(--tier), var(--tier-dark));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.upgrade-cost { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.upgrade-cost .rate {
+    align-self: flex-start;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--tier-dark);
+    text-shadow: 0 0 6px var(--tier-2);
+}
+.warn-text { color: #b3261e; font-weight: 700; }
+.max-line { color: #8e0000; font-weight: 800; }
+.upgrade-btn.tier-1, .upgrade-btn.tier-2, .upgrade-btn.tier-3, .upgrade-btn.tier-4 {
+    background: linear-gradient(180deg, var(--tier-2), var(--tier) 60%, var(--tier-dark));
+    border-color: var(--tier-dark);
+    color: #fff;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, .4);
+}
+
+/* Result effect over the card. */
+.upgrade-fx {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    z-index: 5;
+}
+.upgrade-fx .ray {
+    position: absolute;
+    width: 4px;
+    height: 46%;
+    bottom: 50%;
+    left: calc(50% - 2px);
+    transform-origin: 50% 100%;
+    transform: rotate(var(--a)) scaleY(0);
+    background: linear-gradient(0deg, transparent, var(--tier-2), #fff);
+    border-radius: 2px;
+    animation: ray-burst .9s ease-out forwards;
+}
+.upgrade-fx.win { background: radial-gradient(circle, rgba(255, 255, 255, .85), transparent 60%); animation: fx-fade 1.6s ease-out forwards; }
+.upgrade-fx.lose { background: radial-gradient(circle, rgba(90, 90, 90, .55), transparent 65%); animation: fx-fade 1.4s ease-out forwards; }
+.upgrade-fx .fx-text {
+    font-size: 40px;
+    font-weight: 900;
+    color: #fff;
+    -webkit-text-stroke: 2px var(--tier-dark, #444);
+    text-shadow: 0 0 12px var(--tier, #000);
+    animation: fx-pop 1.2s cubic-bezier(.2, 1.6, .4, 1) forwards;
+}
+.upgrade-fx.lose .fx-text { color: #ddd; -webkit-text-stroke-color: #333; text-shadow: none; }
+.card.shake { animation: card-shake .5s; }
+
+@keyframes ray-burst { 40% { transform: rotate(var(--a)) scaleY(1); opacity: 1; } 100% { transform: rotate(var(--a)) scaleY(1.2); opacity: 0; } }
+@keyframes fx-pop { 0% { transform: scale(.2); opacity: 0; } 30% { transform: scale(1.25); opacity: 1; } 75% { transform: scale(1); opacity: 1; } 100% { transform: translateY(-20px); opacity: 0; } }
+@keyframes fx-fade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes card-shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+.upgrade-table-box { margin-top: 10px; }
+.upgrade-table-box summary { cursor: pointer; font-weight: 700; color: var(--box-title, #456ad4); }
+.table-scroll { overflow-x: auto; }
+.upgrade-table { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 13px; background: #fff8e8; }
+.upgrade-table th, .upgrade-table td { border: 1px solid #d9a35b; padding: 4px 8px; text-align: center; white-space: nowrap; }
+.upgrade-table th { background: #fdecc6; color: #4a2508; }
+
+@media (prefers-reduced-motion: reduce) {
+    .aura, .aura::before, .aura .spark, .upgrade-fx, .upgrade-fx *, .card.shake { animation: none !important; }
+    .aura .spark { display: none; }
+}

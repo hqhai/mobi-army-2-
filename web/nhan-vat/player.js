@@ -218,6 +218,7 @@
         renderPoints();
         renderBag();
         renderGems();
+        renderUpgrade();
         if (state.tab === 'shop') {
             if (state.shop) renderShop();
             else loadShop();
@@ -360,11 +361,11 @@
             } else {
                 action = el('span', {className: 'note-line', text: item.days <= 0 && !item.permanent ? 'Đã hết hạn' : 'Cần cấp ' + item.level});
             }
-            bag.append(el('article', {className: 'card' + (item.inUse ? ' worn' : '')}, [
+            bag.append(el('article', {className: 'card' + (item.inUse ? ' worn' : '') + (item.plus ? ' upgrade-card tier-' + tier(item.plus) : '')}, [
                 el('div', {className: 'card-top'}, [
-                    gear(item, 64),
+                    aura(item, 64),
                     el('div', null, [
-                        el('p', {className: 'card-name', text: item.name}),
+                        el('p', {className: 'card-name', text: item.name + (item.plus ? ' +' + item.plus : '')}),
                         el('p', {className: 'card-meta', text: item.typeName + ' · cấp ' + item.level + ' · ' + daysText(item)})
                     ])
                 ]),
@@ -381,6 +382,139 @@
             pocket.append(el('span', {className: 'chip', title: item.detail}, [specialIcon(item.id, 1.5), item.name + ' ×' + item.num]));
         });
         if (!pocket.children.length) pocket.append(el('p', {className: 'empty', text: 'Túi đang trống.'}));
+    }
+
+    // --- upgrade (+1 to +12) -------------------------------------------------------------------
+
+    // Mirrors the server tables in LanPlayerGame (index = target level).
+    var UPGRADE = {
+        rate: [0, 100, 92, 84, 75, 67, 59, 51, 43, 35, 26, 18, 10],
+        xu: [0, 5000, 9000, 16000, 29000, 52000, 94000, 170000, 306000, 551000, 992000, 1785000, 3213000],
+        luong: [0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320],
+        stones: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        bonus: [0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26]
+    };
+    var STONE_ID = 80;
+
+    function tier(plus) {
+        return plus >= 11 ? 4 : plus >= 8 ? 3 : plus >= 5 ? 2 : plus >= 1 ? 1 : 0;
+    }
+
+    /** Gear picture inside a frame whose colour and animation follow the upgrade level. */
+    function aura(item, box) {
+        var plus = item.plus || 0;
+        var wrap = el('span', {className: 'aura tier-' + tier(plus)}, [gear(item, box)]);
+        if (plus > 0) wrap.append(el('span', {className: 'plus-badge tier-' + tier(plus), text: '+' + plus}));
+        if (tier(plus) >= 3) {
+            for (var i = 0; i < (tier(plus) === 4 ? 6 : 4); i++) {
+                var spark = el('span', {className: 'spark'});
+                spark.style.setProperty('--i', i);
+                wrap.append(spark);
+            }
+        }
+        return wrap;
+    }
+
+    function stoneCount() {
+        var stone = state.profile.specials.find(function (item) { return item.id === STONE_ID; });
+        return stone ? stone.num : 0;
+    }
+
+    function renderUpgrade() {
+        var stones = stoneCount();
+        $('stone-count').textContent = '(Đá cường hóa: ' + stones + ')';
+        var list = $('upgrade-list');
+        list.replaceChildren();
+        var items = state.profile.bag.filter(function (item) { return item.upgradeable; });
+        if (!items.length) list.append(el('p', {className: 'empty', text: 'Nhân vật này chưa có trang bị nào có chỉ số để nâng cấp.'}));
+        items.forEach(function (item) {
+            var next = item.next;
+            var body;
+            if (!next) {
+                body = el('p', {className: 'note-line max-line', text: 'Đã đạt cấp tối đa +12'});
+            } else {
+                var short = [];
+                if (stones < next.stones) short.push('thiếu ' + (next.stones - stones) + ' đá');
+                if (state.profile.xu < next.xu) short.push('thiếu xu');
+                if (state.profile.luong < next.luong) short.push('thiếu lượng');
+                body = el('div', null, [
+                    el('div', {className: 'upgrade-cost'}, [
+                        el('span', {className: 'rate tier-' + tier(item.plus + 1), text: next.rate + '%'}),
+                        el('span', {text: 'Lên +' + (item.plus + 1) + ' · mỗi chỉ số +' + next.bonus}),
+                        el('span', {text: priceLabel(next.xu, 'xu') + (next.luong ? ' · ' + priceLabel(next.luong, 'luong') : '') + ' · ' + next.stones + ' đá'}),
+                        next.dropOnFail ? el('span', {className: 'warn-text', text: 'Thất bại tụt về +' + (item.plus - 1)}) : null
+                    ]),
+                    el('div', {className: 'card-actions'}, [
+                        short.length ? el('span', {className: 'note-line', text: short.join(', ')}) : null,
+                        el('button', {
+                            type: 'button', className: 'buy upgrade-btn tier-' + tier(item.plus + 1), text: 'Nâng cấp', disabled: short.length > 0,
+                            onclick: async function () {
+                                var text = 'Nâng ' + item.name + ' lên +' + (item.plus + 1) + '? Tỉ lệ ' + next.rate + '%, tốn '
+                                    + priceLabel(next.xu, 'xu') + (next.luong ? ', ' + priceLabel(next.luong, 'luong') : '') + ' và ' + next.stones + ' đá.'
+                                    + (next.dropOnFail ? ' Thất bại sẽ tụt 1 cấp.' : '');
+                                if (!await confirmBuy(text, aura(item, 64), 'Nâng cấp')) return;
+                                var result = await run(function () { return api('POST', 'upgrade', {dbKey: item.dbKey}); });
+                                if (result && result.upgrade) celebrate(result.upgrade);
+                            }
+                        })
+                    ])
+                ]);
+            }
+            list.append(el('article', {className: 'card upgrade-card tier-' + tier(item.plus), 'data-key': item.dbKey}, [
+                el('div', {className: 'card-top'}, [
+                    aura(item, 64),
+                    el('div', null, [
+                        el('p', {className: 'card-name', text: item.name + (item.plus ? ' +' + item.plus : '')}),
+                        el('p', {className: 'card-meta', text: item.typeName + (item.inUse ? ' · đang mặc' : '')})
+                    ])
+                ]),
+                statTags(item),
+                body
+            ]));
+        });
+        renderUpgradeTable();
+    }
+
+    function renderUpgradeTable() {
+        var table = $('upgrade-table');
+        if (table.rows.length) return;
+        table.append(el('thead', null, [el('tr', null, ['Cấp', 'Tỉ lệ', 'Xu', 'Lượng', 'Đá', 'Cộng mỗi chỉ số', 'Thất bại']
+            .map(function (h) { return el('th', {text: h}); }))]));
+        var tbody = el('tbody');
+        for (var n = 1; n <= 12; n++) {
+            tbody.append(el('tr', null, [
+                el('td', null, [el('span', {className: 'plus-badge tier-' + tier(n), text: '+' + n})]),
+                el('td', {text: UPGRADE.rate[n] + '%'}),
+                el('td', {text: number.format(UPGRADE.xu[n])}),
+                el('td', {text: UPGRADE.luong[n] ? number.format(UPGRADE.luong[n]) : '–'}),
+                el('td', {text: UPGRADE.stones[n]}),
+                el('td', {text: '+' + UPGRADE.bonus[n] + ' (tổng)'}),
+                el('td', {text: n >= 8 ? 'tụt 1 cấp' : 'giữ cấp'})
+            ]));
+        }
+        table.append(tbody);
+    }
+
+    /** Burst of light on success, a shake and grey puff on failure, over the card that was upgraded. */
+    function celebrate(outcome) {
+        var card = document.querySelector('.upgrade-card[data-key="' + outcome.dbKey + '"]');
+        if (!card) return;
+        var fx = el('div', {className: 'upgrade-fx ' + (outcome.success ? 'win tier-' + tier(outcome.to) : 'lose')});
+        if (outcome.success) {
+            for (var i = 0; i < 14; i++) {
+                var ray = el('span', {className: 'ray'});
+                ray.style.setProperty('--a', (i * 360 / 14) + 'deg');
+                fx.append(ray);
+            }
+            fx.append(el('b', {className: 'fx-text', text: '+' + outcome.to}));
+        } else {
+            fx.append(el('b', {className: 'fx-text', text: outcome.to < outcome.from ? '−1' : 'Hụt'}));
+            card.classList.add('shake');
+            setTimeout(function () { card.classList.remove('shake'); }, 600);
+        }
+        card.append(fx);
+        setTimeout(function () { fx.remove(); }, 1600);
+        if (outcome.success) cheer();
     }
 
     // --- gems (khảm ngọc) ----------------------------------------------------------------------

@@ -312,6 +312,87 @@ final class LanPlayerGame {
         });
     }
 
+    // --- upgrade (+1 to +12) -------------------------------------------------------------------
+
+    static final int MAX_PLUS = 12;
+    /** Special item used as upgrade stone; its icon is server/res/icon/item/80.png. */
+    static final int STONE_ID = 80;
+    /** Index = target level. Success rate falls evenly from 100% at +1 to 10% at +12. */
+    static final int[] UPGRADE_RATE = {0, 100, 92, 84, 75, 67, 59, 51, 43, 35, 26, 18, 10};
+    static final int[] UPGRADE_XU = {0, 5_000, 9_000, 16_000, 29_000, 52_000, 94_000, 170_000, 306_000, 551_000, 992_000, 1_785_000, 3_213_000};
+    static final int[] UPGRADE_LUONG = {0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320};
+    static final int[] UPGRADE_STONES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+    /** Total points added to each stat the item has at a given level (stored in level2). */
+    static final int[] UPGRADE_BONUS = {0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26};
+    /** From this level a failed try drops the item one level. */
+    static final int DROP_FROM = 7;
+
+    Map<String, Object> upgrade(int userId, String username, int dbKey) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            Equip equip = ownedForSelected(user, dbKey);
+            int plus = equip.level2;
+            if (plus >= MAX_PLUS) throw new LanApi.BadRequest(displayName(equip) + " đã đạt +" + MAX_PLUS + ".");
+            boolean[] stats = upgradeStats(equip);
+            if (!any(stats)) throw new LanApi.BadRequest(displayName(equip) + " không có chỉ số để nâng cấp.");
+            if (equip.date() <= 0 && !ThorSkin.is(equip)) throw new LanApi.BadRequest(displayName(equip) + " đã hết hạn.");
+            int next = plus + 1;
+            LinhTinh stones = user.getLinhTinh(STONE_ID);
+            int haveStones = stones == null ? 0 : stones.num;
+            if (haveStones < UPGRADE_STONES[next]) {
+                throw new LanApi.BadRequest("Cần " + UPGRADE_STONES[next] + " Đá cường hóa, bạn có " + haveStones + ". Mua ở Cửa hàng → Đồ đặc biệt.");
+            }
+            if (user.xu < UPGRADE_XU[next]) throw new LanApi.BadRequest("Không đủ xu: cần " + money(UPGRADE_XU[next]) + ".");
+            if (user.luong < UPGRADE_LUONG[next]) throw new LanApi.BadRequest("Không đủ lượng: cần " + money(UPGRADE_LUONG[next]) + ".");
+            boolean online = user.session != null;
+            user.addXu(-UPGRADE_XU[next], online);
+            if (UPGRADE_LUONG[next] > 0) user.addLuong(-UPGRADE_LUONG[next], online);
+            user.addLinhTinh(STONE_ID, -UPGRADE_STONES[next]);
+            boolean success = Util.nextInt(1, 100) <= UPGRADE_RATE[next];
+            int target = success ? next : plus >= DROP_FROM ? plus - 1 : plus;
+            setPlus(equip, stats, target);
+            if (online) user.session.sessionHandler.updateEquip(equip);
+            Server.requestSave();
+            log(user, "upgrade " + displayName(equip) + " +" + plus + " -> +" + target + (success ? " (success)" : " (fail)"));
+            Map<String, Object> result = done(user, success
+                    ? "Thành công! " + displayName(equip) + " đã lên +" + target + "."
+                    : target < plus ? "Thất bại, " + displayName(equip) + " bị tụt xuống +" + target + "."
+                    : "Thất bại, " + displayName(equip) + " vẫn giữ +" + plus + ".");
+            result.put("upgrade", Map.of("dbKey", dbKey, "success", success, "from", plus, "to", target));
+            return result;
+        });
+    }
+
+    /** Stats the item itself gives (gems excluded); only these grow when upgrading. */
+    private static boolean[] upgradeStats(Equip equip) {
+        int[] base = new int[5];
+        for (int i = 0; i < 5 && equip.inv_ability != null && i < equip.inv_ability.length; i++) base[i] = equip.inv_ability[i];
+        for (short id : equip.slot) {
+            LinhTinh gem = id == -1 ? null : LinhTinh.get(id);
+            if (gem != null) for (int i = 0; i < 5 && i < gem.ability.length; i++) base[i] -= gem.ability[i];
+        }
+        for (int i = 0; i < 5; i++) base[i] -= UPGRADE_BONUS[Math.max(0, Math.min(MAX_PLUS, equip.level2))];
+        boolean[] stats = new boolean[5];
+        for (int i = 0; i < 5; i++) stats[i] = base[i] > 0;
+        return stats;
+    }
+
+    private static void setPlus(Equip equip, boolean[] stats, int plus) {
+        int delta = UPGRADE_BONUS[plus] - UPGRADE_BONUS[equip.level2];
+        for (int i = 0; i < 5; i++) if (stats[i]) equip.inv_ability[i] += delta;
+        equip.level2 = (byte) plus;
+    }
+
+    private static boolean any(boolean[] values) {
+        for (boolean value : values) if (value) return true;
+        return false;
+    }
+
+    private static String money(long value) {
+        return String.format("%,d", value).replace(',', '.');
+    }
+
     // --- helpers ------------------------------------------------------------------------------
 
     /** Gems are the special items with id below 50 (5 colours x 10 levels). */
@@ -475,6 +556,14 @@ final class LanPlayerGame {
                     row.put("gems", gems);
                     row.put("holes", equip.slot.length);
                     row.put("unsocketPrice", (int) (equip.priceSlot() * 0.25));
+                    int plus = Math.max(0, Math.min(MAX_PLUS, equip.level2));
+                    row.put("plus", plus);
+                    row.put("upgradeable", any(upgradeStats(equip)));
+                    if (plus < MAX_PLUS) {
+                        int next = plus + 1;
+                        row.put("next", Map.of("rate", UPGRADE_RATE[next], "xu", UPGRADE_XU[next], "luong", UPGRADE_LUONG[next],
+                                "stones", UPGRADE_STONES[next], "bonus", UPGRADE_BONUS[next] - UPGRADE_BONUS[plus], "dropOnFail", plus >= DROP_FROM));
+                    }
                     bag.add(row);
                 });
         view.put("bag", bag);

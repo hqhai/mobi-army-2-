@@ -80,9 +80,26 @@
             <div class="tabs" role="tablist" aria-label="Chức năng">
                 <button type="button" role="tab" class="tab-btn active" aria-selected="true" data-tab="points">Cộng điểm</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="bag">Rương đồ</button>
+                <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="upgrade">Nâng cấp</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="gems">Khảm ngọc</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="shop">Cửa hàng</button>
             </div>
+
+            <section class="box tab-panel" id="tab-upgrade" role="tabpanel" aria-labelledby="upgrade-title" hidden>
+                <h2 class="box-title" id="upgrade-title">Nâng cấp trang bị <span class="muted-count" id="stone-count"></span></h2>
+                <p class="hint">Mỗi cấp cộng thêm điểm vào các chỉ số sẵn có của món đồ. Từ +7 trở lên, thất bại sẽ tụt 1 cấp.</p>
+                <div class="tier-legend" aria-label="Màu theo cấp">
+                    <span class="plus-badge tier-1">+1–4</span>
+                    <span class="plus-badge tier-2">+5–7</span>
+                    <span class="plus-badge tier-3">+8–10</span>
+                    <span class="plus-badge tier-4">+11–12</span>
+                </div>
+                <div class="cards" id="upgrade-list"></div>
+                <details class="upgrade-table-box">
+                    <summary>Bảng nâng cấp</summary>
+                    <div class="table-scroll"><table class="upgrade-table" id="upgrade-table"></table></div>
+                </details>
+            </section>
 
             <section class="box tab-panel" id="tab-gems" role="tabpanel" aria-labelledby="gems-title" hidden>
                 <h2 class="box-title" id="gems-title">Ghép ngọc</h2>
