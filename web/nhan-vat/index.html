@@ -80,8 +80,18 @@
             <div class="tabs" role="tablist" aria-label="Chức năng">
                 <button type="button" role="tab" class="tab-btn active" aria-selected="true" data-tab="points">Cộng điểm</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="bag">Rương đồ</button>
+                <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="gems">Khảm ngọc</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="shop">Cửa hàng</button>
             </div>
+
+            <section class="box tab-panel" id="tab-gems" role="tabpanel" aria-labelledby="gems-title" hidden>
+                <h2 class="box-title" id="gems-title">Ghép ngọc</h2>
+                <p class="hint">5 viên cùng loại ghép thành 1 viên cấp cao hơn. Thất bại mất 1 viên. Tỉ lệ: lên cấp 2 là 90%, mỗi cấp sau giảm 10%.</p>
+                <div class="cards" id="gem-list"></div>
+                <h2 class="box-title">Khảm vào trang bị <span class="muted-count">(đồ của nhân vật đang chọn)</span></h2>
+                <p class="hint">Mỗi món có 3 lỗ. Tháo ngọc lấy lại tất cả ngọc, phí 25% giá xu của ngọc; phải tháo đồ ra trước.</p>
+                <div class="cards" id="socket-list"></div>
+            </section>
 
             <section class="box tab-panel" id="tab-points" role="tabpanel" aria-labelledby="points-title">
                 <h2 class="box-title" id="points-title">Cộng điểm tiềm năng</h2>

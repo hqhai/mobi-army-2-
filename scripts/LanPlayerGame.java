@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import mobiarmy.Util;
 import mobiarmy.server.Equip;
 import mobiarmy.server.Exp;
 import mobiarmy.server.Glass;
@@ -237,7 +238,89 @@ final class LanPlayerGame {
         });
     }
 
+    /** Same as the game's "gắn ngọc": one gem into the next free hole of a piece of gear. */
+    Map<String, Object> socketGem(int userId, String username, int dbKey, int gemId) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            Equip equip = ownedForSelected(user, dbKey);
+            LinhTinh gem = ownedGem(user, gemId);
+            if (equip.slot() <= 0) throw new LanApi.BadRequest(displayName(equip) + " đã hết lỗ để gắn ngọc.");
+            equip.slot[equip.slot() - 1] = gem.id;
+            for (int i = 0; i < gem.ability.length; i++) equip.inv_ability[i] += gem.ability[i];
+            if (user.session != null) user.session.sessionHandler.updateEquip(equip);
+            user.addLinhTinh(gem.id, -1);
+            Server.requestSave();
+            log(user, "socketed " + gem.name + " into " + displayName(equip));
+            return done(user, "Đã gắn " + gem.name + " vào " + displayName(equip) + ".");
+        });
+    }
+
+    /** Same as the game: takes every gem out for 25% of their xu value; the gear must not be worn. */
+    Map<String, Object> unsocketGems(int userId, String username, int dbKey) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            Equip equip = ownedForSelected(user, dbKey);
+            if (equip.slot.length - equip.slot() <= 0) throw new LanApi.BadRequest(displayName(equip) + " chưa gắn ngọc nào.");
+            if (equip.isUse) throw new LanApi.BadRequest("Hãy tháo " + displayName(equip) + " ra trước khi lấy ngọc.");
+            int price = (int) (equip.priceSlot() * 0.25);
+            pay(user, price, false, "tháo ngọc");
+            for (int i = 0; i < equip.slot.length; i++) {
+                LinhTinh gem = equip.slot[i] == -1 ? null : LinhTinh.get(equip.slot[i]);
+                if (gem != null) {
+                    user.addLinhTinh(gem.id, 1);
+                    for (int j = 0; j < gem.ability.length; j++) equip.inv_ability[j] -= gem.ability[j];
+                }
+                equip.slot[i] = -1;
+            }
+            if (user.session != null) user.session.sessionHandler.updateEquip(equip);
+            Server.requestSave();
+            log(user, "unsocketed gems from " + displayName(equip) + " for " + price + " xu");
+            return done(user, "Đã tháo ngọc khỏi " + displayName(equip) + ", phí " + String.format("%,d", price).replace(',', '.') + " xu.");
+        });
+    }
+
+    /** Same as the game: every 5 gems is one try at the next level; a failed try loses 1 gem. */
+    Map<String, Object> combineGems(int userId, String username, int gemId, int amount) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            LinhTinh gem = ownedGem(user, gemId);
+            if ((gem.id + 1) % 10 == 0) throw new LanApi.BadRequest(gem.name + " đã là cấp cao nhất.");
+            if (amount < 5 || amount % 5 != 0) throw new LanApi.BadRequest("Số ngọc ghép phải là bội số của 5.");
+            if (amount > gem.num) throw new LanApi.BadRequest("Bạn chỉ có " + gem.num + " " + gem.name + ".");
+            int rate = 100 - ((gem.id + 1) % 10) * 10;
+            int tries = amount / 5, success = 0;
+            for (int i = 0; i < tries; i++) {
+                if (Util.nextInt(1, 100) <= rate) {
+                    success++;
+                    user.addLinhTinh(gem.id, -5);
+                    user.addLinhTinh(gem.id + 1, 1);
+                    int level = (gem.id + 1) % 10;
+                    if (level >= 7 && level <= 9) user.addMission(level + 2, 1);
+                } else {
+                    user.addLinhTinh(gem.id, -1);
+                }
+            }
+            Server.requestSave();
+            String next = LinhTinh.get(gem.id + 1).name;
+            log(user, "combined " + gem.name + ": " + success + "/" + tries);
+            return done(user, success > 0
+                    ? "Ghép thành công " + success + "/" + tries + " lần, nhận " + success + " " + next + "."
+                    : "Ghép thất bại cả " + tries + " lần. Chúc bạn may mắn lần sau.");
+        });
+    }
+
     // --- helpers ------------------------------------------------------------------------------
+
+    /** Gems are the special items with id below 50 (5 colours x 10 levels). */
+    private static LinhTinh ownedGem(User user, int gemId) {
+        if (gemId < 0 || gemId >= 50) throw new LanApi.BadRequest("Đây không phải ngọc.");
+        LinhTinh gem = user.getLinhTinh(gemId);
+        if (gem == null || gem.num <= 0) throw new LanApi.BadRequest("Bạn không có viên ngọc này.");
+        return gem;
+    }
 
     /** Same as the game login: an account not yet in memory is created with the game's defaults. */
     private static User player(int userId, String username) {
@@ -387,6 +470,11 @@ final class LanPlayerGame {
                     row.put("days", equip.date());
                     row.put("inUse", equip.isUse);
                     row.put("wearable", equip.date() > 0 && glass.level >= equip.level);
+                    List<Integer> gems = new ArrayList<>();
+                    for (short gem : equip.slot) if (gem != -1) gems.add((int) gem);
+                    row.put("gems", gems);
+                    row.put("holes", equip.slot.length);
+                    row.put("unsocketPrice", (int) (equip.priceSlot() * 0.25));
                     bag.add(row);
                 });
         view.put("bag", bag);

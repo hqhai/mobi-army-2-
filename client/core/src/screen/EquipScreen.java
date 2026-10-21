@@ -347,7 +347,9 @@ public class EquipScreen extends TabScreen {
       }
 
       if (tam) {
-         if (MaterialIconMn.isExistIcon(e.icon)) {
+         // New materials arrive without icon set; look up by their own id.
+         e.icon = e.id;
+         if (MaterialIconMn.isExistIcon(e.id)) {
             e.materialIcon = MaterialIconMn.getImageFromID(e.id);
          } else {
             GameService.gI().getMaterialIcon((byte)0, (byte)e.id, -1);

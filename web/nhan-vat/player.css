@@ -783,3 +783,10 @@ dialog#confirm::backdrop {
         font-size: 13px;
     }
 }
+
+/* Gem socketing */
+.card-actions select {
+    font: inherit;
+    padding: 4px 6px;
+    max-width: 100%;
+}

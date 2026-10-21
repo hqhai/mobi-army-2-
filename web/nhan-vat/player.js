@@ -136,10 +136,11 @@
         }, 1300);
     }
 
-    function confirmBuy(text, picture) {
+    function confirmBuy(text, picture, okLabel) {
         return new Promise(function (resolve) {
             var dialog = $('confirm');
             $('confirm-text').textContent = text;
+            $('confirm-ok').firstElementChild.textContent = okLabel || 'Mua';
             $('confirm-pic').replaceChildren(picture);
             dialog.returnValue = '';
             dialog.addEventListener('close', function onClose() {
@@ -216,6 +217,7 @@
         renderPicker();
         renderPoints();
         renderBag();
+        renderGems();
         if (state.tab === 'shop') {
             if (state.shop) renderShop();
             else loadShop();
@@ -379,6 +381,112 @@
             pocket.append(el('span', {className: 'chip', title: item.detail}, [specialIcon(item.id, 1.5), item.name + ' ×' + item.num]));
         });
         if (!pocket.children.length) pocket.append(el('p', {className: 'empty', text: 'Túi đang trống.'}));
+    }
+
+    // --- gems (khảm ngọc) ----------------------------------------------------------------------
+
+    function ownedGems() {
+        return state.profile.specials.filter(function (item) { return item.id < 50; })
+            .sort(function (a, b) { return a.id - b.id; });
+    }
+
+    function renderGems() {
+        var gems = ownedGems();
+        var list = $('gem-list');
+        list.replaceChildren();
+        if (!gems.length) list.append(el('p', {className: 'empty', text: 'Bạn chưa có ngọc. Mua ngọc ở Cửa hàng → Đồ đặc biệt.'}));
+        gems.forEach(function (gem) {
+            var level = gem.id % 10 + 1;
+            var maxTries = Math.floor(gem.num / 5);
+            var top = level === 10;
+            var input = el('input', {type: 'number', min: 5, step: 5, max: Math.max(5, maxTries * 5), value: 5, inputmode: 'numeric', 'aria-label': 'Số ngọc đem ghép'});
+            input.disabled = top || maxTries < 1;
+            var rate = 100 - level * 10;
+            list.append(el('article', {className: 'card'}, [
+                el('div', {className: 'card-top'}, [
+                    framed(specialIcon(gem.id, 3), false),
+                    el('div', null, [
+                        el('p', {className: 'card-name', text: gem.name}),
+                        el('p', {className: 'card-meta', text: 'Đang có ' + gem.num + (top ? ' · cấp cao nhất' : ' · tỉ lệ lên cấp ' + rate + '%')})
+                    ])
+                ]),
+                gem.detail ? el('p', {className: 'card-detail', text: gem.detail}) : null,
+                top ? null : maxTries < 1 ? el('span', {className: 'note-line', text: 'Cần ít nhất 5 viên để ghép'}) : el('label', {className: 'amount'}, ['Số viên', input]),
+                top || maxTries < 1 ? null : el('div', {className: 'card-actions'}, [el('button', {
+                    type: 'button', className: 'buy', text: 'Ghép',
+                    onclick: async function () {
+                        var amount = Math.floor(Number(input.value) / 5) * 5;
+                        amount = Math.max(5, Math.min(amount, maxTries * 5));
+                        input.value = amount;
+                        if (!await confirmBuy('Ghép ' + amount + ' ' + gem.name + ' (' + amount / 5 + ' lần, mỗi lần ' + rate + '%)?',
+                            framed(specialIcon(gem.id, 3), false), 'Ghép')) return;
+                        run(function () { return api('POST', 'gem/combine', {gemId: gem.id, amount: amount}); });
+                    }
+                })])
+            ]));
+        });
+
+        var sockets = $('socket-list');
+        sockets.replaceChildren();
+        var bag = state.profile.bag.filter(function (item) { return item.holes > 0; });
+        if (!bag.length) sockets.append(el('p', {className: 'empty', text: 'Nhân vật này chưa có trang bị khảm được.'}));
+        bag.forEach(function (item) {
+            var holes = [];
+            for (var i = 0; i < item.holes; i++) {
+                var gemId = item.gems[i];
+                holes.push(el('span', {className: 'thumb small', title: gemId != null ? gemName(gemId) : 'Lỗ trống'},
+                    [gemId != null ? specialIcon(gemId, 2) : null]));
+            }
+            var free = item.holes - item.gems.length;
+            var select = el('select', {'aria-label': 'Chọn ngọc để gắn'}, gems.map(function (gem) {
+                return el('option', {value: gem.id, text: gem.name + ' (' + gem.num + ')'});
+            }));
+            var actions = [];
+            if (free > 0 && gems.length) {
+                actions.push(select, el('button', {type: 'button', className: 'buy', text: 'Gắn ngọc',
+                    onclick: async function () {
+                        var gemId = Number(select.value);
+                        if (!await confirmBuy('Gắn ' + gemName(gemId) + ' vào ' + item.name + '?', gear(item, 64), 'Gắn')) return;
+                        run(function () { return api('POST', 'gem/socket', {dbKey: item.dbKey, gemId: gemId}); });
+                    }}));
+            } else if (free > 0) {
+                actions.push(el('span', {className: 'note-line', text: 'Chưa có ngọc để gắn'}));
+            } else {
+                actions.push(el('span', {className: 'note-line', text: 'Đã đủ 3 lỗ'}));
+            }
+            if (item.gems.length) {
+                actions.push(item.inUse
+                    ? el('span', {className: 'note-line', text: 'Tháo đồ ra mới lấy ngọc được'})
+                    : el('button', {type: 'button', className: 'buy secondary', text: 'Tháo ngọc (' + priceLabel(item.unsocketPrice, 'xu') + ')',
+                        onclick: async function () {
+                            if (!canAfford(item.unsocketPrice, 'xu')) {
+                                toast('Không đủ xu: cần ' + priceLabel(item.unsocketPrice, 'xu') + '.', true);
+                                return;
+                            }
+                            if (!await confirmBuy('Tháo hết ngọc khỏi ' + item.name + ' với phí ' + priceLabel(item.unsocketPrice, 'xu') + '?', gear(item, 64), 'Tháo')) return;
+                            run(function () { return api('POST', 'gem/unsocket', {dbKey: item.dbKey}); });
+                        }}));
+            }
+            sockets.append(el('article', {className: 'card' + (item.inUse ? ' worn' : '')}, [
+                el('div', {className: 'card-top'}, [
+                    gear(item, 64),
+                    el('div', null, [
+                        el('p', {className: 'card-name', text: item.name}),
+                        el('p', {className: 'card-meta', text: item.typeName + (item.inUse ? ' · đang mặc' : '')})
+                    ])
+                ]),
+                el('div', {className: 'tags'}, holes),
+                statTags(item),
+                el('div', {className: 'card-actions'}, actions)
+            ]));
+        });
+    }
+
+    function gemName(id) {
+        var owned = state.profile.specials.find(function (item) { return item.id === id; });
+        if (owned) return owned.name;
+        var colours = ['Lục bảo ngọc', 'Hồng ngọc', 'Lam ngọc', 'Hoàng ngọc', 'Thạch anh tím'];
+        return colours[Math.floor(id / 10)] + ' cấp ' + (id % 10 + 1);
     }
 
     // --- shop --------------------------------------------------------------------------------
