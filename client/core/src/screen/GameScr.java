@@ -828,7 +828,8 @@ public class GameScr extends CScreen {
 
     private void changeDesktopAngle(int direction) {
         CPlayer player = PM.getMyPlayer();
-        player.angle = Math.max(0, Math.min(180,
+        // Per-character limits (e.g. -45 below horizontal) are applied by angleUpdate().
+        player.angle = Math.max(-90, Math.min(270,
                 player.angle + (player.look == 0 ? -direction : direction)));
         player.angleUpdate();
         player.checkAngleForSprite();
