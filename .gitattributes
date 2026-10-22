@@ -7,3 +7,5 @@
 *.jar binary
 *.dat binary
 server/res/** binary
+*.sh text eol=lf
+*.command text eol=lf
