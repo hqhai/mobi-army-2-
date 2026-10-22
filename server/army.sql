@@ -925,7 +925,10 @@ INSERT INTO `linhtinh` (`id`, `name`, `detail`, `ability`, `xu`, `luong`, `date`
 (71, 'Rèn giáp vàng', 'Công thức chế tạo', '[0,0,0,0,0]', 50000, 40, 0),
 (72, 'Rèn kính vàng', 'Công thức chế tạo', '[0,0,0,0,0]', 50000, 40, 0),
 (73, 'Rèn balô,cánh vàng', 'Công thức chế tạo', '[0,0,0,0,0]', 50000, 40, 0),
-(80, 'Đá cường hóa', 'Dùng để nâng cấp trang bị +1 đến +12 trên web Nhân vật', '[0,0,0,0,0]', 5000, 2, 0);
+(80, 'Đá cường hóa', 'Dùng để nâng cấp trang bị +1 đến +12 trên web Nhân vật', '[0,0,0,0,0]', 5000, 2, 0),
+(81, 'Rương đồng', 'Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên của nhân vật đang chọn. Đồ càng xịn càng hiếm.', '[0,0,0,0,0]', 15000, 15, 0),
+(82, 'Rương bạc', 'Mở ra 1 trang phục (skin) ngẫu nhiên của nhân vật đang chọn. Đã có skin đó thì được cộng thêm ngày.', '[0,0,0,0,0]', -1, 30, 0),
+(83, 'Rương vàng', 'Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +10.', '[0,0,0,0,0]', 3000000, 300, 0);
 
 -- --------------------------------------------------------
 

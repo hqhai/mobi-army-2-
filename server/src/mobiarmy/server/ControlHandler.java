@@ -355,6 +355,11 @@ public class ControlHandler {
                     this.session.user.setPlayerLimitRoomWait(msg.reader().readByte());
                 }
             }
+            case 61 -> { // LAN addition: room owner picks the match rules
+                if (this.session.user != null && this.session.user.roomWait != null && !this.session.user.roomWait.started) {
+                    this.session.user.changeRulesRoomWait(msg.reader().readByte());
+                }
+            }
             case 58 -> {
                 msg.reader().readByte();
             }

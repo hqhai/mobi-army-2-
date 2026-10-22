@@ -11,11 +11,14 @@ import mobiarmy.server.Glass;
 import mobiarmy.server.Item;
 import mobiarmy.server.LinhTinh;
 import mobiarmy.server.Server;
+import mobiarmy.server.SessionHandler;
 import mobiarmy.server.SessionManager;
 import mobiarmy.server.ShopEquipment;
 import mobiarmy.server.ShopLinhTinh;
 import mobiarmy.server.ThorSkin;
 import mobiarmy.server.User;
+import mobiarmy.war.RoomRules;
+import mobiarmy.war.SkillBalance;
 
 /**
  * What a signed-in player can do from the web: pick a character, spend stat points, wear gear and shop.
@@ -47,6 +50,7 @@ final class LanPlayerGame {
             }
             user.selectGlass((byte) glassId);
             Server.requestSave();
+            syncGame(user);
             return done(user, "Đã chọn " + user.glass().name + ".");
         });
     }
@@ -91,6 +95,7 @@ final class LanPlayerGame {
             // The game refuses some combinations (for example a VIP costume over Skin Thor) without saying why here.
             if (!equip.isUse) throw new LanApi.BadRequest("Không mặc được " + displayName(equip) + " cùng đồ đang mặc.");
             Server.requestSave();
+            syncGame(user);
             return done(user, "Đã mặc " + displayName(equip) + ".");
         });
     }
@@ -110,6 +115,7 @@ final class LanPlayerGame {
             }
             if (equip.isUse) throw new LanApi.BadRequest("Không tháo được " + displayName(equip) + ".");
             Server.requestSave();
+            syncGame(user);
             return done(user, "Đã tháo " + displayName(equip) + ".");
         });
     }
@@ -157,7 +163,83 @@ final class LanPlayerGame {
                 specials.add(row);
             }
             shop.put("specials", specials);
+            List<Map<String, Object>> chests = new ArrayList<>();
+            for (LanChests.Chest chest : LanChests.Chest.values()) {
+                LinhTinh catalog = LinhTinh.get(chest.id);
+                if (catalog == null) continue;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("key", chest.key);
+                row.put("name", catalog.name);
+                row.put("detail", catalog.detail);
+                row.put("xu", catalog.xu);
+                row.put("luong", catalog.luong);
+                row.put("plus", chest.plus);
+                List<Map<String, Object>> prizes = new ArrayList<>();
+                for (LanChests.Prize prize : LanChests.prizes(chest, user)) {
+                    Map<String, Object> prizeRow = gear(prize.entry());
+                    prizeRow.put("chance", Math.round(prize.chance() * 10_000) / 100.0);
+                    prizes.add(prizeRow);
+                }
+                row.put("prizes", prizes);
+                chests.add(row);
+            }
+            shop.put("chests", chests);
             return shop;
+        });
+    }
+
+    /** Buys a lucky chest and opens it at once (see LanChests). */
+    Map<String, Object> openChest(int userId, String username, String key, boolean luong) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            LanChests.Chest chest = LanChests.find(key);
+            LinhTinh catalog = LinhTinh.get(chest.id);
+            if (catalog == null) throw new NoSuchElementException("Cửa hàng chưa bán " + chest.name + ".");
+            if (user.equips.size() >= BAG_LIMIT) throw new LanApi.BadRequest("Rương đồ đã đầy (tối đa " + BAG_LIMIT + " món).");
+            List<LanChests.Prize> prizes = LanChests.prizes(chest, user);
+            if (prizes.isEmpty()) throw new LanApi.BadRequest(catalog.name + " không có gì cho " + user.glass().name + ".");
+            int price = luong ? catalog.luong : catalog.xu;
+            pay(user, price, luong, catalog.name);
+            LanChests.Prize prize = LanChests.pick(prizes, Util.nextDouble());
+            Equip entry = prize.entry();
+            Equip owned = null;
+            if (chest.skins && !ThorSkin.is(entry)) {
+                for (Equip equip : user.equips) {
+                    if (equip.glassID == entry.glassID && equip.id == entry.id && (owned == null || equip.date() > owned.date())) owned = equip;
+                }
+            }
+            Equip reward;
+            String message;
+            if (owned != null) {
+                int days = LanChests.extend(owned, System.currentTimeMillis());
+                if (user.session != null) user.session.sessionHandler.updateEquip(owned);
+                reward = owned;
+                message = "Bạn đã có " + displayName(owned) + " nên được cộng thêm ngày, giờ còn " + days + " ngày.";
+            } else {
+                reward = entry.deepCopy();
+                reward.renewalDate = System.currentTimeMillis();
+                if (chest.plus > 0) setPlus(reward, upgradeStats(reward), chest.plus);
+                user.addEquip(reward);
+                message = "Bạn nhận được " + displayName(reward) + (reward.level2 > 0 ? " +" + reward.level2 : "") + "!";
+            }
+            Server.requestSave();
+            syncGame(user);
+            log(user, "opened " + catalog.name + " for " + price + (luong ? " luong" : " xu") + ": " + displayName(reward)
+                    + (reward.level2 > 0 ? " +" + reward.level2 : "") + (owned != null ? " (more days)" : ""));
+            notifyGame(user, "Mở " + catalog.name + " trên web: " + displayName(reward) + (reward.level2 > 0 ? " +" + reward.level2 : "") + ".");
+            Map<String, Object> result = done(user, message);
+            Map<String, Object> won = gear(reward);
+            won.put("dbKey", reward.dbKey);
+            won.put("plus", (int) reward.level2);
+            won.put("days", reward.date());
+            won.put("inUse", reward.isUse);
+            won.put("wearable", reward.date() > 0 && user.glass().level >= reward.level);
+            won.put("extended", owned != null);
+            won.put("chance", Math.round(prize.chance() * 10_000) / 100.0);
+            won.put("chest", chest.key);
+            result.put("prize", won);
+            return result;
         });
     }
 
@@ -180,6 +262,7 @@ final class LanPlayerGame {
             bought.renewalDate = System.currentTimeMillis();
             user.addEquip(bought);
             Server.requestSave();
+            syncGame(user);
             log(user, "bought " + displayName(entry) + " for " + price + (luong ? " luong" : " xu"));
             notifyGame(user, "Đã mua " + displayName(entry) + " trên web.");
             return done(user, "Đã mua " + displayName(entry) + ". Vào Rương đồ để mặc.");
@@ -238,6 +321,91 @@ final class LanPlayerGame {
         });
     }
 
+    // --- selling (the game's prices) --------------------------------------------------------------
+
+    /** Same as the game's "bán trang bị": gear of the selected character that is not worn and holds no gems. */
+    Map<String, Object> sellEquipment(int userId, String username, int[] dbKeys) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            if (dbKeys.length == 0) throw new LanApi.BadRequest("Chưa chọn món nào để bán.");
+            if (dbKeys.length > BAG_LIMIT) throw new LanApi.BadRequest("Chọn tối đa " + BAG_LIMIT + " món.");
+            List<Equip> sold = new ArrayList<>();
+            long price = 0;
+            for (int dbKey : dbKeys) {
+                Equip equip = ownedForSelected(user, dbKey);
+                if (sold.contains(equip)) continue;
+                if (equip.isUse) throw new LanApi.BadRequest("Hãy tháo " + displayName(equip) + " ra trước khi bán.");
+                // The game asks to take the gems out first rather than sell them with the gear.
+                if (equip.slot.length - equip.slot() > 0) {
+                    throw new LanApi.BadRequest(displayName(equip) + " còn gắn ngọc: tháo ngọc ở tab Khảm ngọc rồi hãy bán.");
+                }
+                sold.add(equip);
+                price += sellPrice(equip);
+            }
+            boolean online = user.session != null;
+            user.equips.removeAll(sold);
+            if (online) user.session.sessionHandler.removeEquip(sold.toArray(new Equip[0]));
+            user.addXu((int) Math.min(price, Integer.MAX_VALUE), online);
+            Server.requestSave();
+            syncGame(user);
+            List<String> names = new ArrayList<>();
+            for (Equip equip : sold) names.add(displayName(equip) + (equip.level2 > 0 ? " +" + equip.level2 : ""));
+            log(user, "sold " + String.join(", ", names) + " for " + price + " xu");
+            return done(user, "Đã bán " + (sold.size() == 1 ? names.get(0) : sold.size() + " món") + ", thu " + money(price) + " xu.");
+        });
+    }
+
+    /** Same as the game's "bán ngọc": half the xu price for each one sold; used for every special item here. */
+    Map<String, Object> sellSpecial(int userId, String username, int id, int amount) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            LinhTinh owned = user.getLinhTinh(id);
+            if (owned == null || owned.num <= 0) throw new NoSuchElementException("Bạn không có món này.");
+            int unit = Math.max(0, owned.xu / 2);
+            if (unit == 0) throw new LanApi.BadRequest(owned.name + " không bán được.");
+            if (amount < 1 || amount > owned.num) throw new LanApi.BadRequest("Bạn có " + owned.num + " " + owned.name + ", bán từ 1 đến " + owned.num + ".");
+            long total = (long) unit * amount;
+            String name = owned.name;
+            user.addLinhTinh(owned.id, -amount);
+            user.addXu((int) Math.min(total, Integer.MAX_VALUE), user.session != null);
+            Server.requestSave();
+            log(user, "sold " + amount + " x " + name + " for " + total + " xu");
+            return done(user, "Đã bán " + amount + " " + name + ", thu " + money(total) + " xu.");
+        });
+    }
+
+    /** Battle items sell back for half their xu price too; HP and Teleport are free and cannot be sold. */
+    Map<String, Object> sellItem(int userId, String username, int id, int amount) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            Item owned = user.getItem(id);
+            if (owned == null || owned.num <= 0) throw new NoSuchElementException("Bạn không có vật phẩm này.");
+            int unit = Math.max(0, owned.xu / 2);
+            if (unit == 0) throw new LanApi.BadRequest(owned.name + " không bán được.");
+            if (amount < 1 || amount > owned.num) throw new LanApi.BadRequest("Bạn có " + owned.num + " " + owned.name + ", bán từ 1 đến " + owned.num + ".");
+            long total = (long) unit * amount;
+            owned.num -= amount;
+            user.addXu((int) Math.min(total, Integer.MAX_VALUE), false);
+            if (user.session != null) user.session.sessionHandler.updateItem(owned, (int) user.xu, (int) user.luong);
+            Server.requestSave();
+            log(user, "sold " + amount + " x " + owned.name + " for " + total + " xu");
+            return done(user, "Đã bán " + amount + " " + owned.name + ", thu " + money(total) + " xu.");
+        });
+    }
+
+    /**
+     * Equip.calculatePrice (half the xu price, or 500 xu per lượng, for the days left), except that days a lucky
+     * chest added on top of the item's own duration do not raise it.
+     */
+    static int sellPrice(Equip equip) {
+        int full = equip.xu != -1 ? equip.xu / 2 : equip.luong != -1 ? equip.luong * 500 : 0;
+        if (full <= 0 || equip.date <= 0) return 0;
+        return (int) ((long) full * Math.min(equip.date(), equip.date) / equip.date);
+    }
+
     /** Same as the game's "gắn ngọc": one gem into the next free hole of a piece of gear. */
     Map<String, Object> socketGem(int userId, String username, int dbKey, int gemId) throws Exception {
         return game.call(() -> {
@@ -251,6 +419,7 @@ final class LanPlayerGame {
             if (user.session != null) user.session.sessionHandler.updateEquip(equip);
             user.addLinhTinh(gem.id, -1);
             Server.requestSave();
+            syncGame(user);
             log(user, "socketed " + gem.name + " into " + displayName(equip));
             return done(user, "Đã gắn " + gem.name + " vào " + displayName(equip) + ".");
         });
@@ -276,6 +445,7 @@ final class LanPlayerGame {
             }
             if (user.session != null) user.session.sessionHandler.updateEquip(equip);
             Server.requestSave();
+            syncGame(user);
             log(user, "unsocketed gems from " + displayName(equip) + " for " + price + " xu");
             return done(user, "Đã tháo ngọc khỏi " + displayName(equip) + ", phí " + String.format("%,d", price).replace(',', '.') + " xu.");
         });
@@ -354,6 +524,7 @@ final class LanPlayerGame {
             setPlus(equip, stats, target);
             if (online) user.session.sessionHandler.updateEquip(equip);
             Server.requestSave();
+            syncGame(user);
             log(user, "upgrade " + displayName(equip) + " +" + plus + " -> +" + target + (success ? " (success)" : " (fail)"));
             Map<String, Object> result = done(user, success
                     ? "Thành công! " + displayName(equip) + " đã lên +" + target + "."
@@ -464,6 +635,24 @@ final class LanPlayerGame {
         if (user.session != null) user.session.sessionHandler.log(message);
     }
 
+    /**
+     * Sends a player who is online in the game everything the client keeps its own copy of, as at login: worn gear
+     * of every character, the selected character's VIP costume, the whole bag and the stat points. The client only
+     * gets small updates for changes made in the game itself, and drops some of them when another screen is open.
+     */
+    static void syncGame(User user) {
+        if (user.session == null) return;
+        for (Glass glass : user.glass) {
+            if (glass != null) glass.updateAll();
+        }
+        SessionHandler client = user.session.sessionHandler;
+        client.wornGear();
+        Glass selected = user.glass();
+        client.setEquipItem(selected.data != null ? 1 : 0, selected.data);
+        client.updateRuong(); // closes any open dialog, so notifyGame comes after it
+        client.loadInfo();
+    }
+
     private static void log(User user, String action) {
         System.out.println("Player " + user.name + " (web): " + action);
     }
@@ -509,6 +698,25 @@ final class LanPlayerGame {
         int[] result = new int[5];
         for (int i = 0; values != null && i < Math.min(5, values.length); i++) result[i] = values[i];
         return result;
+    }
+
+    /** The room rules a new room starts with, all three modes and the balanced-mode numbers, for the pages that explain them. */
+    static Map<String, Object> rulesInfo() {
+        Map<String, Object> rules = new LinkedHashMap<>();
+        rules.put("default", (int) RoomRules.defaultRules);
+        List<Map<String, Object>> modes = new ArrayList<>();
+        for (int id = RoomRules.FREE; id <= RoomRules.BASE; id++) {
+            modes.add(Map.of("id", id, "name", RoomRules.name(id), "detail", RoomRules.detail(id)));
+        }
+        rules.put("modes", modes);
+        rules.put("bonusFull", SkillBalance.BONUS_FULL_ACCURACY);
+        rules.put("bonusZero", SkillBalance.BONUS_ZERO_ACCURACY);
+        rules.put("pierce", SkillBalance.DIRECT_PIERCE_PERCENT);
+        rules.put("tank", SkillBalance.DIRECT_TANK_PERCENT);
+        rules.put("baseHp", SkillBalance.BASE_HP);
+        rules.put("maxReduction", SkillBalance.MAX_REDUCTION_PERCENT);
+        rules.put("maxLuck", SkillBalance.MAX_LUCK_PERCENT);
+        return rules;
     }
 
     private static Map<String, Object> view(User user) {
@@ -557,6 +765,8 @@ final class LanPlayerGame {
         character.put("wornCount", worn);
         character.put("baseAttack", glass.att);
         view.put("character", character);
+        view.put("rules", rulesInfo());
+        view.put("baseStats", RoomRules.baseStats(glass));
         List<Map<String, Object>> bag = new ArrayList<>();
         user.equips.stream()
                 .filter(equip -> equip.glassID == user.selectGlass)
@@ -572,6 +782,7 @@ final class LanPlayerGame {
                     row.put("gems", gems);
                     row.put("holes", equip.slot.length);
                     row.put("unsocketPrice", (int) (equip.priceSlot() * 0.25));
+                    row.put("sellPrice", sellPrice(equip));
                     int plus = Math.max(0, Math.min(MAX_PLUS, equip.level2));
                     row.put("plus", plus);
                     row.put("upgradeable", any(upgradeStats(equip)));
@@ -587,12 +798,13 @@ final class LanPlayerGame {
         view.put("bagLimit", BAG_LIMIT);
         List<Map<String, Object>> items = new ArrayList<>();
         for (Item item : user.items) {
-            if (item.num > 0) items.add(Map.of("id", item.id, "name", item.name, "num", item.num));
+            if (item.num > 0) items.add(Map.of("id", item.id, "name", item.name, "num", item.num, "sell", Math.max(0, item.xu / 2)));
         }
         view.put("items", items);
         List<Map<String, Object>> specials = new ArrayList<>();
         for (LinhTinh special : user.linhtinhs) {
-            specials.add(Map.of("id", (int) special.id, "name", special.name, "detail", special.detail == null ? "" : special.detail, "num", special.num));
+            specials.add(Map.of("id", (int) special.id, "name", special.name, "detail", special.detail == null ? "" : special.detail, "num", special.num,
+                    "sell", Math.max(0, special.xu / 2)));
         }
         view.put("specials", specials);
         return view;

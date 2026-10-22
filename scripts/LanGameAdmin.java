@@ -21,6 +21,9 @@ import mobiarmy.server.SessionManager;
 import mobiarmy.server.ShopEquipment;
 import mobiarmy.server.ShopLinhTinh;
 import mobiarmy.server.User;
+import mobiarmy.war.RoomInfo;
+import mobiarmy.war.RoomRules;
+import mobiarmy.war.RoomWait;
 
 /**
  * Admin operations on players and catalogs. The server keeps players in memory and periodically overwrites the
@@ -48,7 +51,50 @@ public final class LanGameAdmin {
             try (ResultSet rs = statement.executeQuery("SELECT value FROM lan_setting WHERE name = 'data_revision'")) {
                 Server.dataRevision = rs.next() ? Integer.parseInt(rs.getString(1)) : 0;
             }
+            try (ResultSet rs = statement.executeQuery("SELECT value FROM lan_setting WHERE name = 'room_rules'")) {
+                int rules = rs.next() ? Integer.parseInt(rs.getString(1)) : RoomRules.BALANCED;
+                RoomRules.defaultRules = (byte) (RoomRules.valid(rules) ? rules : RoomRules.BALANCED);
+            }
         }
+    }
+
+    // --- match rules --------------------------------------------------------------------------
+
+    Map<String, Object> settings() {
+        return Map.of("rules", LanPlayerGame.rulesInfo());
+    }
+
+    /** Rules a room starts with; owners change them in the game. Rooms with players keep theirs until they empty. */
+    Map<String, Object> updateSettings(int defaultRules) throws Exception {
+        if (!RoomRules.valid(defaultRules)) throw new LanApi.BadRequest("Luật không hợp lệ.");
+        write(conn -> {
+            try (PreparedStatement upsert = conn.prepareStatement(
+                    "INSERT INTO lan_setting (name, value) VALUES ('room_rules', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)")) {
+                upsert.setString(1, Integer.toString(defaultRules));
+                return upsert.executeUpdate();
+            }
+        });
+        RoomRules.defaultRules = (byte) defaultRules;
+        game.call(() -> {
+            for (RoomWait room : rooms()) {
+                if (room.numPlayer == 0) room.rules = (byte) defaultRules;
+            }
+            return null;
+        });
+        System.out.println("Admin: new rooms start with " + RoomRules.name(defaultRules) + " rules");
+        return settings();
+    }
+
+    /** Every waiting room on the server. */
+    private static List<RoomWait> rooms() {
+        List<RoomWait> rooms = new ArrayList<>();
+        if (RoomInfo.entrys == null) return rooms;
+        for (RoomInfo info : RoomInfo.entrys) {
+            if (info != null && info.roomWaits != null) {
+                for (RoomWait wait : info.roomWaits) if (wait != null) rooms.add(wait);
+            }
+        }
+        return rooms;
     }
 
     // --- players ------------------------------------------------------------------------------

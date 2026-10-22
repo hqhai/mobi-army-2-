@@ -683,6 +683,18 @@ public class GameService {
         this.session.sendMessage(m);
     }
 
+    /** LAN server: room owner picks the match rules (0 Tự do, 1 Cân bằng, 2 Sát thương gốc). */
+    public void setRoomRules(int rules) {
+        Message m = new Message((byte) 61);
+
+        try {
+            m.writer().writeByte(rules);
+        } catch (Exception var4) {
+        }
+
+        this.session.sendMessage(m);
+    }
+
     public void requestInfoOf(int iDDB) {
         Message m = new Message((byte) 34);
 

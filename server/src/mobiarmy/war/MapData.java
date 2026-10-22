@@ -63,6 +63,10 @@ public class MapData {
     public int nPlayer;
     public long timeUntilAction2;
     public boolean disableLuck;
+    /** RoomRules picked by the room owner, fixed when the match starts. */
+    public byte rules = RoomRules.FREE;
+    /** SkillBalance damage for this match (balanced rooms). */
+    public boolean skillRules;
     public ArrayList<Player> choses = null;
 
     public MapData(RoomWait roomWait, byte mapID) throws IOException {
@@ -99,6 +103,8 @@ public class MapData {
         this.wager = this.roomWait.getWager();
         this.roomWait.started = true;
         this.isWar = true;
+        this.rules = this.roomWait.rules;
+        this.skillRules = this.rules == RoomRules.BALANCED;
         //Đặt vị trí của người chơi
         ArrayList<Map.Point> points = new ArrayList<>();
         points.addAll(Arrays.asList(this.map.data.points));
@@ -106,8 +112,9 @@ public class MapData {
         int teams[] = new int[10];
         for (User user : users) {
             if (user != null) {
-                int []  iArr = user.glass().createAbility();
+                int []  iArr = RoomRules.battleStats(user, this.rules);
                 Player player = new Player(this, user, user.name, user.glass().id, user.glass().level, iArr[0], iArr[1], iArr[2], iArr[3], iArr[4], 24, 24, user.setItems);
+                player.baseAtt = user.glass().att;
                 player.isBoss = false;
                 player.isFly = false;
                 player.team = this.roomWait.type == 5 ? 3 : user.team;

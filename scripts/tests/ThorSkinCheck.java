@@ -22,7 +22,7 @@ public class ThorSkinCheck extends MainGame {
   // The weapon slot is not needed for skin rendering; use a catalog-independent placeholder.
   if(outfit.equips[0]==null){outfit.equips[0]=new Equip();outfit.equips[0].glass=8;}
   check(ThorSkin.isEquipped(outfit),"appearance reconstructed from equipment IDs");
-  check(skin.getStrShopDetail().contains("10000") && skin.getStrInvDetail().contains("1000"),"shop and inventory show full bonuses");
+  check(!skin.getStrShopDetail().contains("10000") && !skin.getStrInvDetail().contains("10000") && skin.getStrInvDetail().contains("Vĩnh viễn"),"shop and inventory advertise no flat bonus");
   GameScr game=new GameScr();CCanvas.curScr=game;CCanvas.currentDialog=null;
   java.lang.reflect.Field cross=CPlayer.class.getDeclaredField("crosshair");cross.setAccessible(true);CLib.Image dummy=new CLib.Image();dummy.width=8;dummy.height=8;cross.set(null,new mImage(dummy));
   CPlayer p=new CPlayer(1,(byte)0,100,100,false,2,(byte)16,null,11000);p.gun=8;p.equip=outfit;p.active=true;p.falling=false;p.movePoint=0;CPlayer.angleLock=new short[30];
@@ -32,7 +32,6 @@ public class ThorSkinCheck extends MainGame {
   for(int i=0;i<6;i++){p.falling=false;p.move(2);walked.add(current.getInt(p));}
   check(p.x==106 && walked.contains(4) && walked.contains(5),"Apache actually moves six pixels and alternates both walk frames");
   p.falling=false;p.move(0);check(p.x==105 && p.look==0,"Apache also moves left");
-  int[] stats={1000,100,0,0,0};ThorSkin.addBonus(outfit,stats);check(stats[0]==11000 && stats[1]==1100 && stats[3]==10000,"client displays exact flat bonus");
   check(!ThorSkin.paint(null,new PlayerEquip(),2,0,0,0),"unowned Apache not reskinned");
   check(ThorSkin.projectile(null,-1)==null && ThorSkin.projectile(null,1)==null,"invalid shooter guarded");
  } catch(Throwable t){failure=t;t.printStackTrace();Gdx.app.exit();} }

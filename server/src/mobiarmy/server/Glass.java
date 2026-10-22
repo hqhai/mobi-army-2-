@@ -125,12 +125,17 @@ public class Glass {
     }
     
     public int[] createAbility() {
+        return this.createAbility(false);
+    }
+
+    /** skipThor: Skin Thor counts as a costume only (balanced rooms, see mobiarmy.war.RoomRules). */
+    public int[] createAbility(boolean skipThor) {
         int iArr[] = new int[5];
         int[] envAdd = new int[5];
         int[] percenAdd = new int[5];
         for (int i = 0; i < envAdd.length; i++) {
             for (Equip equip : this.user.equips) {
-                if (equip.glassID == this.id && equip.isUse) {
+                if (equip.glassID == this.id && equip.isUse && !(skipThor && ThorSkin.is(equip))) {
                     envAdd[i] = envAdd[i] + equip.inv_ability[i];
                     percenAdd[i] = percenAdd[i] + equip.inv_percen[i];
                 }
@@ -149,7 +154,7 @@ public class Glass {
         //DD
         iArr[4] = ((this.ability[4] + envAdd[4]) * 10);
         iArr[4] = iArr[4] + (iArr[4] * percenAdd[4] / 100);
-        ThorSkin.addBonus(this, iArr);
+        if (!skipThor) ThorSkin.addBonus(this, iArr);
         return iArr;
     }
 

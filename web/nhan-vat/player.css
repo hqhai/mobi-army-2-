@@ -978,3 +978,148 @@ dialog#confirm::backdrop {
 .stat-2 { --c: #2f6fd6; --bg: #e2eeff; }
 .stat-3 { --c: #c98a00; --bg: #fff3cf; }
 .stat-4 { --c: #2b9a4e; --bg: #e0f6e7; }
+
+/* Selling from the bag */
+.bag-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 2px 0 4px; }
+.bag-tools:empty { display: none; }
+.bag-tools.selling {
+    position: sticky;
+    bottom: 8px;
+    z-index: 5;
+    padding: 8px 12px;
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    background: #2e1206;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
+    color: #fff;
+}
+.bag-tools.selling .text-btn { color: #ffe27a; }
+.bag-tools .buy { flex: 0 0 auto; }
+.sell-summary { flex: 1 1 auto; font-weight: bold; }
+.card.pickable { position: relative; cursor: pointer; }
+.card.pickable .card-top { padding-right: 26px; }
+.card.pickable:focus-visible { outline: 3px solid var(--accent, #1d6fe0); outline-offset: 2px; }
+.card.unpickable { opacity: .55; }
+.cards .card.picked { border-color: #2e9b55; box-shadow: 0 0 0 3px #bfe8cb; }
+.pick-box {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 4;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #8a5a2b;
+    border-radius: 6px;
+    background: #fff;
+}
+.card.picked .pick-box { border-color: #2e9b55; background: #2e9b55; }
+.card.picked .pick-box::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 1px;
+    width: 6px;
+    height: 12px;
+    border: solid #fff;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+.sell-stack { display: inline-flex; gap: 4px; }
+.pocket-card .amount input { width: 64px; }
+
+/* Skill rules */
+.rules-box {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 2px dashed #456ad4;
+    border-radius: 10px;
+    background: #eef3ff;
+    color: #1d2f66;
+    font-size: 13px;
+}
+.rules-box h3 { margin: 0 0 6px; font-size: 14px; color: #1d3a8a; }
+.rules-box ul { margin: 0; padding-left: 18px; }
+.rules-box li + li { margin-top: 3px; }
+.rules-box .rules-default { margin: 6px 0 0; font-weight: bold; }
+
+/* --- Lucky chests: bronze, silver, gold --------------------------------------------------- */
+.chest-bronze { --chest: #cd7f32; --chest-light: #f0a860; --chest-bg: #fff3e4; }
+.chest-silver { --chest: #8a97a8; --chest-light: #e6edf6; --chest-bg: #f1f5fa; }
+.chest-gold { --chest: #e0a400; --chest-light: #fff3a0; --chest-bg: #fff8d6; }
+.chest-hint { grid-column: 1 / -1; margin: 0; }
+.chest-card {
+    align-items: center;
+    text-align: center;
+    border-color: var(--chest);
+    background: linear-gradient(180deg, #fff, var(--chest-bg));
+}
+.chest-card.chest-gold { box-shadow: 0 0 12px rgba(255, 196, 0, .45); }
+.chest-card .card-actions { width: 100%; }
+.chest-stage {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 96px;
+    border-radius: 8px;
+    background: radial-gradient(circle at 50% 60%, var(--chest-light), transparent 70%);
+}
+.chest-stage .chest-art { animation: chest-bob 2.6s ease-in-out infinite; }
+.chest-card:hover .chest-stage .chest-art { animation: chest-shake .45s ease-in-out infinite; }
+.chest-art { display: block; overflow: visible; }
+.chest-lid { transform-box: fill-box; transform-origin: 0 100%; transition: transform .35s cubic-bezier(.2, 1.5, .4, 1); }
+.odds { width: 100%; text-align: left; font-size: 12px; }
+.odds summary { cursor: pointer; font-weight: 700; color: #456ad4; }
+.odds ul { max-height: 190px; margin: 6px 0 0; padding: 0; overflow-y: auto; list-style: none; }
+.odds li { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; padding: 2px 0; border-top: 1px dotted #e3c48e; }
+.odds li .thumb { width: 34px; height: 34px; }
+.odds li b { color: #7a3a10; }
+
+dialog.chest-dialog {
+    width: min(400px, calc(100vw - 32px));
+    padding: 0;
+    border: 3px solid var(--brown);
+    border-radius: 14px;
+    background: radial-gradient(circle at 50% 30%, #2d3f8c, #111a3d 70%);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .45);
+    color: #fff;
+}
+dialog.chest-dialog::backdrop { background: rgba(10, 14, 40, .65); }
+.chest-show { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 14px 14px; text-align: center; }
+.chest-title { position: relative; z-index: 2; margin: 0; font-size: 20px; color: #ffe27a; text-shadow: 0 2px 0 #7a3a10; }
+.chest-scene { position: relative; display: grid; place-items: end center; width: 100%; height: 176px; padding-bottom: 8px; box-sizing: border-box; }
+.chest-scene .chest-art { position: relative; z-index: 1; }
+.chest-rays {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 260px;
+    height: 260px;
+    margin: -110px 0 0 -130px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(var(--chest-light) 0 10deg, transparent 10deg 30deg);
+    -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%);
+    mask: radial-gradient(circle, #000 20%, transparent 70%);
+    opacity: 0;
+    transition: opacity .3s;
+}
+.chest-scene.rolling .chest-art { animation: chest-shake .3s linear infinite; }
+.chest-scene.open .chest-rays { opacity: .9; animation: rays-spin 6s linear infinite; }
+.chest-scene.open .chest-lid { transform: translate(-1px, -4px) rotate(-12deg); }
+.chest-scene.open .chest-art { animation: chest-pop .45s cubic-bezier(.2, 1.6, .4, 1); }
+.chest-prize { width: 100%; }
+.chest-prize .prize-card { text-align: left; animation: prize-in .45s cubic-bezier(.2, 1.4, .4, 1); }
+.chest-prize .form-error { margin: 0; }
+.chest-dialog .confirm-actions { flex-wrap: wrap; justify-content: center; }
+.chest-dialog .text-btn { color: #fff; }
+.chest-dialog .buy { flex: 0 1 auto; }
+
+@keyframes chest-bob { 50% { transform: translateY(-4px); } }
+@keyframes chest-shake { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+@keyframes chest-pop { 0% { transform: scale(.9); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes rays-spin { to { transform: rotate(360deg); } }
+@keyframes prize-in { from { transform: translateY(16px) scale(.9); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .chest-art, .chest-rays, .chest-prize .prize-card, .chest-scene .chest-art { animation: none !important; }
+    .chest-lid { transition: none; }
+}

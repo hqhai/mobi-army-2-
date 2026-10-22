@@ -46,6 +46,14 @@ public class PrepareScr extends CScreen {
     public static mImage iconChat;
     public static byte[] mapBossID;
     public static byte[] bossID;
+    /** LAN server: match rules of this room, index into RULE_NAMES; -1 until the server says (older servers never do). */
+    public static byte rules = -1;
+    public static final String[] RULE_NAMES = {"Tự do", "Cân bằng", "Sát thương gốc"};
+    private static final String[] RULE_DETAILS = {
+        "Luật Tự do: chỉ số, đồ, nâng cấp, ngọc tính đủ như game gốc.",
+        "Luật Cân bằng: đạn nổ trúng thân mới ăn đủ sát thương từ chỉ số, đồ, nâng cấp; x2 may mắn và xuyên giáp chỉ khi trúng thân; Skin Thor không cộng chỉ số.",
+        "Luật Sát thương gốc: ai cũng như nhân vật mới cấp 1, không tính điểm, đồ, nâng cấp, ngọc."
+    };
     private int[] x_pos;
     private int[] y_pos;
     int x_player = 30;
@@ -791,6 +799,14 @@ public class PrepareScr extends CScreen {
             menu.addElement(this.cmdInvite);
         }
 
+        if (rules >= 0) {
+            menu.addElement(new Command("Luật trận đấu", new IAction() {
+                public void perform() {
+                    PrepareScr.this.doShowRules();
+                }
+            }));
+        }
+
         Command cmdConfig = new Command(Language.setting(), new IAction() {
             public void perform() {
                 Vector<Command> menu = new Vector();
@@ -1033,6 +1049,7 @@ public class PrepareScr extends CScreen {
                 Font.borderFont.drawString(g, Language.room() + ": " + currentRoom, CCanvas.hw, 10, 2);
                 Font.borderFont.drawString(g, BoardListScr.boardName, CCanvas.hw, 25, 2);
                 Font.borderFont.drawString(g, curMap + 1 + ". " + MM.mapName[curMap], CCanvas.hw, 40, 2);
+                this.paintRules(g, CCanvas.hw, 55);
                 isPaint = false;
             } else {
                 isPaint = true;
@@ -1047,6 +1064,7 @@ public class PrepareScr extends CScreen {
                 if (this.money != 0) {
                     Font.borderFont.drawString(g, this.money + Language.xu(), CCanvas.width / 2, 65, 3);
                 }
+                this.paintRules(g, CCanvas.width / 2, this.money != 0 ? 80 : 65);
             }
 
             if (CCanvas.width < 200 && this.money != 0) {
@@ -1056,6 +1074,7 @@ public class PrepareScr extends CScreen {
             if (this.money != 0) {
                 Font.borderFont.drawString(g, this.money + Language.xu(), CCanvas.width / 2, 120, 3);
             }
+            this.paintRules(g, CCanvas.width / 2, this.money != 0 ? 135 : 120);
 
             isPaint = true;
             this.xPaintMap = CCanvas.hw;
@@ -1364,6 +1383,45 @@ public class PrepareScr extends CScreen {
             ((PlayerInfo) this.playerInfos.elementAt(i)).isReady = false;
         }
 
+    }
+
+    /** changed: the owner just picked new rules and the server cleared everyone's ready flag, as for a new bet. */
+    public static void setRules(byte value, boolean changed) {
+        rules = value;
+        if (changed && CCanvas.prepareScr != null) {
+            for (int i = 0; i < CCanvas.prepareScr.playerInfos.size(); ++i) {
+                ((PlayerInfo) CCanvas.prepareScr.playerInfos.elementAt(i)).isReady = false;
+            }
+        }
+    }
+
+    public static String rulesLabel() {
+        return rules >= 0 && rules < RULE_NAMES.length ? "Luật: " + RULE_NAMES[rules] : null;
+    }
+
+    private void paintRules(mGraphics g, int x, int y) {
+        String label = rulesLabel();
+        if (label != null) {
+            Font.borderFont.drawString(g, label, x, y, 2);
+        }
+    }
+
+    /** The owner picks the rules; everyone else reads what the current ones mean. */
+    protected void doShowRules() {
+        if (this.ownerID != TerrainMidlet.myInfo.IDDB) {
+            CCanvas.startOKDlg(rules >= 0 && rules < RULE_DETAILS.length ? RULE_DETAILS[rules] : "Máy chủ chưa báo luật của phòng này.");
+            return;
+        }
+        Vector<Command> menu = new Vector();
+        for (int i = 0; i < RULE_NAMES.length; ++i) {
+            final int value = i;
+            menu.addElement(new Command((rules == i ? "> " : "") + RULE_NAMES[i], new IAction() {
+                public void perform() {
+                    GameService.gI().setRoomRules(value);
+                }
+            }));
+        }
+        CCanvas.menu.startAt(menu, 0);
     }
 
     public Vector<PlayerInfo> getPlayerInfos() {

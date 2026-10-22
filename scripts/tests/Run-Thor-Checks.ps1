@@ -6,7 +6,7 @@ try {
     $java = "$root/tools/jdk-21/bin/java.exe"
     $javac = "$root/tools/jdk-21/bin/javac.exe"
     New-Item -ItemType Directory -Force verification, verification/tmp, verification/profile | Out-Null
-    & $javac -encoding UTF-8 -cp 'runtime/server-classes;server/lib/*' -d verification scripts/tests/ThorShopCheck.java scripts/tests/ApacheMechanicsCheck.java
+    & $javac -encoding UTF-8 -cp 'runtime/server-classes;server/lib/*' -d verification scripts/tests/ThorShopCheck.java scripts/tests/ApacheMechanicsCheck.java scripts/tests/SkillBalanceCheck.java
     if ($LASTEXITCODE -ne 0) { throw 'Server test compilation failed.' }
     [Environment]::SetEnvironmentVariable('ARMY_DB_PASSWORD', (Import-Clixml runtime/db-credential.xml).GetNetworkCredential().Password, 'Process')
     try {
@@ -19,11 +19,13 @@ try {
     }
     & $java -cp 'verification;runtime/server-classes;server/lib/*' ApacheMechanicsCheck
     if ($LASTEXITCODE -ne 0) { throw 'Apache mechanics failed.' }
+    & $java -cp 'verification;runtime/server-classes;server/lib/*' SkillBalanceCheck
+    if ($LASTEXITCODE -ne 0) { throw 'Skill balance checks failed.' }
     $clientCp = 'verification;desktop-build/build/install/army2-lan-desktop/lib/*'
-    & $javac -encoding UTF-8 -cp $clientCp -d verification scripts/tests/ThorSkinCheck.java scripts/tests/ThorSkinDisabledCheck.java scripts/tests/ThorShopUiCheck.java scripts/tests/KeyboardControlsCheck.java
+    & $javac -encoding UTF-8 -cp $clientCp -d verification scripts/tests/ThorSkinCheck.java scripts/tests/ThorSkinDisabledCheck.java scripts/tests/ThorShopUiCheck.java scripts/tests/KeyboardControlsCheck.java scripts/tests/RoomRulesUiCheck.java scripts/tests/InventorySyncCheck.java
     if ($LASTEXITCODE -ne 0) { throw 'Client test compilation failed.' }
     $vm = @("-Duser.home=$root/verification/profile", "-Djava.io.tmpdir=$root/verification/tmp", "-Dthor.catalog=$root/verification/thor-catalog.bin", "-Dthor.preview=$root/art/concepts/apache-thor/runtime-shop-walk-preview.png", "-Dthor.shopPreview=$root/art/concepts/apache-thor/shop-preview.png")
-    foreach ($check in @('ThorSkinDisabledCheck', 'player.ThorSkinCheck', 'player.ThorShopUiCheck', 'screen.KeyboardControlsCheck')) {
+    foreach ($check in @('ThorSkinDisabledCheck', 'player.ThorSkinCheck', 'player.ThorShopUiCheck', 'screen.KeyboardControlsCheck', 'screen.RoomRulesUiCheck', 'screen.InventorySyncCheck')) {
         $log = "$root/verification/$check.log"
         & $java @vm -cp $clientCp $check *> $log
         if ($LASTEXITCODE -ne 0) { Get-Content $log -Tail 20; throw "$check failed." }

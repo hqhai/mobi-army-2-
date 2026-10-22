@@ -11,7 +11,7 @@ public class ThorShopCheck {
  static void request(Capture session,Message m) throws Exception { session.controlHandler.handleControlMessage(new Message(m.getCommand(),m.getData())); }
  static void buy(Capture s,int index,int currency)throws Exception{Message m=new Message(104);m.writer().writeByte(0);m.writer().writeShort(index);m.writer().writeByte(currency);request(s,m);}
  static void equip(Capture s,int key)throws Exception{Message m=new Message(102);for(int i=0;i<5;i++)m.writer().writeInt(i==2?key:-1);request(s,m);}
- static void bonus(int[] base,int[] actual){check(actual[0]-base[0]==10000 && actual[1]-base[1]==1000 && actual[3]-base[3]==10000 && actual[2]==base[2] && actual[4]==base[4],"exact flat bonuses HP/attack/luck; defense/team unchanged");}
+ static void bonus(User u,int[] base){Equip skin=u.equips.get(0);byte[] percent=skin.inv_percen;skin.inv_percen=new byte[5];check(Arrays.equals(base,u.glass().createAbility()),"no flat bonus: Thor only adds its own catalog percent");skin.inv_percen=percent;check(Arrays.equals(base,u.glass().createAbility(true)),"balanced rooms count Thor as a costume only");}
  public static void main(String[] args)throws Exception{
   int id=-1;String name="thorcheck_"+Long.toHexString(System.nanoTime());
   try {
@@ -34,11 +34,11 @@ public class ThorShopCheck {
    buy(s,0,1);check(u.luong==1000 && u.equips.size()==1,"duplicate purchase rejected without charge");
    Equip skin=u.equips.get(0);skin.renewalDate=0;check(skin.date()==127,"permanent even with old purchase date");
    u.selectGlass=0;equip(s,skin.dbKey);check(!skin.isUse,"cannot equip Apache skin on another class");u.selectGlass=8;
-   equip(s,skin.dbKey);check(skin.isUse && u.getData()[2]==30000,"equip publishes skin ID in normal appearance data");bonus(base,u.glass().createAbility());
+   equip(s,skin.dbKey);check(skin.isUse && u.getData()[2]==30000,"equip publishes skin ID in normal appearance data");bonus(u,base);
    int[] attrs=u.glass().createAbility();mobiarmy.war.Player combat=new mobiarmy.war.Player(null,u,name,8,1,attrs[0],attrs[1],attrs[2],attrs[3],attrs[4],24,24,null);
-   check(combat.hpMax==base[0]+10000 && combat.att==base[1]+1000 && combat.luck==base[3]+10000,"combat receives full integer stats");
+   check(combat.hpMax==attrs[0] && combat.att==attrs[1] && combat.luck==attrs[3],"combat receives the stats createAbility gives");
    SessionManager.saveUser(u);SessionManager.loadUser();User loaded=SessionManager.findUserById(id);loaded.glass().updateAll();
-   check(loaded.luong==1000 && loaded.equips.size()==1 && loaded.equips.get(0).isUse && loaded.getData()[2]==30000,"DB reload preserves wallet, ownership, equipped skin");bonus(base,loaded.glass().createAbility());
+   check(loaded.luong==1000 && loaded.equips.size()==1 && loaded.equips.get(0).isUse && loaded.getData()[2]==30000,"DB reload preserves wallet, ownership, equipped skin");bonus(loaded,base);
    loaded.session=s;s.user=loaded;equip(s,-1);check(!loaded.equips.get(0).isUse && Arrays.equals(base,loaded.glass().createAbility()) && loaded.getData()[2]!=30000,"unequip removes appearance and every bonus");
    SessionManager.saveUser(loaded);SessionManager.loadUser();User reloaded=SessionManager.findUserById(id);check(!reloaded.equips.get(0).isUse && reloaded.luong==1000,"unequipped state persists");
    // Export real metadata packet for the client-side decoder test.

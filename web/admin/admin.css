@@ -569,3 +569,56 @@ dialog .actions {
         padding: 12px 12px 20px;
     }
 }
+
+/* --- match rules ------------------------------------------------------------------------- */
+
+.rules-panel {
+    width: auto;
+    max-width: 720px;
+}
+
+.rules-panel h2 {
+    margin: 16px 0 0;
+    font-size: 16px;
+}
+
+.rules-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.rules-choice legend {
+    padding: 0 4px;
+    font-weight: bold;
+}
+
+/* Beats .panel label, which is for form fields. */
+.rules-choice .rule-option {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 0;
+    font-size: 14px;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.rules-choice .rule-option input {
+    width: 18px;
+    height: 18px;
+    margin: 1px 0 0;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.rules-list {
+    margin: 12px 0;
+    padding-left: 20px;
+    font-size: 14px;
+    line-height: 1.5;
+}

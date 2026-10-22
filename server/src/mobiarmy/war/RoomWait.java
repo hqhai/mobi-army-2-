@@ -36,6 +36,8 @@ public class RoomWait {
     public MapData mapData;
     public long noWaitTime = -1;
     public boolean lock;
+    /** RoomRules for the next match, picked by the owner. */
+    public byte rules = RoomRules.defaultRules;
 
     public RoomWait(byte roomID, byte type, byte boardID, byte[] map, int minMoney, int maxMoney, byte maxPlayer) {
         this.roomID = roomID;
@@ -60,6 +62,7 @@ public class RoomWait {
         this.name = "";
         this.pass = "";
         this.playerLimit = this.maxPlayer;
+        this.rules = RoomRules.defaultRules;
     }
     
     public void join(User user, String pass) {
@@ -100,6 +103,28 @@ public class RoomWait {
                 user.session.sessionHandler.updateRoomWait(this);
                 user.session.sessionHandler.changeMap(this.mapID);
                 user.session.sessionHandler.loadRoomWait(this);
+                user.session.sessionHandler.roomRules(this.rules, false);
+            }
+        }
+    }
+
+    /** Owner only, between matches. Everyone has to get ready again, as when the bet changes. */
+    public void changeRules(User user, byte rules) {
+        if (user == null || user.id == this.userID) {
+            if (!RoomRules.valid(rules) || this.started) {
+                return;
+            }
+            this.rules = rules;
+            String note = "Luật trận: " + RoomRules.name(rules) + " - " + RoomRules.detail(rules) + ".";
+            for (User player : this.players) {
+                if (player != null) {
+                    player.ready = false;
+                    if (player.session != null) {
+                        player.session.sessionHandler.roomRules(rules, true);
+                        // Clients without the rules label still see the change in the room chat.
+                        player.session.sessionHandler.chat(user != null ? user.id : this.userID, note);
+                    }
+                }
             }
         }
     }

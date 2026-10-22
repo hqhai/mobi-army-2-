@@ -655,6 +655,56 @@ public class GameScr extends CScreen {
         CCanvas.inputDlg.show();
     }
 
+    /** Sends what the player typed in the match chat, unless it is a command such as "lm 25". */
+    void sendTypedChat() {
+        this.isChat = false;
+        String typed = tfChat.getText();
+        String forceSet = applyForceCommand(typed, PM.getMyPlayer());
+        if (forceSet != null) {
+            // A setting only for this player: shown in its own bubble, never sent to the room.
+            tfChat.setText("");
+            this.showChat(TerrainMidlet.myInfo.IDDB, forceSet);
+            CCanvas.gameScr.showChat(TerrainMidlet.myInfo.IDDB, forceSet, 90);
+        } else if (this.chatWait == 0) {
+            text = typed;
+            GameService.gI().chatToBoard(text);
+            tfChat.setText("");
+            this.showChat(TerrainMidlet.myInfo.IDDB, text);
+            CCanvas.gameScr.showChat(TerrainMidlet.myInfo.IDDB, text, 90);
+            this.chatWait = this.chatDelay;
+        } else {
+            tfChat.setText("");
+        }
+
+        clearKey();
+    }
+
+    private static final java.util.regex.Pattern FORCE_COMMAND = java.util.regex.Pattern.compile("lm\\s*(\\d{1,3})(?:\\s+(\\d{1,3}))?");
+
+    /**
+     * Chat shortcut for the LỰC MAX menu: "lm 25" caps the force at 25; "lm 25 12" also sets the second force of
+     * Chicky and Apache. Values are kept within 1-30 like the menu does. Returns what to show the player, or null
+     * when the text is ordinary chat.
+     */
+    public static String applyForceCommand(String typed, CPlayer me) {
+        if (typed == null || me == null) {
+            return null;
+        }
+        java.util.regex.Matcher command = FORCE_COMMAND.matcher(typed.trim().toLowerCase());
+        if (!command.matches()) {
+            return null;
+        }
+        me.maxforce = Math.max(1, Math.min(30, Integer.parseInt(command.group(1))));
+        String shown = "Lực max: " + me.maxforce;
+        if (me.gun == 6 || me.gun == 8) {
+            if (command.group(2) != null) {
+                me.maxforce2 = Math.max(1, Math.min(30, Integer.parseInt(command.group(2))));
+            }
+            shown += ", lực max 2: " + me.maxforce2;
+        }
+        return shown;
+    }
+
     public void doShowPauseMenu() {
         this.isShowPausemenu = true;
         Vector<Command> menu = new Vector();
@@ -957,6 +1007,11 @@ public class GameScr extends CScreen {
     }
 
     private void updateDesktopKeys() {
+        // Clicking the chat icon sets isChat and only a sent message cleared it, so closing the chat box
+        // without text (Cancel, Esc, empty OK) left move, aim and power blocked for the rest of the match.
+        if (isChat && !tfChat.isInputOpen() && CRes.isNullOrEmpty(tfChat.getText())) {
+            isChat = false;
+        }
         if (desktopMovementPending) {
             CPlayer movedPlayer = PM.getMyPlayer();
             if (!pm.isYourTurn()) {
@@ -1528,19 +1583,7 @@ public class GameScr extends CScreen {
         }
 
         if (!CRes.isNullOrEmpty(tfChat.getText()) && this.isChat) {
-            this.isChat = false;
-            if (this.chatWait == 0) {
-                text = tfChat.getText();
-                GameService.gI().chatToBoard(text);
-                tfChat.setText("");
-                this.showChat(TerrainMidlet.myInfo.IDDB, text);
-                CCanvas.gameScr.showChat(TerrainMidlet.myInfo.IDDB, text, 90);
-                this.chatWait = this.chatDelay;
-            } else {
-                tfChat.setText("");
-            }
-
-            clearKey();
+            this.sendTypedChat();
         }
 
         this.drawChat(g);

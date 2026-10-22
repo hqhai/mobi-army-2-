@@ -222,8 +222,13 @@ public class Equip {
         this.level = e.level;
     }
 
+    /** What Skin Thor gives in free rooms: its own catalog stats (the server adds no flat bonus). */
+    private String thorBonus() {
+        return this.inv_percen[0] != 0 ? " Mọi chỉ số +" + this.inv_percen[0] + "%." : " Không cộng chỉ số.";
+    }
+
     public String getStrInvDetail() {
-        if (player.ThorSkin.is(this)) return "Skin Thor - Apache. HP +10000. Sức mạnh +1000. May mắn +10000. Vĩnh viễn. Trang bị ô giáp.";
+        if (player.ThorSkin.is(this)) return "Skin Thor - Apache." + this.thorBonus() + " Vĩnh viễn. Trang bị ô giáp. Phòng luật Cân bằng hay Sát thương gốc: chỉ là trang phục.";
         String attribute = "";
         if (this.inv_ability[0] != 0) {
             attribute = attribute + Language.sinhluc() + " +" + this.inv_ability[0] + ".";
@@ -284,10 +289,11 @@ public class Equip {
         this.shopDetailNunmLines = 0;
         this.shopDetailNunStrs = new Vector();
         if (player.ThorSkin.is(this)) {
-            String[] lines = {"HP +10000", "Sức mạnh +1000", "May mắn +10000", "Vĩnh viễn - ô giáp Apache"};
+            String bonus = this.shop_percen[0] != 0 ? "Mọi chỉ số +" + this.shop_percen[0] + "%" : "Trang phục, không cộng chỉ số";
+            String[] lines = {bonus, "Vĩnh viễn - ô giáp Apache", "Phòng Cân bằng: chỉ là trang phục"};
             for (String line : lines) this.shopDetailNunStrs.addElement(line);
             this.shopDetailNunmLines = lines.length;
-            return "HP +10000. Sức mạnh +1000. May mắn +10000. Vĩnh viễn - ô giáp Apache.";
+            return bonus + ". Vĩnh viễn - ô giáp Apache. Phòng Cân bằng: chỉ là trang phục.";
         }
         if (this.shop_ability[0] != 0) {
             attribute = attribute + Language.sinhluc() + " +" + this.shop_ability[0] + " ";

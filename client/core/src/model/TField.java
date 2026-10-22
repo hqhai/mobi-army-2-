@@ -143,6 +143,11 @@ public class TField {
         this.isVisible = isVisible;
     }
 
+    /** True while the desktop text box opened by doChangeToTextBox() is on screen. */
+    public boolean isInputOpen() {
+        return this.isOpenInput;
+    }
+
     public void setHint(String utf) {
         this.text = utf;
     }

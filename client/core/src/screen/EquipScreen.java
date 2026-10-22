@@ -235,6 +235,18 @@ public class EquipScreen extends TabScreen {
       super.show(lastScreen);
    }
 
+   /** Any piece of gear in the bag by dbKey, whichever character it belongs to and whichever screen is open. */
+   public static Equip findEquip(int dbKey) {
+      for(int i = 0; inventory != null && i < inventory.size(); ++i) {
+         Equip e = (Equip)inventory.elementAt(i);
+         if (!e.isMaterial && e.dbKey == dbKey) {
+            return e;
+         }
+      }
+
+      return null;
+   }
+
    public Equip getEquip(int dbKey) {
       for(int i = 0; i < this.myEquips.size(); ++i) {
          Equip e = (Equip)this.myEquips.elementAt(i);
@@ -761,7 +773,6 @@ public class EquipScreen extends TabScreen {
       this.atts[4] = teamPoint * 10;
       var10000 = this.atts;
       var10000[4] += this.atts[4] * percen[4] / 100;
-      player.ThorSkin.addBonus(info.myEquip, this.atts);
    }
 
    public void paintAbility(mGraphics g) {

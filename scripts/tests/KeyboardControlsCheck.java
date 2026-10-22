@@ -21,6 +21,9 @@ public class KeyboardControlsCheck extends MainGame {
     InputProcessor input;
     Method update;
     Field nextRepeat;
+    Field chatOpen;
+    /** Chat as the player sees it: the chat icon was clicked and its text box is (or is no longer) on screen. */
+    void chat(boolean open) throws Exception { screen.isChat=open; chatOpen.setBoolean(GameScr.tfChat,open); }
     void check(boolean value, String label) {
         if (!value) throw new AssertionError(label);
         checks++;
@@ -47,6 +50,7 @@ public class KeyboardControlsCheck extends MainGame {
             input=Gdx.input.getInputProcessor();
             update=GameScr.class.getDeclaredMethod("updateDesktopKeys"); update.setAccessible(true);
             nextRepeat=GameScr.class.getDeclaredField("nextDesktopAngleAt"); nextRepeat.setAccessible(true);
+            chatOpen=model.TField.class.getDeclaredField("isOpenInput"); chatOpen.setAccessible(true);
             for(int key:new int[]{Keys.UP,Keys.W,Keys.DOWN,Keys.S}) {
                 reset(); int direction=(key==Keys.UP||key==Keys.W)?1:-1;
                 input.keyDown(key); check(player.angle==45+direction,"tap angle key " + key);
@@ -67,8 +71,11 @@ public class KeyboardControlsCheck extends MainGame {
             check(player.angle==46,"opposing aim cancels");
             input.keyUp(Keys.S); repeat(); check(player.angle==47,"remaining aim resumes");
             reset(); player.look=0; input.keyDown(Keys.W); repeat(); check(player.angle==43,"left facing aim");
-            reset(); player.angle=180; input.keyDown(Keys.W); repeat(); check(player.angle==180,"upper angle bound");
-            reset(); player.angle=0; input.keyDown(Keys.S); repeat(); check(player.angle==0,"lower angle bound");
+            reset(); player.angle=270; input.keyDown(Keys.W); repeat(); check(player.angle==270,"upper angle bound");
+            reset(); player.angle=0; input.keyDown(Keys.S); repeat(); check(player.angle==0,"lower angle bound at a 0 gun limit");
+            reset(); CPlayer.angleLock[0]=-45; player.angle=0; input.keyDown(Keys.S); check(player.angle==-1,"aim below horizontal");
+            input.keyUp(Keys.S); reset(); player.angle=-45; input.keyDown(Keys.S); repeat();
+            check(player.angle==-45,"stops at the gun's angle limit"); CPlayer.angleLock[0]=0;
             for(int key:new int[]{Keys.LEFT,Keys.A,Keys.RIGHT,Keys.D}) {
                 reset(); input.keyDown(key); tick(); int expected=(key==Keys.LEFT||key==Keys.A)?99:101;
                 check(player.x==expected,"movement key " + key);
@@ -77,14 +84,19 @@ public class KeyboardControlsCheck extends MainGame {
             reset(); input.keyDown(Keys.A); input.keyDown(Keys.LEFT); input.keyUp(Keys.LEFT); tick();
             check(player.x==99,"A remains held after LEFT released");
             reset(); input.keyDown(Keys.A); input.keyDown(Keys.D); tick(); check(player.x==100,"opposing movement cancels");
-            reset(); screen.isChat=true; input.keyDown(Keys.W); input.keyDown(Keys.A); repeat();
-            check(player.angle==45 && player.x==100,"chat blocks gameplay keys");
+            reset(); chat(true); input.keyDown(Keys.W); input.keyDown(Keys.A); repeat();
+            check(player.angle==45 && player.x==100,"chat blocks gameplay keys"); chat(false);
             reset(); PM.curP=1; input.keyDown(Keys.W); input.keyDown(Keys.D); repeat();
             check(player.angle==45 && player.x==100,"other turn blocks controls");
             reset(); input.keyDown(Keys.W); player.force=10; super.pause(); super.resume(); repeat();
             check(player.angle==46 && player.force==0,"focus loss clears held input and force");
-            reset(); input.keyDown(Keys.W); screen.isChat=true; tick(); screen.isChat=false; repeat();
+            reset(); input.keyDown(Keys.W); chat(true); tick(); chat(false); repeat();
             check(player.angle==46,"chat transition clears held input");
+            reset(); chat(true); tick(); check(screen.isChat,"open chat box keeps blocking controls");
+            chatOpen.setBoolean(GameScr.tfChat,false); GameScr.tfChat.setText(""); tick();
+            check(!screen.isChat,"closing the chat box without text gives controls back");
+            input.keyDown(Keys.W); check(player.angle==46,"aim works after an empty chat box"); input.keyUp(Keys.W);
+            input.keyDown(Keys.D); tick(); input.keyUp(Keys.D); check(player.x==101,"moving works after an empty chat box");
             reset(); input.keyDown(Keys.W); player.falling=true; repeat(); check(player.angle==46,"falling pauses aim");
             reset(); map.MM.mapWidth=3000; map.MM.mapHeight=2000;
             CScreen.w=640; CScreen.h=360; effect.Camera.x=500; effect.Camera.y=300;
@@ -115,8 +127,8 @@ public class KeyboardControlsCheck extends MainGame {
             check(effect.Camera.y==1640,"camera lower boundary");
             input.keyDown(Keys.D); super.pause(); super.resume(); cameraBefore=effect.Camera.x; tick();
             check(effect.Camera.x==cameraBefore,"focus loss stops camera pan");
-            screen.isChat=true; input.keyDown(Keys.R); input.keyUp(Keys.R);
-            check(effect.Camera.mode==effect.Camera.FREE_MODE,"chat does not toggle camera"); screen.isChat=false;
+            chat(true); input.keyDown(Keys.R); input.keyUp(Keys.R);
+            check(effect.Camera.mode==effect.Camera.FREE_MODE,"chat does not toggle camera"); chat(false);
             input.keyDown(Keys.R); input.keyUp(Keys.R);
             check(effect.Camera.mode==effect.Camera.PLAYER_MODE,"R returns to player follow");
             input.keyDown(Keys.W); check(player.angle==46,"aim restored after camera off"); input.keyUp(Keys.W);
@@ -152,6 +164,25 @@ public class KeyboardControlsCheck extends MainGame {
             sent.clear(); GameScr.trainingMode=true; sendShot.invoke(player,(byte)0,(byte)1);
             check(sent.size()==1 && sent.get(0).command==84,"training keeps training protocol");
             GameScr.trainingMode=false;
+            // "lm x" in the match chat: the LỰC MAX menu without the menu, never sent to the room.
+            check(GameScr.applyForceCommand("hello",player)==null && GameScr.applyForceCommand("lm",player)==null
+                    && GameScr.applyForceCommand("lm abc",player)==null && GameScr.applyForceCommand("lm 5 6 7",player)==null
+                    && GameScr.applyForceCommand("film 5",player)==null,"ordinary chat is not a force command");
+            player.maxforce=30; player.maxforce2=30;
+            check("Lực max: 25".equals(GameScr.applyForceCommand("lm 25",player)) && player.maxforce==25,"lm 25 sets the max force");
+            check(GameScr.applyForceCommand(" LM40 ",player)!=null && player.maxforce==30,"above 30 is kept at 30, any case, no space needed");
+            check(GameScr.applyForceCommand("lm 0",player)!=null && player.maxforce==1,"below 1 is kept at 1");
+            check(GameScr.applyForceCommand("lm 20 12",player)!=null && player.maxforce==20 && player.maxforce2==30,"second force is only for Chicky and Apache");
+            player.gun=8;
+            check("Lực max: 20, lực max 2: 12".equals(GameScr.applyForceCommand("lm 20 12",player)) && player.maxforce2==12,"Apache sets both forces");
+            check("Lực max: 22, lực max 2: 12".equals(GameScr.applyForceCommand("lm 22",player)),"one number keeps Apache's second force");
+            player.gun=0;
+            coreLG.TerrainMidlet.myInfo=new model.PlayerInfo(); coreLG.TerrainMidlet.myInfo.IDDB=1; CCanvas.gameScr=screen;
+            sent.clear(); GameScr.tfChat.setText("lm 18"); screen.isChat=true; screen.chatWait=0; screen.sendTypedChat();
+            check(player.maxforce==18 && sent.isEmpty() && GameScr.tfChat.getText().isEmpty() && !screen.isChat,
+                    "typing lm 18 in the chat box sets the force and sends nothing");
+            sent.clear(); GameScr.tfChat.setText("gg"); screen.isChat=true; screen.chatWait=0; screen.sendTypedChat();
+            check(sent.size()==1 && sent.get(0).command==9,"ordinary chat is still sent to the room");
             System.out.println("KEYBOARD CHECKS PASSED: " + checks);
         } catch(Throwable t) { failure=t; t.printStackTrace(); }
         finally { Gdx.app.exit(); }

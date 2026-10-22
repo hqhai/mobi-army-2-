@@ -67,7 +67,11 @@ public class Player {
     public int expAdd;
     public int expRemove;
     public boolean lucky;
-    
+    /** The character's own attack; the rest of att comes from stats, gear and the team (see SkillBalance). */
+    public int baseAtt;
+    /** Part of attAffect from explosions inside this player's body. */
+    public int attDirect;
+
     public class Item {
         
         public int itemId;
@@ -91,6 +95,7 @@ public class Player {
         this.hp = this.hpMax = hp;
         this.pixel = this.hp * 25 / this.hpMax;
         this.att = att;
+        this.baseAtt = att;
         this.def = def;
         this.luck = luck;
         this.teaP = teaP;
@@ -277,6 +282,14 @@ public class Player {
         if (this.attAffect > 0 || this.y > this.mapData.height + 100) {
             if (this.y > this.mapData.height + 100) {
                 this.attAffect = this.hp;
+            } else if (this.mapData.skillRules) {
+                int def = this.def + (this.lucky ? 3000 : 0);
+                boolean direct = this.attDirect > 0;
+                this.attAffect = SkillBalance.taken(this.attAffect, this.attDirect, player.lucky, this.hpMax, def);
+                // Luck still saves you from splash damage, never from a direct hit.
+                if (this.hp - this.attAffect < 10 && this.lucky && !direct) {
+                    this.attAffect = this.hp - 10;
+                }
             } else {
                 if(player.lucky) {
                     this.attAffect *= 2;
@@ -302,6 +315,7 @@ public class Player {
             player.suckHP += ((hpOld - this.hp) / 2);
         }
         this.attAffect = 0;
+        this.attDirect = 0;
         //xp
         if (this.isDie) {
             if (player.isBoss) {
@@ -413,6 +427,13 @@ public class Player {
         }
         if (bullet.radius > 0) {
             int att = this.calcAtt(bullet.bX, bullet.bY, bullet.radius, bullet.att);
+            boolean direct = false;
+            if (this.mapData.skillRules) {
+                int shooter = bullet.gun.index;
+                Player owner = shooter >= 0 && shooter < this.mapData.players.length ? this.mapData.players[shooter] : null;
+                att = SkillBalance.hitDamage(att, bullet.att, owner == null ? 0 : SkillBalance.bonusPercent(owner.att, owner.baseAtt));
+                direct = this.isCollision(bullet.bX, bullet.bY);
+            }
             if (bullet.isSuper == 1) {
                 att = (int) (att + (att * 0.05F));
             }
@@ -420,6 +441,9 @@ public class Player {
                 att = (int) (att + (att * 0.1F));
             }
             this.attAffect += att;
+            if (direct) {
+                this.attDirect += att;
+            }
         }
     }
     
@@ -440,7 +464,7 @@ public class Player {
     }
     
     public void nextLuck() {
-        double probability = 1 - Math.exp(-this.luck / 6000.0);
+        double probability = this.mapData.skillRules ? SkillBalance.luckChance(this.luck) : 1 - Math.exp(-this.luck / 6000.0);
         this.lucky = !this.mapData.disableLuck && Util.nextDouble() < probability && !this.isDie;
     }
     

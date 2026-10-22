@@ -131,7 +131,8 @@
         characters: function () { return loadCatalog('characters'); },
         equipment: function () { return loadCatalog('equipment'); },
         items: function () { return loadCatalog('items'); },
-        specials: function () { return loadCatalog('specials'); }
+        specials: function () { return loadCatalog('specials'); },
+        rules: loadRules
     };
 
     document.querySelectorAll('.sidebar button').forEach(function (button) {
@@ -614,6 +615,47 @@
         $(id).addEventListener('change', function () { renderCatalog('equipment'); });
     });
     $('equipment-search').addEventListener('input', function () { renderCatalog('equipment'); });
+
+    // --- match rules ---------------------------------------------------------------------------
+
+    async function loadRules() {
+        renderRules((await api('GET', 'settings')).rules);
+    }
+
+    function renderRules(rules) {
+        var choice = $('rules-choice');
+        choice.replaceChildren(choice.querySelector('legend'));
+        rules.modes.forEach(function (mode) {
+            var input = el('input', {type: 'radio', name: 'default-rules', value: mode.id, checked: mode.id === rules['default']});
+            input.addEventListener('change', function () { saveDefaultRules(mode); });
+            choice.append(el('label', {className: 'rule-option'}, [input, el('span', null, [el('b', {text: mode.name}), ': ' + mode.detail])]));
+        });
+        $('rules-list').replaceChildren.apply($('rules-list'), [
+            'Đạn nổ trúng thân địch: ăn đủ sát thương cộng thêm (từ điểm, đồ, nâng cấp, ngọc, đồng đội).',
+            'Nổ lệch: phần cộng thêm giảm dần, còn dưới ' + rules.bonusZero + '% sát thương thì chỉ còn sát thương gốc của nhân vật (đủ từ ' + rules.bonusFull + '%).',
+            'Chí mạng x2 của may mắn chỉ nổ khi trúng thân; tỉ lệ may mắn tối đa ' + rules.maxLuck + '% mỗi lượt.',
+            'Trúng thân xuyên ' + rules.pierce + '% phòng thủ và gây thêm ' + rules.tank + '% phần máu trên ' + money(rules.baseHp) + ' của mục tiêu.',
+            'Phòng thủ giảm tối đa ' + rules.maxReduction + '% sát thương; may mắn không cứu khỏi chết trước đòn trúng thân. Skin Thor chỉ là trang phục.'
+        ].map(function (text) { return el('li', {text: text}); }));
+    }
+
+    async function saveDefaultRules(mode) {
+        var message = $('rules-message');
+        var inputs = document.querySelectorAll('#rules-choice input');
+        inputs.forEach(function (input) { input.disabled = true; });
+        try {
+            renderRules((await api('PUT', 'settings', {defaultRules: mode.id})).rules);
+            message.className = 'message ok';
+            message.textContent = 'Phòng mới sẽ bắt đầu với luật ' + mode.name + '.';
+        } catch (error) {
+            message.className = 'message error';
+            message.textContent = error.message;
+            loadRules().catch(function () { /* the error above is enough */ });
+        } finally {
+            message.hidden = false;
+            document.querySelectorAll('#rules-choice input').forEach(function (input) { input.disabled = false; });
+        }
+    }
 
     // --- start -------------------------------------------------------------------------------
 

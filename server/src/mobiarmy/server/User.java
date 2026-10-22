@@ -709,6 +709,12 @@ public class User {
             this.roomWait.changeMoney(this, money);
         }
     }
+
+    public void changeRulesRoomWait(byte rules) {
+        if (this.roomWait != null) {
+            this.roomWait.changeRules(this, rules);
+        }
+    }
     
     public void changePassRoomWait(String pass) {
         if (this.roomWait != null) {

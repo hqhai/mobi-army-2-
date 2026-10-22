@@ -65,6 +65,10 @@ public final class LanPlayer implements HttpHandler {
                 case "POST gem unsocket" -> game.unsocketGems(id, name, LanApi.intField(body, "dbKey"));
                 case "POST gem combine" -> game.combineGems(id, name, LanApi.intField(body, "gemId"), LanApi.intField(body, "amount"));
                 case "POST buy special" -> game.buySpecial(id, name, LanApi.intField(body, "id"), LanApi.intField(body, "amount"), luong(body));
+                case "POST chest open" -> game.openChest(id, name, LanApi.stringField(body, "chest"), luong(body));
+                case "POST sell equipment" -> game.sellEquipment(id, name, LanApi.intArray(body, "dbKeys"));
+                case "POST sell special" -> game.sellSpecial(id, name, LanApi.intField(body, "id"), LanApi.intField(body, "amount"));
+                case "POST sell item" -> game.sellItem(id, name, LanApi.intField(body, "id"), LanApi.intField(body, "amount"));
                 default -> throw new NoSuchElementException("Không có chức năng này.");
             };
         });

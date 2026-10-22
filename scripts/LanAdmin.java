@@ -97,6 +97,8 @@ public final class LanAdmin implements HttpHandler {
                 case "PUT items #" -> game.updateItem(id, LanApi.intField(body, "xu"), LanApi.intField(body, "luong"));
                 case "GET specials" -> game.specials();
                 case "PUT specials #" -> game.updateSpecial(id, LanApi.intField(body, "xu"), LanApi.intField(body, "luong"));
+                case "GET settings" -> game.settings();
+                case "PUT settings" -> game.updateSettings(LanApi.intField(body, "defaultRules"));
                 default -> throw new NoSuchElementException("Không có chức năng này.");
             };
         });

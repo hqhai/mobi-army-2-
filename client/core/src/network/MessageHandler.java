@@ -40,6 +40,7 @@ import player.PM;
 import screen.BoardListScr;
 import screen.CScreen;
 import screen.ChangePlayerCSr;
+import screen.EquipScreen;
 import screen.GameScr;
 import screen.LevelScreen;
 import screen.LoginScr;
@@ -373,6 +374,11 @@ public class MessageHandler implements IMessageHandler {
                         msg.reader().readShort();
                         int money3 = msg.reader().readInt();
                         CCanvas.prepareScr.setMoney(money3);
+                        break;
+                    }
+                    case 61: {
+                        byte rules = msg.reader().readByte();
+                        PrepareScr.setRules(rules, msg.reader().readBoolean());
                         break;
                     }
                     case 9: {
@@ -1981,20 +1987,26 @@ public class MessageHandler implements IMessageHandler {
                                 if (CCanvas.curScr == CCanvas.equipScreen) {
                                     tam = CCanvas.equipScreen.getEquip(IdbKey);
                                 }
-                                tam.getInvAtribute(IAb);
-                                tam.slot = slotUpdate;
-                                tam.date = dateUpdate;
-                                if (CCanvas.curScr == CCanvas.inventory) {
-                                    CCanvas.inventory.getDetail();
+                                // LAN: the web page also upgrades gear, while any screen is open; this used to throw.
+                                if (tam == null) {
+                                    tam = EquipScreen.findEquip(IdbKey);
                                 }
-                                if (CCanvas.curScr == CCanvas.equipScreen) {
-                                    CCanvas.equipScreen.getDetail();
+                                if (tam != null) {
+                                    tam.getInvAtribute(IAb);
+                                    tam.slot = slotUpdate;
+                                    tam.date = dateUpdate;
+                                    if (CCanvas.curScr == CCanvas.inventory) {
+                                        CCanvas.inventory.getDetail();
+                                    }
+                                    if (CCanvas.curScr == CCanvas.equipScreen) {
+                                        CCanvas.equipScreen.getDetail();
+                                    }
+                                    if (TerrainMidlet.myInfo.myEquip.equips[tam.type] != null && TerrainMidlet.myInfo.myEquip.equips[tam.type].dbKey == tam.dbKey) {
+                                        TerrainMidlet.myInfo.myEquip.equips[tam.type].changeToEquip(tam);
+                                        TerrainMidlet.myInfo.clearAttAddPoint();
+                                    }
+                                    CCanvas.equipScreen.getBaseAttribute();
                                 }
-                                if (TerrainMidlet.myInfo.myEquip.equips[tam.type] != null && TerrainMidlet.myInfo.myEquip.equips[tam.type].dbKey == tam.dbKey) {
-                                    TerrainMidlet.myInfo.myEquip.equips[tam.type].changeToEquip(tam);
-                                    TerrainMidlet.myInfo.clearAttAddPoint();
-                                }
-                                CCanvas.equipScreen.getBaseAttribute();
                             } else if (IAction2 == 1) {
                                 IdMaterial = msg.reader().readByte();
                                 String nameMaterial = msg.reader().readUTF();

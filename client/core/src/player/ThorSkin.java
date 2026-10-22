@@ -116,13 +116,6 @@ public final class ThorSkin {
                 && isEquipped(PM.p[shooter].equip);
     }
 
-    public static void addBonus(PlayerEquip equip, int[] stats) {
-        if (!isEquipped(equip)) return;
-        stats[0] += 10000;
-        stats[1] += 1000;
-        stats[3] += 10000;
-    }
-
     public static boolean paint(mGraphics g, PlayerEquip equip, int look, int frame, int x, int y) {
         if (!isEquipped(equip) || !load()) return false;
         if (frame == 4 || frame == 5) {

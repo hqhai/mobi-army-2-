@@ -5,7 +5,7 @@
 1. Chọn nhân vật Apache.
 2. Vào Cửa hàng → Shop trang bị. **Skin Thor** nằm đầu danh sách, giá **1.000 lượng**, không mua bằng xu, dùng vĩnh viễn.
 3. Sau khi mua, vào Trang bị/rương, chọn Skin Thor ở ô giáp, đóng màn hình và xác nhận lưu.
-4. Chỉ khi trang bị, nhận **+10.000 HP, +1.000 sức mạnh, +10.000 may mắn**. Bonus là số cộng cố định vào chỉ số cuối, không phải điểm tiềm năng hoặc phần trăm. Skin thay món giáp đang mặc; chỉ số của món giáp cũ không còn được cộng.
+4. Khi trang bị, skin cộng đúng chỉ số ghi trong danh mục đồ (bản cài mới: +5% mọi chỉ số như VIP Iron Man). Bonus cố định +10.000 HP, +1.000 sức mạnh, +10.000 may mắn của bản đầu đã bỏ từ bản VPS. Ở phòng luật Cân bằng hay Sát thương gốc (chủ phòng chọn) skin chỉ là trang phục. Skin thay món giáp đang mặc; chỉ số của món giáp cũ không còn được cộng.
 5. Muốn tháo: vào Trang bị → Menu → **Tháo Skin Thor**, rồi lưu. Skin vẫn nằm trong rương để mặc lại.
 
 Các client đã cập nhật sẽ nhìn thấy Thor của người đang mặc skin. Không còn cờ JVM biến toàn bộ Apache thành Thor. Launcher `scripts/Start-Thor-Client.cmd` vẫn dùng được như một client có profile riêng; nó không cấp skin hoặc tiền.

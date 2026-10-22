@@ -531,6 +531,21 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
+    /** Worn gear IDs of every character, the client's equipID table (it reads exactly 10 characters x 5 slots). */
+    public void wornGear() {
+        try {
+            Message message = new Message(104);
+            message.writer().writeByte(2);
+            for (int i = 0; i < 10; i++) {
+                Glass glass = i < this.session.user.glass.length ? this.session.user.glass[i] : null;
+                for (int j = 0; j < 5; j++) {
+                    message.writer().writeShort(glass != null && glass.equipID != null && j < glass.equipID.length ? glass.equipID[j] : -1);
+                }
+            }
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
     public void addEquip(Equip equip) {
         try {
             Message message = new Message(104);
@@ -910,6 +925,19 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
+    /**
+     * LAN addition: the room's match rules (mobiarmy.war.RoomRules); older clients ignore it.
+     * changed: the owner just picked them, so everyone's ready flag was cleared.
+     */
+    public void roomRules(byte rules, boolean changed) {
+        try {
+            Message message = new Message(61);
+            message.writer().writeByte(rules);
+            message.writer().writeBoolean(changed);
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
     public void setMoneyRoomWait(int xu) {
         try {
             Message message = new Message(19);

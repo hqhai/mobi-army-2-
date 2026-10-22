@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import com.sun.net.httpserver.HttpHandler;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,6 +53,12 @@ public class LanServer {
             }
         };
         Map<String, HttpHandler> apis = new LinkedHashMap<>();
+        // Before Server.start() loads the special item catalog.
+        try (Connection conn = database.open()) {
+            LanChests.ensureCatalog(conn);
+        } catch (SQLException e) {
+            System.err.println("Lucky chests missing, database setup failed: " + e.getMessage());
+        }
         LanPlayer player = new LanPlayer(database, new LanPlayerGame(gameThread), System::currentTimeMillis);
         LanAdmin admin = startAdmin(database, new LanGameAdmin(database, gameThread, player::endSessions));
         if (admin != null) apis.put("/api/admin/", admin);

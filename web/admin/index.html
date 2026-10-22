@@ -43,6 +43,7 @@
             <button type="button" data-tab="equipment">Trang bị</button>
             <button type="button" data-tab="items">Vật phẩm</button>
             <button type="button" data-tab="specials">Đồ đặc biệt</button>
+            <button type="button" data-tab="rules">Luật trận đấu</button>
         </nav>
 
         <main class="content">
@@ -94,6 +95,20 @@
                 <div class="toolbar"><h1 id="specials-title">Đồ đặc biệt</h1></div>
                 <p class="note">Áp dụng từ lần mở shop tiếp theo. Giá bán lại ngọc người chơi đang có, phí tháo ngọc và phí gia hạn đổi theo giá mới ngay. Giá -1 nghĩa là không bán bằng loại tiền đó.</p>
                 <div class="table-wrap"><table class="grid" id="specials-table"></table></div>
+            </section>
+
+            <section class="tab" id="tab-rules" aria-labelledby="rules-title" hidden>
+                <div class="toolbar"><h1 id="rules-title">Luật trận đấu</h1></div>
+                <div class="panel rules-panel">
+                    <p>Chủ phòng chọn luật ngay trong game: <b>Menu → Luật trận đấu</b>. Người khác trong phòng thấy luật dưới tiền cược. Ở đây chọn luật mà phòng mới (hoặc phòng vừa trống người) bắt đầu.</p>
+                    <fieldset class="rules-choice" id="rules-choice">
+                        <legend>Luật mặc định của phòng</legend>
+                    </fieldset>
+                    <p class="message" id="rules-message" role="status" hidden></p>
+                    <h2>Luật Cân bằng tính thế nào</h2>
+                    <ul class="rules-list" id="rules-list"></ul>
+                    <p class="note">Phòng đang có người giữ luật chủ phòng đã chọn; trận đang đánh giữ luật lúc bắt đầu. Giá 3 loại rương (Rương đồng, Rương bạc, Rương vàng) sửa ở mục Đồ đặc biệt.</p>
+                </div>
             </section>
         </main>
     </div>

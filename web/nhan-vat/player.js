@@ -16,7 +16,8 @@
         {name: 'Đồng đội', hint: 'Mỗi điểm +10 đồng đội', short: 'ĐĐ'}
     ];
     var SLOTS = ['Súng', 'Nón', 'Áo', 'Kính', 'Balo'];
-    var state = {profile: null, shop: null, tab: 'points', shopTab: 'equipment', typeFilter: 'all', pending: [0, 0, 0, 0, 0]};
+    var state = {profile: null, shop: null, tab: 'points', shopTab: 'chests', typeFilter: 'all', pending: [0, 0, 0, 0, 0],
+        sellMode: false, sellPick: new Set()};
 
     function $(id) {
         return document.getElementById(id);
@@ -212,7 +213,10 @@
         var glassChanged = !state.profile || state.profile.selectedGlass !== profile.selectedGlass;
         state.profile = profile;
         state.pending = [0, 0, 0, 0, 0];
-        if (glassChanged) state.shop = null;
+        if (glassChanged) {
+            state.shop = null;
+            state.sellMode = false;
+        }
         renderHero();
         renderPicker();
         renderPoints();
@@ -348,12 +352,17 @@
             ]));
         }
         $('bag-count').textContent = '(' + p.bagSize + '/' + p.bagLimit + ' món, đang xem đồ của ' + p.character.name + ')';
+        var keys = p.bag.map(function (item) { return item.dbKey; });
+        state.sellPick = new Set(Array.from(state.sellPick).filter(function (key) { return keys.indexOf(key) !== -1; }));
+        renderBagTools();
         var bag = $('bag');
         bag.replaceChildren();
         if (!p.bag.length) bag.append(el('p', {className: 'empty', text: 'Rương chưa có đồ của ' + p.character.name + '. Ghé Cửa hàng để mua nhé!'}));
         p.bag.forEach(function (item) {
             var action;
-            if (item.inUse) {
+            if (state.sellMode) {
+                action = canSell(item) ? el('span', {className: 'note-line', text: 'Bán được ' + priceLabel(item.sellPrice, 'xu')}) : sellNote(item);
+            } else if (item.inUse) {
                 action = el('button', {type: 'button', className: 'buy secondary', text: 'Tháo ra',
                     onclick: function () { run(function () { return api('POST', 'remove', {dbKey: item.dbKey}); }); }});
             } else if (item.wearable) {
@@ -362,7 +371,19 @@
             } else {
                 action = el('span', {className: 'note-line', text: item.days <= 0 && !item.permanent ? 'Đã hết hạn' : 'Cần cấp ' + item.level});
             }
-            bag.append(el('article', {className: 'card' + (item.inUse ? ' worn' : '') + (item.plus ? ' upgrade-card tier-' + tier(item.plus) : '')}, [
+            var sell = null;
+            if (!state.sellMode && !item.inUse) {
+                sell = canSell(item) ? el('button', {type: 'button', className: 'buy secondary', text: 'Bán · ' + priceLabel(item.sellPrice, 'xu'),
+                    onclick: function () { sellGear([item]); }}) : sellNote(item);
+            }
+            var picked = state.sellPick.has(item.dbKey);
+            var pickable = state.sellMode && canSell(item);
+            var card = el('article', {
+                className: 'card' + (item.inUse ? ' worn' : '') + (item.plus ? ' upgrade-card tier-' + tier(item.plus) : '')
+                    + (state.sellMode ? (pickable ? ' pickable' : ' unpickable') : '') + (picked ? ' picked' : ''),
+                role: pickable ? 'checkbox' : null, 'aria-checked': pickable ? String(picked) : null, tabindex: pickable ? '0' : null
+            }, [
+                pickable ? el('span', {className: 'pick-box', 'aria-hidden': 'true'}) : null,
                 el('div', {className: 'card-top'}, [
                     aura(item, 64),
                     el('div', null, [
@@ -371,18 +392,126 @@
                     ])
                 ]),
                 statTags(item),
-                el('div', {className: 'card-actions'}, [item.inUse ? el('span', {className: 'note-line', text: 'Đang mặc'}) : null, action])
-            ]));
+                el('div', {className: 'card-actions'}, [item.inUse ? el('span', {className: 'note-line', text: 'Đang mặc'}) : null, action, sell])
+            ]);
+            if (pickable) {
+                var toggle = function () {
+                    if (state.sellPick.has(item.dbKey)) state.sellPick.delete(item.dbKey);
+                    else state.sellPick.add(item.dbKey);
+                    renderBag();
+                    var again = document.querySelector('#bag [data-key="' + item.dbKey + '"]');
+                    if (again) again.focus();
+                };
+                card.setAttribute('data-key', item.dbKey);
+                card.addEventListener('click', toggle);
+                card.addEventListener('keydown', function (event) {
+                    if (event.key === ' ' || event.key === 'Enter') {
+                        event.preventDefault();
+                        toggle();
+                    }
+                });
+            }
+            bag.append(card);
         });
         var pocket = $('pocket');
         pocket.replaceChildren();
         p.items.forEach(function (item) {
-            pocket.append(el('span', {className: 'chip', title: item.name}, [itemIcon(item.id, 1.5), item.name + ' ×' + item.num]));
+            pocket.append(pocketCard(item, 'item', function () { return framed(itemIcon(item.id, 2), true); }));
         });
         p.specials.forEach(function (item) {
-            pocket.append(el('span', {className: 'chip', title: item.detail}, [specialIcon(item.id, 1.5), item.name + ' ×' + item.num]));
+            pocket.append(pocketCard(item, 'special', function () { return framed(specialIcon(item.id, 2), true); }));
         });
         if (!pocket.children.length) pocket.append(el('p', {className: 'empty', text: 'Túi đang trống.'}));
+    }
+
+    // --- selling (the game's prices: half the xu price, gear for the days it has left) ------------
+
+    function canSell(item) {
+        return !item.inUse && !item.gems.length && item.sellPrice > 0;
+    }
+
+    function sellNote(item) {
+        if (item.inUse) return null;
+        return el('span', {className: 'note-line', text: item.gems.length ? 'Còn ngọc: tháo ngọc mới bán được' : 'Không bán được'});
+    }
+
+    function renderBagTools() {
+        var tools = $('bag-tools');
+        var sellable = state.profile.bag.filter(canSell);
+        if (!state.sellMode) {
+            tools.className = 'bag-tools';
+            tools.replaceChildren(sellable.length > 1 ? el('button', {type: 'button', className: 'text-btn', text: 'Chọn nhiều món để bán',
+                onclick: function () {
+                    state.sellMode = true;
+                    state.sellPick = new Set();
+                    renderBag();
+                }}) : null);
+            return;
+        }
+        var picked = sellable.filter(function (item) { return state.sellPick.has(item.dbKey); });
+        var total = picked.reduce(function (sum, item) { return sum + item.sellPrice; }, 0);
+        tools.className = 'bag-tools selling';
+        tools.replaceChildren(
+            el('span', {className: 'sell-summary', text: picked.length ? 'Đã chọn ' + picked.length + ' món · ' + priceLabel(total, 'xu') : 'Bấm vào các món muốn bán'}),
+            el('button', {type: 'button', className: 'text-btn', text: picked.length === sellable.length ? 'Bỏ chọn hết' : 'Chọn hết',
+                onclick: function () {
+                    state.sellPick = new Set(picked.length === sellable.length ? [] : sellable.map(function (item) { return item.dbKey; }));
+                    renderBag();
+                }}),
+            el('button', {type: 'button', className: 'buy', text: 'Bán', disabled: !picked.length, onclick: function () { sellGear(picked); }}),
+            el('button', {type: 'button', className: 'text-btn', text: 'Thôi', onclick: endSelling})
+        );
+    }
+
+    function endSelling() {
+        state.sellMode = false;
+        state.sellPick = new Set();
+        renderBag();
+    }
+
+    async function sellGear(items) {
+        var total = items.reduce(function (sum, item) { return sum + item.sellPrice; }, 0);
+        var upgraded = items.filter(function (item) { return item.plus > 0; });
+        var notes = [];
+        if (upgraded.length) {
+            notes.push(items.length === 1 ? 'Món này đang +' + upgraded[0].plus + ', bán là mất luôn cấp đã nâng.'
+                : 'Có ' + upgraded.length + ' món đã nâng cấp, bán là mất luôn cấp đã nâng.');
+        }
+        if (items.some(function (item) { return item.permanent; })) notes.push('Skin Thor mua lại tốn 1.000 lượng.');
+        var what = items.length === 1 ? items[0].name + (items[0].plus ? ' +' + items[0].plus : '') : items.length + ' món';
+        var picture = items.length === 1 ? aura(items[0], 64)
+            : el('span', {className: 'sell-stack'}, items.slice(0, 3).map(function (item) { return gear(item, 44); }));
+        if (!await confirmBuy(('Bán ' + what + ' được ' + priceLabel(total, 'xu') + '? ' + notes.join(' ')).trim(), picture, 'Bán')) return;
+        await run(function () { return api('POST', 'sell/equipment', {dbKeys: items.map(function (item) { return item.dbKey; })}); }, endSelling);
+    }
+
+    /** A battle item or special item in the pocket, with how many to sell. */
+    function pocketCard(item, kind, icon) {
+        var actions;
+        if (item.sell > 0) {
+            var input = amountInput(item.num);
+            actions = [
+                el('label', {className: 'amount'}, ['Bán', input]),
+                el('button', {type: 'button', className: 'buy secondary', text: priceLabel(item.sell, 'xu') + ' mỗi cái',
+                    onclick: async function () {
+                        var amount = readAmount(input, item.num);
+                        if (!await confirmBuy('Bán ' + amount + ' ' + item.name + ' được ' + priceLabel(item.sell * amount, 'xu') + '?', icon(), 'Bán')) return;
+                        run(function () { return api('POST', 'sell/' + kind, {id: item.id, amount: amount}); });
+                    }})
+            ];
+        } else {
+            actions = [el('span', {className: 'note-line', text: 'Không bán được'})];
+        }
+        return el('article', {className: 'card pocket-card', title: item.detail || item.name}, [
+            el('div', {className: 'card-top'}, [
+                icon(),
+                el('div', null, [
+                    el('p', {className: 'card-name', text: item.name}),
+                    el('p', {className: 'card-meta', text: 'Đang có ' + item.num})
+                ])
+            ]),
+            el('div', {className: 'card-actions'}, actions)
+        ]);
     }
 
     // --- final stats ---------------------------------------------------------------------------
@@ -406,6 +535,7 @@
             {name: 'May mắn', value: number.format(s[3]), note: pct(luck) + ' mỗi lượt: x2 sát thương, +3.000 thủ, không chết'},
             {name: 'Đồng đội', value: number.format(s[4]), note: 'Góp ' + number.format(Math.floor(s[4] / 200)) + ' vào quỹ đồng đội của đội'}
         ];
+        renderRules(state.profile.rules, c, s, reduce, luck);
         var box = $('final-stats');
         box.replaceChildren();
         cards.forEach(function (card, i) {
@@ -431,6 +561,30 @@
             el('tbody', null, rows.map(function (row) {
                 return el('tr', null, row.map(function (cell, i) { return el(i === 5 ? 'th' : 'td', {text: cell}); }));
             }))
+        );
+    }
+
+    /** The three room rules in plain words, with this character's numbers (server: mobiarmy.war.RoomRules, SkillBalance). */
+    function renderRules(rules, c, s, reduce, luck) {
+        var box = $('skill-rules');
+        box.hidden = !rules;
+        if (!rules) return;
+        var names = rules.modes.map(function (mode) { return mode.name; });
+        var base = state.profile.baseStats || [1000, c.baseAttack, 0, 0, 0];
+        var bonus = Math.max(0, s[1] - c.baseAttack);
+        box.replaceChildren(
+            el('h3', {text: 'Chủ phòng chọn luật cho trận đấu (trong phòng: Menu → Luật trận đấu)'}),
+            el('ul', null, [
+                el('li', null, [el('b', {text: names[0]}), ': tính đủ như các ô ở trên, build đồ thoải mái.']),
+                el('li', null, [el('b', {text: names[1]}), ': sát thương gốc ' + number.format(c.baseAttack) + ' luôn có, phần cộng thêm +' + number.format(bonus)
+                    + ' chỉ ăn đủ khi đạn nổ trúng thân địch (nổ lệch giảm dần, còn dưới ' + rules.bonusZero + '% sát thương thì mất hẳn). May mắn '
+                    + pct(Math.min(luck, rules.maxLuck)) + ' (tối đa ' + rules.maxLuck + '%), chỉ x2 khi trúng thân. Phòng thủ giảm ' + pct(Math.min(reduce, rules.maxReduction))
+                    + ' (tối đa ' + rules.maxReduction + '%), trúng thân xuyên ' + rules.pierce + '%. Trúng thân gây thêm ' + rules.tank + '% phần máu trên '
+                    + number.format(rules.baseHp) + ' của địch. Skin Thor chỉ là trang phục.']),
+                el('li', null, [el('b', {text: names[2]}), ': ai cũng như nhân vật mới cấp 1, bạn vào trận với ' + number.format(base[0]) + ' máu, sát thương '
+                    + number.format(base[1]) + ', phòng thủ ' + number.format(base[2]) + ', may mắn ' + number.format(base[3]) + '. Không tính điểm, đồ, nâng cấp, ngọc.'])
+            ]),
+            el('p', {className: 'rules-default', text: 'Phòng mới bắt đầu với luật ' + names[rules['default']] + '.'})
         );
     }
 
@@ -774,7 +928,9 @@
             list.append(el('p', {className: 'empty', text: 'Đang mở cửa hàng...'}));
             return;
         }
-        if (state.shopTab === 'equipment') {
+        if (state.shopTab === 'chests') {
+            renderChests(list);
+        } else if (state.shopTab === 'equipment') {
             var rows = state.shop.equipment.filter(function (row) {
                 return state.typeFilter === 'all' || (state.typeFilter === 'vip' ? row.vip : !row.vip && String(row.type) === state.typeFilter);
             });
@@ -834,6 +990,198 @@
                 ]));
             });
         }
+    }
+
+    // --- lucky chests -----------------------------------------------------------------------
+
+    // 20x15 pixel chest: o outline, W/w/V wood, T/t/U metal, K keyhole. Rows 0-6 are the lid.
+    var CHEST_ROWS = [
+        '...oooooooooooooo...',
+        '.oowtTwwwwwwwwtTwoo.',
+        'owwwtTwwwwwwwwtTwwwo',
+        'oWWWtTWWWWWWWWtTWWWo',
+        'oWWWtTWWWWWWWWtTWWWo',
+        'oVVVtTVVtTTTVVtTVVVo',
+        'oUUUUUUUtTTTUUUUUUUo',
+        'owWWtTWWtKKTWWtTWWVo',
+        'owWWtTWWtKKTWWtTWWVo',
+        'owWWtTWWUUUUWWtTWWVo',
+        'owWWtTWWWWWWWWtTWWVo',
+        'owWWtTWWWWWWWWtTWWVo',
+        'oVVVtTVVVVVVVVtTVVVo',
+        'otTTTTTTTTTTTTTTTTUo',
+        '.oooooooooooooooooo.'
+    ];
+    var CHEST_COLOURS = {
+        bronze: {o: '#2b1608', W: '#8a5a2b', w: '#a8743d', V: '#6b4220', T: '#cd7f32', t: '#f0a860', U: '#8c5220', K: '#2b1608'},
+        silver: {o: '#1e2530', W: '#4b5a70', w: '#61728a', V: '#39465a', T: '#c9d3df', t: '#ffffff', U: '#8a97a8', K: '#1e2530'},
+        gold: {o: '#3a1406', W: '#a0302a', w: '#c4473d', V: '#7a221d', T: '#f5c542', t: '#fff3a0', U: '#c08a1a', K: '#3a1406'}
+    };
+    var SVG_NS = 'http://www.w3.org/2000/svg';
+    var chanceFormat = new Intl.NumberFormat('vi-VN', {maximumFractionDigits: 2});
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function chestArt(kind, scale) {
+        var colours = CHEST_COLOURS[kind] || CHEST_COLOURS.bronze;
+        var svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 20 15');
+        svg.setAttribute('width', 20 * scale);
+        svg.setAttribute('height', 15 * scale);
+        svg.setAttribute('shape-rendering', 'crispEdges');
+        svg.setAttribute('class', 'chest-art');
+        svg.setAttribute('aria-hidden', 'true');
+        var body = document.createElementNS(SVG_NS, 'g');
+        var lid = document.createElementNS(SVG_NS, 'g');
+        lid.setAttribute('class', 'chest-lid');
+        CHEST_ROWS.forEach(function (row, y) {
+            for (var x = 0; x < row.length;) {
+                var end = x;
+                while (end < row.length && row[end] === row[x]) end++;
+                if (row[x] !== '.') {
+                    var rect = document.createElementNS(SVG_NS, 'rect');
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('width', end - x);
+                    rect.setAttribute('height', 1);
+                    rect.setAttribute('fill', colours[row[x]]);
+                    (y <= 6 ? lid : body).append(rect);
+                }
+                x = end;
+            }
+        });
+        svg.append(body, lid);
+        return svg;
+    }
+
+    function chanceText(chance) {
+        return chanceFormat.format(chance) + '%';
+    }
+
+    function renderChests(list) {
+        if (state.profile.rules) {
+            list.append(el('p', {className: 'hint chest-hint', text: 'Đồ xịn, +10 phát huy hết ở phòng luật Tự do; phòng Cân bằng chỉ khi bắn trúng thân; phòng Sát thương gốc không tính đồ. Xem tab Chỉ số.'}));
+        }
+        state.shop.chests.forEach(function (chest) {
+            var odds = el('details', {className: 'odds'}, [
+                el('summary', {text: 'Tỉ lệ rơi (' + chest.prizes.length + ' món)'}),
+                el('ul', null, chest.prizes.map(function (prize) {
+                    return el('li', null, [
+                        gear(prize, 34),
+                        el('span', {text: prize.name + (chest.plus ? ' +' + chest.plus : '')}),
+                        el('b', {text: chanceText(prize.chance)})
+                    ]);
+                }))
+            ]);
+            var buttons = [];
+            ['xu', 'luong'].forEach(function (currency) {
+                var price = chest[currency];
+                if (price < 0) return;
+                buttons.push(el('button', {
+                    type: 'button', className: 'buy', text: 'Mở · ' + priceLabel(price, currency), disabled: !chest.prizes.length,
+                    onclick: async function () {
+                        if (!canAfford(price, currency)) {
+                            toast('Không đủ ' + (currency === 'xu' ? 'xu' : 'lượng') + ': cần ' + priceLabel(price, currency) + '.', true);
+                            return;
+                        }
+                        if (!await confirmBuy('Mở ' + chest.name + ' với giá ' + priceLabel(price, currency) + '?', chestArt(chest.key, 4), 'Mở rương')) return;
+                        openChest(chest, currency);
+                    }
+                }));
+            });
+            if (!buttons.length) buttons.push(el('span', {className: 'note-line', text: 'Không bán'}));
+            list.append(el('article', {className: 'card chest-card chest-' + chest.key}, [
+                el('div', {className: 'chest-stage'}, [chestArt(chest.key, 5)]),
+                el('p', {className: 'card-name', text: chest.name}),
+                el('p', {className: 'card-detail', text: chest.detail}),
+                chest.prizes.length ? odds : el('span', {className: 'note-line', text: 'Chưa có món nào cho ' + state.profile.character.name}),
+                el('div', {className: 'card-actions'}, buttons)
+            ]));
+        });
+    }
+
+    var chestBusy = false;
+
+    async function openChest(chest, currency) {
+        if (chestBusy) return;
+        chestBusy = true;
+        var show = showChest(chest);
+        try {
+            var result = await api('POST', 'chest/open', {chest: chest.key, currency: currency});
+            setProfile(result);
+            show.prize(result.prize, currency);
+            loadShop(); // the odds can change, for example once Skin Thor is owned
+        } catch (error) {
+            show.failed(error.message);
+        } finally {
+            chestBusy = false;
+        }
+    }
+
+    /** Shakes the chest in the dialog until the prize is known, then opens it and shows the prize. */
+    function showChest(chest) {
+        var dialog = $('chest-dialog');
+        var scene = $('chest-scene');
+        scene.className = 'chest-scene chest-' + chest.key + ' rolling';
+        scene.replaceChildren(el('span', {className: 'chest-rays'}), chestArt(chest.key, 8));
+        $('chest-title').textContent = 'Đang mở ' + chest.name + '...';
+        $('chest-prize').replaceChildren();
+        $('chest-actions').replaceChildren();
+        if (!dialog.open) dialog.showModal();
+        var started = Date.now();
+
+        function after(work) {
+            var wait = reducedMotion.matches ? 0 : 900 - (Date.now() - started);
+            setTimeout(work, Math.max(0, wait));
+        }
+
+        function closeButton() {
+            return el('button', {type: 'button', className: 'text-btn', text: 'Đóng', onclick: function () { dialog.close(); }});
+        }
+
+        return {
+            prize: function (prize, currency) {
+                after(function () {
+                    scene.classList.remove('rolling');
+                    scene.classList.add('open');
+                    $('chest-title').textContent = prize.extended ? 'Cộng thêm ngày!' : prize.chance < 3 ? 'Cực hiếm!' : prize.chance < 10 ? 'Hiếm!' : 'Bạn nhận được';
+                    $('chest-prize').replaceChildren(el('article', {className: 'card prize-card' + (prize.plus ? ' upgrade-card tier-' + tier(prize.plus) : '')}, [
+                        el('div', {className: 'card-top'}, [
+                            aura(prize, 64),
+                            el('div', null, [
+                                el('p', {className: 'card-name', text: prize.name + (prize.plus ? ' +' + prize.plus : '')}),
+                                el('p', {className: 'card-meta', text: prize.typeName + ' · cấp ' + prize.level + ' · ' + daysText(prize)})
+                            ])
+                        ]),
+                        statTags(prize),
+                        el('p', {className: 'note-line', text: prize.extended ? 'Bạn đã có món này nên được cộng thêm ngày dùng.'
+                            : 'Tỉ lệ rơi ' + chanceText(prize.chance) + (prize.wearable ? '' : ' · cần cấp ' + prize.level + ' mới mặc được')})
+                    ]));
+                    var actions = [];
+                    if (!prize.extended && prize.wearable && !prize.inUse) {
+                        actions.push(el('button', {type: 'button', className: 'game-btn small-btn', onclick: function () {
+                            dialog.close();
+                            run(function () { return api('POST', 'wear', {dbKey: prize.dbKey}); }, cheer);
+                        }}, [el('span', {className: 'big', text: 'Mặc ngay'})]));
+                    }
+                    var price = chest[currency];
+                    if (canAfford(price, currency)) {
+                        actions.push(el('button', {type: 'button', className: 'buy', text: 'Mở tiếp · ' + priceLabel(price, currency),
+                            onclick: function () { openChest(chest, currency); }}));
+                    }
+                    actions.push(closeButton());
+                    $('chest-actions').replaceChildren.apply($('chest-actions'), actions);
+                    if (!reducedMotion.matches && prize.chance < 10) cheer();
+                });
+            },
+            failed: function (message) {
+                after(function () {
+                    scene.classList.remove('rolling');
+                    $('chest-title').textContent = 'Chưa mở được';
+                    $('chest-prize').replaceChildren(el('p', {className: 'form-error', text: message}));
+                    $('chest-actions').replaceChildren(closeButton());
+                });
+            }
+        };
     }
 
     // --- tabs and start ----------------------------------------------------------------------
