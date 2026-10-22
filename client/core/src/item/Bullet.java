@@ -106,7 +106,7 @@ public class Bullet {
     public static mImage superShoot;
     public boolean isSuper;
     private boolean heroPow;
-    private boolean thorVisual;
+    private player.ThorProjectiles.Profile thorProfile;
     private boolean photonVisual;
     int sFrame = 0;
     int ts = 0;
@@ -399,7 +399,7 @@ public class Bullet {
         this.type = type;
         this.whoShot = whoShot;
         this.heroPow = GameScr.bm != null && GameScr.bm.heroPowShot;
-        this.thorVisual = (type == 17 || type == 18) && effect.HeroEffects.thor(whoShot);
+        this.thorProfile = player.ThorProjectiles.forShot(whoShot, type);
         this.photonVisual = type == 49 && effect.HeroEffects.photon(whoShot);
         this.xPaint = X;
         this.yPaint = Y;
@@ -492,7 +492,13 @@ public class Bullet {
             }
         }
 
-        if (this.photonVisual) {
+        if (this.thorProfile != null && this.thorProfile.beam) {
+            int phase = effect.HeroEffects.phase();
+            player.ThorProjectiles.beam(g, this.thorProfile, this.heroPow, GameScr.curGRAPHIC_LEVEL == 2,
+                    this.xPaint[0], this.yPaint[0], this.xPaint[0]+this.xLaser1, this.yPaint[0]+this.yLaser1, phase);
+            if (this.isMirror) player.ThorProjectiles.beam(g, this.thorProfile, this.heroPow, GameScr.curGRAPHIC_LEVEL == 2,
+                    this.xLG, this.yLG, this.xLG+this.xLaser2, this.yLG-this.yLaser2, phase);
+        } else if (this.photonVisual) {
             int phase = effect.HeroEffects.phase();
             effect.HeroEffects.beam(g, this.xPaint[0], this.yPaint[0],
                     this.xPaint[0]+this.xLaser1, this.yPaint[0]+this.yLaser1,
@@ -1707,17 +1713,21 @@ public class Bullet {
 
     }
 
+    public void addThorImpact(player.ThorProjectiles.Impacts impacts, int x, int y) {
+        impacts.add(this.thorProfile, this.heroPow, x, y);
+    }
+
     public void paint(mGraphics g) {
         if (!this.notPaint) {
             if (this.type != 31) {
-                if (this.thorVisual && this.heroPow) {
-                    if (GameScr.curGRAPHIC_LEVEL == 2) {
-                        effect.HeroEffects.ring(g, this.x, this.y, 9, 0x63cfff, 0);
-                    } else {
-                        effect.HeroEffects.hammer(g, this.x, this.y, this.x_Last, this.y_Last,
-                                effect.HeroEffects.phase());
-                    }
+                if (this.thorProfile != null && this.thorProfile.beam) {
+                    if (this.isPaintLazer) this.paintLazerGirl(g);
+                    else effect.HeroEffects.ring(g, this.x, this.y, this.heroPow ? 6 : 3, this.thorProfile.color, 0);
+                    return;
                 }
+                if (player.ThorProjectiles.projectile(g, this.thorProfile, this.heroPow,
+                        GameScr.curGRAPHIC_LEVEL == 2, this.x, this.y, this.x_Last, this.y_Last,
+                        effect.HeroEffects.phase())) return;
                 if (this.isSuper) {
                     ++this.sFrame;
                     if (this.sFrame == 5) {

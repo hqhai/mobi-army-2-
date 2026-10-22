@@ -105,6 +105,7 @@ public class BM {
    public static boolean isBombBalloon;
    public byte critical;
    public boolean heroPowShot;
+   private final player.ThorProjectiles.Impacts thorImpacts = new player.ThorProjectiles.Impacts();
    private int idBullet;
    boolean isDouble = false;
    boolean endShoot;
@@ -713,6 +714,7 @@ public class BM {
    }
 
    public void paint(mGraphics g) {
+      this.thorImpacts.paint(g, GameScr.curGRAPHIC_LEVEL == 2);
       int i;
       for(i = 0; i < this.bullets.size(); ++i) {
          ((Bullet)this.bullets.elementAt(i)).paint(g);
@@ -746,6 +748,7 @@ public class BM {
    }
 
    public void removeBullet(Bullet b, boolean isExplode, int x, int y, int x_Last, int y_Last, byte whoShot) {
+      if (isExplode) b.addThorImpact(this.thorImpacts, x, y);
       this.bullets.removeElement(b);
       if (b.type == 45) {
          this.endShoot();

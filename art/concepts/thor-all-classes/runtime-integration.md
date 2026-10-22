@@ -1,0 +1,11 @@
+# Thor class costumes: first runtime integration
+
+Approved identity source: thor-remaining-nine-concept-v4.png. Runtime sheet derived with imagegen, costume-only transparent RGBA, six poses per class. The original generated final Magenta row was clipped; Magenta uses the same humanoid armor source as Gunner, with its own native Magenta weapon, dimensions and offsets. King Kong uses the brown monkey row, Chicky the chicken-hat/wing row.
+
+Nine new owned VIP entries: IDs 30100–30107 and 30109. Existing Apache Thor 30000 remains unchanged. SQL migration server/migrations/20261021-thor-class-vips.sql copies each class's Iron Man catalog stats/pricing/duration (currently +5% all, 50 luong / 7 days). No new hardcoded stat bonuses. Install after backing up the DB using scripts/tests/ThorCatalogInstall.java; existing reserved IDs are checked before migration. Starting a fresh server alone does not apply this optional migration.
+
+Client CatalogSkin reads skins/thor-classes/catalog.json. Source rectangles, class identity, native reference equipment and scale are data. Scale 1.0 matches the combined native Iron Man head/body height for each pose. Native gun remains separate, rendered behind costume as with Photon. Six source poses support four aim frames, two walk frames, mirrored left direction. Hurt/death/victory retain native fallback. Upward head tilt and walking silhouettes still need art refinement; this is not a claim of exact pose matching.
+
+Verification: client distZip build passed; server compiled; nine real DB temporary-account checks each passed 11 assertions for shop, purchase, invalid ownership/class, equip and persistence (99 total). Render check exercised 90 poses plus unowned and unsupported-frame guards. Runtime preview thor-all-poses-runtime.png: rows class0..9 with class8 blank (existing Apache unaffected). The two-pose preview thor-native-size-review.png includes original Iron Man Apache for reference.
+
+Local server restarted gracefully with metadata version15. Local launch scripts use runtime/thor-classes-v2. Existing running clients must reopen to load new assets. Remote downloadable client bundle was not published in this change. No commit/push performed.

@@ -408,7 +408,7 @@ public class ControlHandler {
                         case 1 -> this.session.sessionHandler.iconInfo(12, version);
                         case 2 -> this.session.sessionHandler.mapInfo(12, version);
                         case 3 -> this.session.sessionHandler.layerInfo(12, version);
-                        case 4 -> this.session.sessionHandler.dataInfo(14, version);
+                        case 4 -> this.session.sessionHandler.dataInfo(15, version);
                         case 5 -> this.session.sessionHandler.captionInfo(12, version);
                         case 6 -> {
                             this.session.sessionHandler.loadInfo();

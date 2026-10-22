@@ -398,7 +398,9 @@ public class Equip {
     }
 
     public void drawIcon(mGraphics g, int X, int Y, boolean isClip) {
-        if (player.PhotonSkin.icon(g, this, X, Y, isClip)) {
+        if (player.CatalogSkin.icon(g, this, X, Y, isClip)) {
+            // Catalog-configured costume portrait.
+        } else if (player.PhotonSkin.icon(g, this, X, Y, isClip)) {
             // Owned Photon VIP uses its own portrait.
         } else if (player.ThorSkin.paintIcon(g, this, X, Y, isClip)) {
             // The skin icon is bundled with the desktop client.

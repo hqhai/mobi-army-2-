@@ -1,0 +1,5 @@
+Thor ten-pose concept v2
+Source identity: ../apache-thor/apache-thor-concept-v1.png
+Proportion and pose reference: ../magenta-photon/photon-ten-review-v6.png
+Generated with built-in imagegen, existing Thor edited to compact chibi, ten columns: right aim 0-3, walk 4-5, left aim 0-3. Hammer retained.
+Review: ten figures generated, but upward head tilt does not yet match Photon and walking phases are not sufficiently distinct. Body still needs compression. Follow-up edit was blocked by image generation service. Not approved or integrated; not a production atlas.

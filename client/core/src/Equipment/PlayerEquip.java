@@ -149,6 +149,7 @@ public class PlayerEquip {
     }
 
     public void paint(mGraphics g, int look, int frame, int x, int y) {
+        if (player.CatalogSkin.paint(g, this, look, frame, x, y)) return;
         if (player.ThorSkin.paint(g, this, look, frame, x, y)) return;
         if (player.PhotonSkin.paint(g, this, look, frame, x, y)) return;
         this.paintSung(x, y, look, frame, g);
