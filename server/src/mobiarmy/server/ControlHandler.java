@@ -66,7 +66,8 @@ public class ControlHandler {
         switch (msg.getCommand()) {
             case -6 -> {
                 if (session.user != null && session.user.roomWait == null) {
-                    session.training = new Training(session);
+                    byte trainingMap = msg.reader().available() > 0 ? msg.reader().readByte() : 0;
+                    session.training = new Training(session, trainingMap);
                     session.training.load();
                 }
             }

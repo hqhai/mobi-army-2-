@@ -493,6 +493,7 @@ public class MenuScr extends CScreen {
             case 4:
                GameScr.trainingMode = true;
                isTraining = true;
+               GameScr.trainingMapId = 0;
                GameService.gI().trainingMap();
                CCanvas.startOKDlg(Language.pleaseWait());
                break;
@@ -653,7 +654,8 @@ public class MenuScr extends CScreen {
       GameScr.pm.setNextPlayer((byte)0);
       PM.p[0].isCom = false;
       PM.p[0].item = PrepareScr.getStrainingItem();
-      GameScr.trainingStep = 0;
+      // The tutorial steps only fit map 0; other maps (chat "map N") are free practice.
+      GameScr.trainingStep = MapID == 0 ? 0 : -1;
       PM.p[0].hp = 70;
       GameScr.myIndex = 0;
    }

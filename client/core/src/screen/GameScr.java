@@ -659,6 +659,18 @@ public class GameScr extends CScreen {
     void sendTypedChat() {
         this.isChat = false;
         String typed = tfChat.getText();
+        java.util.regex.Matcher mapCommand = TRAINING_MAP_COMMAND.matcher(typed == null ? "" : typed.trim().toLowerCase());
+        if (trainingMode && mapCommand.matches()) {
+            // Practice on another map: reload training there, without the tutorial steps of map 0.
+            tfChat.setText("");
+            byte mapId = (byte) Math.min(127, Integer.parseInt(mapCommand.group(1)));
+            trainingMapId = mapId;
+            MenuScr.isTraining = true;
+            GameService.gI().trainingMap(mapId);
+            CCanvas.startOKDlg(Language.pleaseWait());
+            clearKey();
+            return;
+        }
         String forceSet = applyForceCommand(typed, PM.getMyPlayer());
         if (forceSet != null) {
             // A setting only for this player: shown in its own bubble, never sent to the room.
@@ -678,6 +690,10 @@ public class GameScr extends CScreen {
 
         clearKey();
     }
+
+    private static final java.util.regex.Pattern TRAINING_MAP_COMMAND = java.util.regex.Pattern.compile("map\\s*(\\d{1,3})");
+    /** Map picked with "map N" in training; 0 is the tutorial map. */
+    public static byte trainingMapId;
 
     private static final java.util.regex.Pattern FORCE_COMMAND = java.util.regex.Pattern.compile("lm\\s*(\\d{1,3})(?:\\s+(\\d{1,3}))?");
 
@@ -914,6 +930,11 @@ public class GameScr extends CScreen {
                 toggleDesktopCamera();
             }
             desktopCameraToggleHeld = true;
+            return true;
+        }
+        if ((key == com.badlogic.gdx.Input.Keys.C || key == com.badlogic.gdx.Input.Keys.CONTROL_LEFT || key == com.badlogic.gdx.Input.Keys.CONTROL_RIGHT) && !isChat && CCanvas.currentDialog == null && !isShowPausemenu) {
+            this.isChat = true;
+            tfChat.doChangeToTextBox();
             return true;
         }
         if (desktopCameraMode && isDesktopDirection(key)) {

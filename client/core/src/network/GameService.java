@@ -480,6 +480,18 @@ public class GameService {
         m.cleanup();
     }
 
+    /** Restarts practice on another map (chat "map 5"); the server falls back to map 0 if it cannot use it. */
+    public void trainingMap(byte mapId) {
+        Message m = new Message((byte) -6);
+        try {
+            m.writer().writeByte(mapId);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        this.session.sendMessage(m);
+        m.cleanup();
+    }
+
     public void check_cross(byte n, int[] x, int[] y) {
         Message m = new Message((byte) 79);
 

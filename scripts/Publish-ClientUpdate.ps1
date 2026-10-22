@@ -13,6 +13,8 @@ if (Test-Path "$pkg/lib") { Remove-Item "$pkg/lib" -Recurse -Force }
 Copy-Item $lib "$pkg/lib" -Recurse
 Set-Content "$pkg/version.txt" $version -Encoding ascii
 Compress-Archive $pkg "$root/web/downloads/MobiArmy2-PC.zip" -Force
+& "C:/Program Files/Git/bin/bash.exe" "$root/scripts/Publish-MacPackage.sh"
+if ($LASTEXITCODE -ne 0) { throw "Mac package failed." }
 # Written last so launchers never see a version before its lib.zip exists.
 Set-Content "$update/version.txt" $version -Encoding ascii
 Write-Host "Published client version $version"

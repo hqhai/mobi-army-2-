@@ -1,0 +1,12 @@
+MobiArmy 2 cho macOS - Server 10.10.0.172
+
+1. Cai Java 21 (chi lam 1 lan): https://adoptium.net -> Temurin 21, ban macOS (.pkg).
+2. Mo file MobiArmy2-Mac.tar.gz de giai nen.
+3. Lan dau, macOS se bao "Apple khong the xac minh...". Mo Terminal va go:
+       xattr -dr com.apple.quarantine ~/Downloads/MobiArmy2-Mac
+       chmod +x ~/Downloads/MobiArmy2-Mac/MobiArmy2.command
+   (sua duong dan neu thu muc khong nam trong Downloads)
+   Hoac: System Settings -> Privacy & Security -> keo xuong -> Open Anyway.
+4. Bam dup MobiArmy2.command de choi.
+5. Dang ky tai khoan: http://10.10.0.172:8123/
+Game tu cap nhat moi lan mo.

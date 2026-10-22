@@ -12,9 +12,12 @@ public final class Training {
     private final MapData map;
     private boolean started;
 
-    public Training(Session session) throws IOException {
+    public Training(Session session, byte mapId) throws IOException {
         this.session = session;
-        this.map = new MapData(null, (byte) 0);
+        // Any map with two spawn points; anything else falls back to the tutorial map 0.
+        Map picked = Map.get(mapId);
+        boolean usable = picked != null && picked.data != null && picked.data.points.length >= 2;
+        this.map = new MapData(null, usable ? mapId : (byte) 0);
         for (int i = 0; i < 2; i++) {
             Player player = new Player(map, null, i == 0 ? session.user.name : "Enemy",
                     session.user.glass().id, 1, 1000, 0, 0, 0, 0, 24, 24, null);

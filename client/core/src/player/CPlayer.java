@@ -1087,6 +1087,8 @@ public class CPlayer {
     void sendWaitForFire(byte bulletType, byte numShoot) {
         if (GameScr.trainingMode) {
             GameService.gI().waitForFIRETraining(bulletType, (short) this.x, (short) this.y, (short) this.angle, this.force, this.force_2, numShoot);
+            // Training has no next turn, so movement stamina would never refill after the first walk.
+            this.movePoint = 0;
         } else {
             // The server uses its stored position, not the coordinates in the shot packet.
             syncMovementPosition();
@@ -1591,7 +1593,9 @@ public class CPlayer {
     }
 
     public void move(int directMove) {
-        if (this.state == 0 || this.state == 2 || this.state == 8) {
+        // In a match the next turn clears the shooting state; training never gets a next turn.
+        boolean trainingShotDone = GameScr.trainingMode && this.state == 4 && !BM.active && !isShooting;
+        if (this.state == 0 || this.state == 2 || this.state == 8 || trainingShotDone) {
             this.setState((byte) 1);
             this.curFrame = 4;
         }
@@ -2336,7 +2340,9 @@ public class CPlayer {
         trajCounting = true;
         int frames = drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
         trajCounting = false;
-        drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, frames * 3 / 4);
+        // Chicken shots and eggs get a shorter guide so eggs cannot be dropped precisely.
+        int keep = bulletId == 20 ? frames / 3 : bulletId == 19 ? frames * 3 / 5 : frames * 3 / 4;
+        drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, keep);
     }
 
     private int drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100, int maxFrames) {
