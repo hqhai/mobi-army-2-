@@ -10,6 +10,7 @@ import effect.Explosion;
 import effect.Smoke;
 import item.BM;
 import item.Bullet;
+import item.Item;
 import map.Background;
 import map.MM;
 import model.CRes;
@@ -1095,6 +1096,7 @@ public class CPlayer {
             GameService.gI().waitForFIRE(bulletType, (short) this.x, (short) this.y, (short) this.angle, this.force, this.force_2, numShoot);
         }
 
+        if (headGuideShots > 0) headGuideShots--;
         this.lastForcePoint = this.force;
         this.lastForcePoint_2 = this.force_2;
         this.force = 0;
@@ -1109,12 +1111,14 @@ public class CPlayer {
             }
 
             GameService.gI().useItem((byte) itemID);
+            if (itemID == Item.HEAD_GUIDE) headGuideShots = 2; // this turn and the next
             if (PrepareScr.currLevel != 7) {
                 this.item[curSlot] = -1;
             }
 
             this.isUsedItem = true;
         } else {
+            boolean poisonRain = itemID == Item.POISON_RAIN;
             switch (itemID) {
                 case 0:
                 case 2:
@@ -1134,6 +1138,7 @@ public class CPlayer {
                 case 18:
                 case 19:
                 case 21:
+                case Item.POISON_RAIN: // falls like Sao băng
                 case 24:
                 case 25:
                 case 26:
@@ -1161,6 +1166,7 @@ public class CPlayer {
                     new Explosion(this.x, this.y, (byte) 4, this.index, (byte) itemID);
                     break;
                 case 5:
+                case Item.CONCRETE:
                     this.is2TurnItem = true;
                     new Explosion(this.x, this.y - 12, (byte) 5, this.index, (byte) itemID);
                     break;
@@ -1199,7 +1205,8 @@ public class CPlayer {
                     new Explosion(this.x, this.y - 12, (byte) 5, this.index, (byte) 38);
             }
 
-            this.itemUsed = itemID;
+            // The poison rain aims and flies like Sao băng (item 21).
+            this.itemUsed = poisonRain ? 21 : itemID;
             this.setState((byte) 0);
             if (!this.isInvisible) {
                 new Explosion(this.x, this.y - 12, (byte) 3, this.index, (byte) itemID);
@@ -1326,11 +1333,8 @@ public class CPlayer {
     }
 
     private void paintPlayer(mGraphics g) {
-        boolean heroAura = this.gun == 9;
-        if (this.state != 5 && heroAura && (this.isAngry || this.itemUsed == 100)) {
-            effect.HeroEffects.aura(g, this.x, this.y, false,
-                    this.itemUsed == 100, effect.HeroEffects.phase());
-        } else if (this.state != 5 && this.gun < 11 && this.isAngry) {
+        // Magenta shows the same POW fire as every other character (it used to get a hero aura instead).
+        if (this.state != 5 && this.gun < 11 && this.isAngry) {
             ++this.ta;
             if (this.ta == 2) {
                 this.ta = 0;
@@ -1442,7 +1446,26 @@ public class CPlayer {
         }
     }
 
+    /** Unused since Gunner's stacking passive was replaced; the shot message still carries it. */
+    public int passiveBonus;
+    /** From the server (message 114): healing halved by the poison rain, or losing the next turn. */
+    public boolean poisoned, stunned;
+    private static final com.badlogic.gdx.graphics.Color POISON_PURPLE = new com.badlogic.gdx.graphics.Color(0.8f, 0.4f, 1f, 1f);
+
     public void paintName(mGraphics g) {
+        if (this.state != 5) {
+            // smallFont has only digits and capitals; borderFont is white with a black edge, tinted purple here.
+            int y = this.y - 60;
+            if (this.stunned) {
+                Font.normalYFont.drawString(g, "Choáng", this.x, y, 2);
+                y -= 13;
+            }
+            if (this.poisoned) {
+                g.tint = POISON_PURPLE;
+                Font.borderFont.drawString(g, "Độc", this.x, y, 2);
+                g.tint = null;
+            }
+        }
         if (PM.curP == this.index) {
             if (CCanvas.gameTick % 10 > 5) {
                 (this.team ? Font.smallFontRed : Font.smallFontYellow).drawString(g, this.name.toUpperCase(), this.x, this.y - 44, 2);
@@ -2334,9 +2357,18 @@ public class CPlayer {
     
     
     private boolean trajCounting;
+    /** Shots left with item 36 "Chỉ kẻ đầu": the whole guide, right up to the target, like the original game. */
+    public static int headGuideShots;
+    private boolean fullGuide;
 
-    /** Aim guide shows only the first 3/4 of the predicted path. */
+    /** Aim guide shows only the first 3/4 of the predicted path (all of it with item 36). */
     private void drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100) {
+        if (headGuideShots > 0 && this == PM.getMyPlayer()) {
+            fullGuide = true;
+            drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
+            fullGuide = false;
+            return;
+        }
         trajCounting = true;
         int frames = drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
         trajCounting = false;
@@ -2356,7 +2388,7 @@ public class CPlayer {
         byte quayLai = -1;
         boolean addTZ = (vx <= 0);
         for (int frame = 0; frame < 1000; frame++, xold = x, yold = y) {
-            if((x < -100) || (x > MM.mapWidth + 100) || (y > MM.mapHeight + 100) || frame >= maxFrames || nearOtherPlayer(x, y)) {
+            if((x < -100) || (x > MM.mapWidth + 100) || (y > MM.mapHeight + 100) || frame >= maxFrames || (!fullGuide && nearOtherPlayer(x, y))) {
                 return frame;
             }
             if (trajCounting) {

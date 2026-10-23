@@ -16,6 +16,10 @@ import java.util.Enumeration;
 public class mGraphics {
     public static int zoomLevel = 1;
     public SpriteBatch g;
+    /** Extra size for the next draws, kept centred (1 = normal); only for unrotated, unflipped regions. */
+    public float drawScale = 1f;
+    /** Colour multiplied into the next draws (null = none), e.g. the purple poison rain. */
+    public com.badlogic.gdx.graphics.Color tint;
     private float r;
     private float gl;
     private float b;
@@ -721,7 +725,15 @@ public class mGraphics {
                 if (!this.beginClip()) return;
             }
 
-            this.g.draw(imgscr, (float) (x_dest - ix * zoomLevel), (float) (y_dest - iy * zoomLevel), (float) orx, (float) ory, (float) width, (float) height, (float) (scX * (!isScale ? zoomLevel : 1)), (float) (scY * (!isScale ? zoomLevel : 1)) + (isScale ? 0.05F : 0.0F), (float) flip, x_src, y_src, width, height, flipX, flipY);
+            float extra = 1f;
+            if (this.drawScale != 1f && !this.isRorate && flip == 0 && !isScale) {
+                extra = this.drawScale;
+                x_dest -= (int) (width * zoomLevel * (extra - 1f) / 2f);
+                y_dest -= (int) (height * zoomLevel * (extra - 1f) / 2f);
+            }
+            if (this.tint != null) this.g.setColor(this.tint);
+            this.g.draw(imgscr, (float) (x_dest - ix * zoomLevel), (float) (y_dest - iy * zoomLevel), (float) orx, (float) ory, (float) width, (float) height, (float) (scX * (!isScale ? zoomLevel : 1)) * extra, ((float) (scY * (!isScale ? zoomLevel : 1)) + (isScale ? 0.05F : 0.0F)) * extra, (float) flip, x_src, y_src, width, height, flipX, flipY);
+            if (this.tint != null) this.g.setColor(com.badlogic.gdx.graphics.Color.WHITE);
             if (this.isClip && isUseSetClip) {
                 this.endClip0();
             }

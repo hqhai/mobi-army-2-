@@ -52,10 +52,14 @@ public class SessionHandler {
                     message.writer().writeShort(glass.equipID[i]);
                 }
             }
-            for (Item item : this.session.user.items) {
-                message.writer().writeByte(item.num);
-                message.writer().writeInt(item.xu);
-                message.writer().writeInt(item.luong);
+            // Every catalog item in id order (the client reads them by position), also ones the player never had.
+            Item[] catalog = Item.entrys.clone();
+            java.util.Arrays.sort(catalog, java.util.Comparator.comparingInt(entry -> entry.id));
+            for (Item entry : catalog) {
+                Item item = this.session.user.getItem(entry.id);
+                message.writer().writeByte(item != null ? item.num : 0);
+                message.writer().writeInt(entry.xu);
+                message.writer().writeInt(entry.luong);
             }
             for (Glass character : this.session.user.glass) {
                 if (character.id > 2) {
@@ -1241,10 +1245,42 @@ public class SessionHandler {
             } else {
                 message.writer().writeByte(0);
             }
+            // LAN (client build 2+): set passives that change the ground, so the client digs the same holes.
+            // Hole size in percent for the shooter's own bullet, then the ground King Kong protects.
+            mobiarmy.war.Player shooter = gun.shooter();
+            int ownBullet = shooter != null ? shooter.bulletIdByGlassID() : -1;
+            message.writer().writeShort(mobiarmy.war.SetPassive.holeScale(shooter, ownBullet));
+            message.writer().writeByte(ownBullet);
+            message.writer().writeByte(gun.mapData.protectedGround.size());
+            for (short[] rect : gun.mapData.protectedGround) {
+                for (short value : rect) message.writer().writeShort(value);
+            }
+            message.writer().writeShort(0); // was Gunner's stack bonus (passive since replaced); kept for the layout
+            message.writer().writeByte(gun.poisonRain ? 1 : 0); // LAN item 38: the client paints the rain purple
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
-    
+
+    /**
+     * LAN, message 114 (older clients ignore it): who is poisoned (heals half, item 38) or stunned (loses a turn, Gunner's
+     * finisher), so the game can write "Độc" or "Choáng" over their heads. Count, then index and both flags per player.
+     */
+    public void status(mobiarmy.war.Player[] players) {
+        try {
+            Message message = new Message(114);
+            int count = 0;
+            for (mobiarmy.war.Player player : players) if (player != null) count++;
+            message.writer().writeByte(count);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeBoolean(player.antiHealTurns > 0);
+                message.writer().writeBoolean(player.stunTurns > 0);
+            }
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
     public void useItem(int index, int itemId) {
         try {
             Message message = new Message(26);

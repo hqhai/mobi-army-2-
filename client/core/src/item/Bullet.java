@@ -1743,7 +1743,10 @@ public class Bullet {
                     if (this.type != 2 && this.type != 11) {
                         this.frmImg.drawFrame(this.curFrame, this.x, this.y, this.trans, 3, g, false);
                     } else if (this.type == 2) {
+                        // Electrician's set passive: his bullets are as much bigger as the holes they dig.
+                        if (map.CMap.holeScaleBullet == 2 && map.CMap.holeScale > 100) g.drawScale = map.CMap.holeScale / 100f;
                         this.frmImg.drawRegionFrame(this.curFrame, this.x, this.y, 0, 3, g, this.idBullet, 2);
+                        g.drawScale = 1f;
                     } else if (this.type == 11) {
                         this.frmImg.drawRegionFrame(this.curFrame, this.x, this.y, 0, 3, g, this.idBullet, 4);
                     }

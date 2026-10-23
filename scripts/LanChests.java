@@ -25,7 +25,9 @@ final class LanChests {
         /** A costume (VIP skin, Thor for Apache); one you already have gets more days instead. */
         SILVER(82, "silver", "Rương bạc", "Mở ra 1 trang phục (skin) ngẫu nhiên của nhân vật đang chọn. Đã có skin đó thì được cộng thêm ngày.", -1, 30, 1.0, 0, true),
         /** Any weapon or gear, already upgraded to +10. */
-        GOLD(83, "gold", "Rương vàng", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +10.", 3_000_000, 300, 0.25, 10, false);
+        GOLD(83, "gold", "Rương vàng", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +10.", 3_000_000, 300, 0.25, 10, false),
+        /** Any weapon or gear, already upgraded to the top level +14. */
+        PLATINUM(84, "platinum", "Rương bạch kim", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +14, cấp cao nhất.", 30_000_000, 3000, 0.25, 14, false);
 
         final int id;
         final String key;

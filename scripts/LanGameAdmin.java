@@ -226,6 +226,52 @@ public final class LanGameAdmin {
         });
     }
 
+    // --- balance: win rates from real matches (MapData.endTheWar writes them) ------------------
+
+    /** LAN items 36-38 (client build 3+): Chỉ kẻ đầu, Bê tông cốt thép, Cơn mưa độc. */
+    static final int HEAD_GUIDE_ITEM = 36;
+
+    static void ensureItems(Connection conn) throws SQLException {
+        try (PreparedStatement insert = conn.prepareStatement("INSERT INTO item (id, name, xu, luong, carryable) SELECT ?, ?, ?, -1, 1"
+                + " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM item WHERE id = ?)")) {
+            Object[][] items = {
+                {HEAD_GUIDE_ITEM, "Chỉ kẻ đầu", 600},
+                {37, "Bê tông cốt thép", 500}, // ground under you cannot be dug for 2 rounds (MapData.useItem)
+                {38, "Cơn mưa độc", 700}, // purple Sao băng; hit players heal half as much for 3 turns
+            };
+            for (Object[] item : items) {
+                insert.setInt(1, (Integer) item[0]);
+                insert.setString(2, (String) item[1]);
+                insert.setInt(3, (Integer) item[2]);
+                insert.setInt(4, (Integer) item[0]);
+                insert.executeUpdate();
+            }
+        }
+    }
+
+    static void ensureMatchResults(Connection conn) throws SQLException {
+        try (java.sql.Statement create = conn.createStatement()) {
+            create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_match_result (id INT AUTO_INCREMENT PRIMARY KEY,"
+                    + " played_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, glass_id TINYINT NOT NULL,"
+                    + " set_tier TINYINT NOT NULL, rules TINYINT NOT NULL, players TINYINT NOT NULL, result TINYINT NOT NULL)");
+        }
+    }
+
+    /** Matches, wins, draws and losses per character, split into with and without a full +14 set. */
+    List<Map<String, Object>> balance() throws SQLException {
+        return query("SELECT g.id, g.name, r.set_tier > 0 AS passive, COUNT(r.id) AS matches,"
+                + " COALESCE(SUM(r.result = 1), 0) AS wins, COALESCE(SUM(r.result = 0), 0) AS draws, COALESCE(SUM(r.result = -1), 0) AS losses"
+                + " FROM glass g LEFT JOIN lan_match_result r ON r.glass_id = g.id"
+                + " GROUP BY g.id, g.name, passive ORDER BY g.id, passive", rs -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", rs.getInt("id"));
+            row.put("name", rs.getString("name"));
+            row.put("passive", rs.getInt("passive") == 1);
+            for (String column : new String[] {"matches", "wins", "draws", "losses"}) row.put(column, rs.getInt(column));
+            return row;
+        });
+    }
+
     // --- catalogs -----------------------------------------------------------------------------
 
     List<Map<String, Object>> characters() throws SQLException {

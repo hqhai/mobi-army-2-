@@ -95,8 +95,10 @@
         var node = el('span', {className: 'sprite'});
         node.style.width = '16px';
         node.style.height = '16px';
-        node.style.backgroundImage = 'url(../img/items.png)';
-        node.style.backgroundPosition = '0 -' + (id + 2) * 16 + 'px';
+        // LAN items 36-38 are not in the game's strip; each has its own icon.
+        var own = id >= 36 && id <= 38;
+        node.style.backgroundImage = own ? 'url(../img/item' + id + '.png)' : 'url(../img/items.png)';
+        node.style.backgroundPosition = own ? '0 0' : '0 -' + (id + 2) * 16 + 'px';
         node.style.zoom = scale;
         return node;
     }
@@ -311,6 +313,14 @@
         renderPoints();
     });
 
+    $('points-refund').addEventListener('click', async function () {
+        var c = state.profile.character;
+        if (!await confirmBuy('Đặt lại tiềm năng của ' + c.name + '? Toàn bộ điểm đã cộng được trả lại để bạn cộng lại từ đầu.',
+            el('span'), 'Đặt lại')) return;
+        state.pending = [0, 0, 0, 0, 0];
+        run(function () { return api('POST', 'points/reset'); });
+    });
+
     $('points-save').addEventListener('click', function () {
         var add = state.pending.slice();
         run(function () { return api('POST', 'points', {add: add}); }, cheer);
@@ -333,24 +343,145 @@
         return 'còn ' + item.days + ' ngày';
     }
 
+    // Mirrors SetPassive on the server: set = last word of the gear's name, every piece +14.
+    var SET_NAMES = ['1', '2', '3', '4', 'bạc', 'vàng'];
+    var SET_LABELS = ['bộ 1', 'bộ 2', 'bộ 3', 'bộ 4', 'bộ bạc', 'bộ vàng'];
+    var SET_STRENGTH = [50, 60, 70, 80, 90, 100];
+
+    /**
+     * Set passives per character id, mirroring mobiarmy.war.SetPassive. detail(s) words the effect at strength s
+     * (percent of the full gold-set passive).
+     */
+    function scaledText(full, s) { return Math.round(full * s / 100); }
+    var PASSIVES = {
+        0: {name: 'Đòn kết liễu', detail: function (s) {
+            return 'Bắn càng gần càng đau: sát thương +' + scaledText(30, s) + '% khi bắn sát đối thủ, giảm dần theo khoảng cách, còn −' + scaledText(20, s)
+                + '% khi cách từ 600 điểm ảnh trở lên. Đòn POW (thanh nộ đầy) luôn gặp may mắn (chí mạng). '
+                + 'Kết hợp vật phẩm "Chỉ kẻ đầu": trong 2 phát có vật phẩm, đạn Gunner gây vụ nổ lớn (hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN')
+                + ' lần), đối thủ trúng đòn bị choáng và mất lượt bắn kế tiếp (chữ "Choáng" hiện trên đầu).';
+        }},
+        1: {name: 'Mũi tên thứ ba', detail: function (s) {
+            return 'Cứ mỗi phát trúng đối thủ thứ 3 gây sát thương chuẩn: bỏ qua toàn bộ phòng thủ, không bị may mắn cứu, và chắc chắn chí mạng x'
+                + (1 + scaledText(50, s) / 100).toLocaleString('vi-VN') + '. Bắn trượt không tính; trúng đồng đội không tính.';
+        }},
+        2: {name: 'Đục đất', detail: function (s) {
+            return 'Đạn của Electrician to hơn ' + scaledText(50, s) + '% và đục hố rộng hơn ' + scaledText(50, s)
+                + '%. Chuyên phá địa hình, làm đối thủ rơi khỏi map. Vật phẩm vẫn đục như thường.';
+        }},
+        3: {name: 'Bàn thạch', detail: function (s) {
+            return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(10, s) + '% sát thương nhận vào, tối đa ' + scaledText(30, s)
+                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
+        }},
+        4: {name: 'Nạp liệu', detail: function (s) {
+            return 'Mọi phát bắn gây thêm ' + scaledText(25, s) + '% sát thương.';
+        }},
+        5: {name: 'Bom phá đất', detail: function (s) {
+            return 'Đạn của Granos đục hố rộng gấp ' + (1 + scaledText(200, s) / 100).toLocaleString('vi-VN')
+                + ' lần, chuyên đào hố cho đối thủ rơi. Sát thương giữ như thường; vật phẩm vẫn đục như thường.';
+        }},
+        6: {name: 'Gà thần', detail: function (s) {
+            return 'Cứ phát bắn thứ 4 (4, 8, 12…): trứng tự rơi trúng đối thủ, không cần căn lực 2, và đối thủ trúng đòn bị đóng băng 1 lượt (không di chuyển được).'
+                + (s < 100 ? ' Bộ thấp vẫn có đủ hiệu ứng này.' : '');
+        }},
+        7: {name: 'Đu dây', detail: function (s) {
+            return 'Giảm ' + scaledText(12, s) + '% mọi sát thương nhận vào.';
+        }},
+        8: {name: 'Không có', detail: function () {
+            return 'Apache không có nội tại: chỉ số gốc đã mạnh sẵn. Bộ +14 vẫn cho chỉ số cao.';
+        }},
+        9: {name: 'Miễn gió', detail: function (s) {
+            return 'Mọi phát bắn chỉ chịu ' + (100 - scaledText(100, s)) + '% sức gió' + (s >= 100 ? ' (hoàn toàn không bị gió ảnh hưởng)' : '')
+                + ', cả tia laser lẫn vật phẩm. Trong lượt của bạn, chỉ số gió hiện trên màn hình cũng đã giảm theo, nên đường ngắm khớp đường bay thật.';
+        }}
+    };
+
+    /** Set tier 1..6 of a full +14 set among the worn gear, or 0, with what is still missing. */
+    function setStatus(worn) {
+        var pieces = worn.filter(function (item) { return !item.vip && item.type >= 0 && item.type <= 4; });
+        var sets = pieces.map(function (item) { return SET_NAMES.indexOf(item.name.split(' ').pop()); });
+        var set = sets.length ? sets[0] : -1;
+        var sameSet = set >= 0 && sets.every(function (s) { return s === set; });
+        var maxed = pieces.filter(function (item) { return (item.plus || 0) >= 14; }).length;
+        var need = [];
+        if (pieces.length < 5) need.push('mặc đủ 5 món (đang ' + pieces.length + ')');
+        if (pieces.length && !sameSet) need.push('cùng một bộ');
+        if (maxed < 5) need.push('cả 5 món +14 (đang ' + maxed + '/5)');
+        return {tier: need.length ? 0 : set + 1, need: need};
+    }
+
+    /** Chỉ số tab: this character's set passive, at the strength of the set worn now (or the full one). */
+    function renderPassive() {
+        var c = state.profile.character;
+        var passive = PASSIVES[c.id];
+        var box = $('passive-box');
+        if (!passive) { box.hidden = true; return; }
+        var status = setStatus(state.profile.bag.filter(function (item) { return item.inUse; }));
+        var strength = status.tier ? SET_STRENGTH[status.tier - 1] : 100;
+        var rows = SET_LABELS.map(function (label, i) {
+            return el('tr', {className: status.tier === i + 1 ? 'current' : ''}, [
+                el('td', {text: 'Full ' + label + ' +14'}),
+                el('td', {text: SET_STRENGTH[i] + '%'}),
+                el('td', {text: passive.detail(SET_STRENGTH[i])})
+            ]);
+        });
+        box.replaceChildren(
+            el('h3', null, [el('span', {text: 'Nội tại bộ +14: '}), el('b', {className: 'passive-name', text: passive.name})]),
+            el('p', {className: 'passive-state' + (status.tier ? ' on' : ''), text: status.tier
+                ? 'Đang kích hoạt với full ' + SET_LABELS[status.tier - 1] + ' +14 (' + strength + '% sức mạnh).'
+                : 'Chưa kích hoạt: cần ' + status.need.join(', ') + '. Mô tả dưới đây là mức của full bộ vàng +14.'}),
+            el('p', {className: 'passive-detail', text: passive.detail(strength)}),
+            el('p', {className: 'hint', text: 'Kích hoạt khi mặc đủ súng, nón, áo, kính, balo cùng một bộ (1, 2, 3, 4, bạc hoặc vàng) và cả 5 món đều +14. '
+                + 'Trang phục (skin) mặc thêm không ảnh hưởng. Bộ càng cao nội tại càng mạnh. Không có tác dụng ở phòng luật Sát thương gốc.'}),
+            el('details', {className: 'passive-sets'}, [
+                el('summary', {text: 'Sức mạnh theo từng bộ'}),
+                el('div', {className: 'table-scroll'}, [el('table', {className: 'upgrade-table'}, [
+                    el('thead', null, [el('tr', null, ['Bộ', 'Sức mạnh', 'Hiệu ứng'].map(function (h) { return el('th', {text: h}); }))]),
+                    el('tbody', null, rows)
+                ])])
+            ])
+        );
+        box.hidden = false;
+    }
+
+    /** Sum of what the worn gear adds, and how close it is to a full +14 set (the set passive). */
+    function renderWornSummary(worn) {
+        var box = $('worn-summary');
+        var ability = [0, 0, 0, 0, 0], percent = [0, 0, 0, 0, 0];
+        worn.forEach(function (item) {
+            for (var i = 0; i < 5; i++) { ability[i] += item.ability[i] || 0; percent[i] += item.percent[i] || 0; }
+        });
+        var total = statTags({ability: ability, percent: percent});
+        var status = setStatus(worn);
+        var passive = PASSIVES[state.profile.character.id];
+        var title = passive ? '"' + passive.name + '"' : '';
+        var line = status.tier
+            ? el('p', {className: 'set-line on', text: 'Nội tại ' + title + ' đã kích hoạt: full ' + SET_LABELS[status.tier - 1] + ' +14 (' + SET_STRENGTH[status.tier - 1] + '% sức mạnh). Chi tiết ở tab Chỉ số.'})
+            : el('p', {className: 'set-line', text: 'Nội tại ' + title + ' bộ +14: cần ' + status.need.join(', ') + '. Chi tiết ở tab Chỉ số.'});
+        box.replaceChildren(el('b', {text: 'Đồ đang mặc cộng tổng cộng'}), total, line);
+        box.hidden = !worn.length;
+    }
+
     function renderBag() {
         var p = state.profile;
         var slots = $('slots');
         slots.replaceChildren();
-        SLOTS.forEach(function (label, type) {
-            var worn = p.bag.find(function (item) { return item.inUse && !item.vip && item.type === type; });
-            slots.append(el('div', {className: 'slot' + (worn ? ' filled' : '')}, [
+        var wornGear = [];
+        function wornSlot(label, worn) {
+            if (worn) wornGear.push(worn);
+            var plus = worn && worn.plus ? worn.plus : 0;
+            return el('div', {className: 'slot' + (worn ? ' filled' : '') + (plus ? ' upgrade-card tier-' + tier(plus) : '')}, [
                 el('b', {text: label}),
-                worn ? gear(worn, 44) : el('span', {className: 'thumb small'}),
-                el('span', {text: worn ? worn.name : 'Chưa mặc'})
-            ]));
+                worn ? aura(worn, 44) : el('span', {className: 'thumb small'}),
+                el('span', {className: 'slot-name', text: worn ? worn.name + (plus ? ' +' + plus : '') : 'Chưa mặc'}),
+                worn ? statTags(worn) : null
+            ]);
+        }
+        SLOTS.forEach(function (label, type) {
+            slots.append(wornSlot(label, p.bag.find(function (item) { return item.inUse && !item.vip && item.type === type; })));
         });
         var vip = p.bag.find(function (item) { return item.inUse && item.vip; });
-        if (p.bag.some(function (item) { return item.vip; })) {
-            slots.append(el('div', {className: 'slot' + (vip ? ' filled' : '')}, [
-                el('b', {text: 'VIP'}), vip ? gear(vip, 44) : el('span', {className: 'thumb small'}), el('span', {text: vip ? vip.name : 'Chưa mặc'})
-            ]));
-        }
+        if (p.bag.some(function (item) { return item.vip; })) slots.append(wornSlot('VIP', vip));
+        renderWornSummary(wornGear);
         $('bag-count').textContent = '(' + p.bagSize + '/' + p.bagLimit + ' món, đang xem đồ của ' + p.character.name + ')';
         var keys = p.bag.map(function (item) { return item.dbKey; });
         state.sellPick = new Set(Array.from(state.sellPick).filter(function (key) { return keys.indexOf(key) !== -1; }));
@@ -536,6 +667,7 @@
             {name: 'Đồng đội', value: number.format(s[4]), note: 'Góp ' + number.format(Math.floor(s[4] / 200)) + ' vào quỹ đồng đội của đội'}
         ];
         renderRules(state.profile.rules, c, s, reduce, luck);
+        renderPassive();
         var box = $('final-stats');
         box.replaceChildren();
         cards.forEach(function (card, i) {
@@ -588,20 +720,27 @@
         );
     }
 
-    // --- upgrade (+1 to +12) -------------------------------------------------------------------
+    // --- upgrade (+1 to +14) -------------------------------------------------------------------
 
-    // Mirrors the server tables in LanPlayerGame (index = target level).
+    // Mirrors the server tables in LanPlayerGame (index = target level; rate in tenths of a percent).
     var UPGRADE = {
-        rate: [0, 100, 92, 84, 75, 67, 59, 51, 43, 35, 26, 18, 10],
-        xu: [0, 5000, 9000, 16000, 29000, 52000, 94000, 170000, 306000, 551000, 992000, 1785000, 3213000],
-        luong: [0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320],
-        stones: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        bonus: [0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26]
+        rate: [0, 1000, 900, 800, 700, 600, 500, 400, 320, 250, 180, 120, 80, 2, 1],
+        pity: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 500, 1000],
+        xu: [0, 5000, 9000, 16000, 29000, 52000, 94000, 170000, 306000, 551000, 992000, 1785000, 3213000, 5784000, 10411000],
+        luong: [0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320, 640, 1280],
+        stones: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        bonus: [0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26, 31, 37]
     };
     var STONE_ID = 80;
+    // Mirrors LanPlayerGame.Insurance: keeps the level on a failed try up to upTo.
+    var INSURANCE = [
+        {id: 88, name: 'Bảo hiểm sơ cấp', upTo: 9},
+        {id: 89, name: 'Bảo hiểm trung cấp', upTo: 12},
+        {id: 90, name: 'Bảo hiểm cao cấp', upTo: 14}
+    ];
 
     function tier(plus) {
-        return plus >= 11 ? 4 : plus >= 8 ? 3 : plus >= 5 ? 2 : plus >= 1 ? 1 : 0;
+        return plus >= 14 ? 6 : plus >= 13 ? 5 : plus >= 11 ? 4 : plus >= 8 ? 3 : plus >= 5 ? 2 : plus >= 1 ? 1 : 0;
     }
 
     /** Gear picture inside a frame whose colour and animation follow the upgrade level. */
@@ -610,7 +749,7 @@
         var wrap = el('span', {className: 'aura tier-' + tier(plus)}, [gear(item, box)]);
         if (plus > 0) wrap.append(el('span', {className: 'plus-badge tier-' + tier(plus), text: '+' + plus}));
         if (tier(plus) >= 3) {
-            for (var i = 0; i < (tier(plus) === 4 ? 6 : 4); i++) {
+            for (var i = 0; i < (tier(plus) >= 4 ? 6 + (tier(plus) - 4) * 2 : 4); i++) {
                 var spark = el('span', {className: 'spark'});
                 spark.style.setProperty('--i', i);
                 wrap.append(spark);
@@ -619,9 +758,70 @@
         return wrap;
     }
 
+    function specialCount(id) {
+        var owned = state.profile.specials.find(function (item) { return item.id === id; });
+        return owned ? owned.num : 0;
+    }
+
     function stoneCount() {
-        var stone = state.profile.specials.find(function (item) { return item.id === STONE_ID; });
-        return stone ? stone.num : 0;
+        return specialCount(STONE_ID);
+    }
+
+    function ratePercent(tenths) {
+        return chanceFormat.format(tenths / 10) + '%';
+    }
+
+    /**
+     * Focus on the item: everything is sucked into it in a swirl of its rarity colour for 1 second, or 2 when the
+     * server says a +12 or higher try succeeded (it holds the next try as long). Returns {until, reveal, stop}:
+     * reveal bursts out in the new level's colour on success or grey on failure, then clears the screen.
+     */
+    function swirl(item) {
+        var ms = 1000;
+        var target = item.plus + 1;
+        var burst = el('div', {className: 'focus-burst'});
+        var label = el('p', {className: 'focus-text', text: '+' + item.plus + ' → +' + target});
+        // Motes spiral in from all around (sucked into the item), then fly out again with the result.
+        var motes = [];
+        for (var i = 0; i < 24; i++) {
+            var mote = el('span', {className: 'focus-mote'});
+            mote.style.setProperty('--a', (i * 15) + 'deg');
+            mote.style.setProperty('--d', (-(i % 6) * 0.12) + 's');
+            mote.style.setProperty('--r', (120 + (i % 4) * 18) + 'px');
+            motes.push(mote);
+        }
+        var stage = el('div', {className: 'focus-stage tier-' + tier(item.plus || 1)}, [
+            el('div', {className: 'focus-swirl'}),
+            el('div', {className: 'focus-motes'}, motes),
+            el('div', {className: 'focus-wave'}),
+            burst,
+            el('div', {className: 'focus-item'}, [aura(item, 80)]),
+            label
+        ]);
+        var layer = el('div', {className: 'focus-layer', role: 'status', 'aria-live': 'polite'}, [stage]);
+        layer.style.setProperty('--spin-ms', ms + 'ms');
+        document.body.append(layer);
+        var started = Date.now();
+        function stop() { layer.remove(); }
+        return {
+            // Resolves when the swirl has run for the given time; a longer one charges up harder for the extra time.
+            until: function (total) {
+                if (total > ms) setTimeout(function () { stage.classList.add('focus-charged'); }, ms);
+                return new Promise(function (resolve) { setTimeout(resolve, Math.max(0, started + total - Date.now())); });
+            },
+            stop: stop,
+            reveal: function (outcome) {
+                stage.classList.add(outcome.success ? 'focus-win' : 'focus-lose');
+                if (outcome.success) {
+                    stage.className = stage.className.replace(/tier-\d/, 'tier-' + tier(outcome.to));
+                    label.textContent = 'Thành công +' + outcome.to;
+                    cheer();
+                } else {
+                    label.textContent = outcome.to < outcome.from ? 'Thất bại · tụt về +' + outcome.to : 'Thất bại · giữ +' + outcome.to;
+                }
+                return new Promise(function (resolve) { setTimeout(function () { stop(); resolve(); }, 1100); });
+            }
+        };
     }
 
     function renderUpgrade() {
@@ -635,30 +835,60 @@
             var next = item.next;
             var body;
             if (!next) {
-                body = el('p', {className: 'note-line max-line', text: 'Đã đạt cấp tối đa +12'});
+                body = el('p', {className: 'note-line max-line', text: 'Đã đạt cấp tối đa +14'});
             } else {
                 var short = [];
                 if (stones < next.stones) short.push('thiếu ' + (next.stones - stones) + ' đá');
                 if (state.profile.xu < next.xu) short.push('thiếu xu');
                 if (state.profile.luong < next.luong) short.push('thiếu lượng');
+                // Insurance only matters where a failed try would drop a level.
+                var picker = null;
+                var usable = next.dropOnFail ? INSURANCE.filter(function (kind) {
+                    return kind.upTo >= item.plus + 1 && specialCount(kind.id) > 0;
+                }) : [];
+                if (usable.length) {
+                    picker = el('select', {className: 'insurance-pick', 'aria-label': 'Bảo hiểm'},
+                        [el('option', {value: '0', text: 'Không dùng bảo hiểm'})].concat(usable.map(function (kind) {
+                            return el('option', {value: String(kind.id), text: kind.name + ' (còn ' + specialCount(kind.id) + ')'});
+                        })));
+                } else if (next.dropOnFail) {
+                    var fits = INSURANCE.filter(function (kind) { return kind.upTo >= item.plus + 1; })[0];
+                    if (fits) picker = el('span', {className: 'note-line', text: 'Mua ' + fits.name + ' (Cửa hàng → Đồ đặc biệt) để thất bại không bị tụt cấp.'});
+                }
                 body = el('div', null, [
                     el('div', {className: 'upgrade-cost'}, [
-                        el('span', {className: 'rate tier-' + tier(item.plus + 1), text: next.rate + '%'}),
+                        el('span', {className: 'rate tier-' + tier(item.plus + 1), text: ratePercent(next.rate)}),
+                        next.pity ? el('span', {className: 'note-line', text: 'Chắc chắn thành công ở lần thứ ' + next.pity + ' · đã đập ' + next.fails + '/' + next.pity}) : null,
                         el('span', {text: 'Lên +' + (item.plus + 1) + ' · mỗi chỉ số +' + next.bonus}),
                         el('span', {text: priceLabel(next.xu, 'xu') + (next.luong ? ' · ' + priceLabel(next.luong, 'luong') : '') + ' · ' + next.stones + ' đá'}),
                         next.dropOnFail ? el('span', {className: 'warn-text', text: 'Thất bại tụt về +' + (item.plus - 1)}) : null
                     ]),
+                    picker,
                     el('div', {className: 'card-actions'}, [
                         short.length ? el('span', {className: 'note-line', text: short.join(', ')}) : null,
                         el('button', {
                             type: 'button', className: 'buy upgrade-btn tier-' + tier(item.plus + 1), text: 'Nâng cấp', disabled: short.length > 0,
                             onclick: async function () {
-                                var text = 'Nâng ' + item.name + ' lên +' + (item.plus + 1) + '? Tỉ lệ ' + next.rate + '%, tốn '
-                                    + priceLabel(next.xu, 'xu') + (next.luong ? ', ' + priceLabel(next.luong, 'luong') : '') + ' và ' + next.stones + ' đá.'
-                                    + (next.dropOnFail ? ' Thất bại sẽ tụt 1 cấp.' : '');
+                                var insurance = picker && picker.tagName === 'SELECT' ? Number(picker.value) : 0;
+                                var kind = INSURANCE.find(function (k) { return k.id === insurance; });
+                                var text = 'Nâng ' + item.name + ' lên +' + (item.plus + 1) + '? Tỉ lệ ' + ratePercent(next.rate) + ', tốn '
+                                    + priceLabel(next.xu, 'xu') + (next.luong ? ', ' + priceLabel(next.luong, 'luong') : '') + ' và ' + next.stones + ' đá'
+                                    + (kind ? ', 1 ' + kind.name + '. Thất bại vẫn giữ cấp.' : '.' + (next.dropOnFail ? ' Thất bại sẽ tụt 1 cấp.' : ''));
                                 if (!await confirmBuy(text, aura(item, 64), 'Nâng cấp')) return;
-                                var result = await run(function () { return api('POST', 'upgrade', {dbKey: item.dbKey}); });
-                                if (result && result.upgrade) celebrate(result.upgrade);
+                                // The server answers at once but the result shows when the swirl ends.
+                                var spin = swirl(item);
+                                var result = null;
+                                try {
+                                    result = await api('POST', 'upgrade', {dbKey: item.dbKey, insurance: insurance});
+                                } catch (error) {
+                                    spin.stop();
+                                    toast(error.message, true);
+                                    return;
+                                }
+                                await spin.until(result.upgrade ? result.upgrade.spinMs : 0);
+                                if (result.upgrade) await spin.reveal(result.upgrade); else spin.stop();
+                                if (result.character) setProfile(result);
+                                if (result.message) toast(result.message);
                             }
                         })
                     ])
@@ -685,40 +915,18 @@
         table.append(el('thead', null, [el('tr', null, ['Cấp', 'Tỉ lệ', 'Xu', 'Lượng', 'Đá', 'Cộng mỗi chỉ số', 'Thất bại']
             .map(function (h) { return el('th', {text: h}); }))]));
         var tbody = el('tbody');
-        for (var n = 1; n <= 12; n++) {
+        for (var n = 1; n <= UPGRADE.rate.length - 1; n++) {
             tbody.append(el('tr', null, [
                 el('td', null, [el('span', {className: 'plus-badge tier-' + tier(n), text: '+' + n})]),
-                el('td', {text: UPGRADE.rate[n] + '%'}),
+                el('td', {text: ratePercent(UPGRADE.rate[n]) + (UPGRADE.pity[n] ? ' (chắc chắn ở lần ' + UPGRADE.pity[n] + ')' : '')}),
                 el('td', {text: number.format(UPGRADE.xu[n])}),
                 el('td', {text: UPGRADE.luong[n] ? number.format(UPGRADE.luong[n]) : '–'}),
                 el('td', {text: UPGRADE.stones[n]}),
                 el('td', {text: '+' + UPGRADE.bonus[n] + ' (tổng)'}),
-                el('td', {text: n >= 8 ? 'tụt 1 cấp' : 'giữ cấp'})
+                el('td', {text: n >= 8 ? 'tụt 1 cấp (trừ khi có bảo hiểm)' : 'giữ cấp'})
             ]));
         }
         table.append(tbody);
-    }
-
-    /** Burst of light on success, a shake and grey puff on failure, over the card that was upgraded. */
-    function celebrate(outcome) {
-        var card = document.querySelector('.upgrade-card[data-key="' + outcome.dbKey + '"]');
-        if (!card) return;
-        var fx = el('div', {className: 'upgrade-fx ' + (outcome.success ? 'win tier-' + tier(outcome.to) : 'lose')});
-        if (outcome.success) {
-            for (var i = 0; i < 14; i++) {
-                var ray = el('span', {className: 'ray'});
-                ray.style.setProperty('--a', (i * 360 / 14) + 'deg');
-                fx.append(ray);
-            }
-            fx.append(el('b', {className: 'fx-text', text: '+' + outcome.to}));
-        } else {
-            fx.append(el('b', {className: 'fx-text', text: outcome.to < outcome.from ? '−1' : 'Hụt'}));
-            card.classList.add('shake');
-            setTimeout(function () { card.classList.remove('shake'); }, 600);
-        }
-        card.append(fx);
-        setTimeout(function () { fx.remove(); }, 1600);
-        if (outcome.success) cheer();
     }
 
     // --- gems (khảm ngọc) ----------------------------------------------------------------------
@@ -1015,7 +1223,8 @@
     var CHEST_COLOURS = {
         bronze: {o: '#2b1608', W: '#8a5a2b', w: '#a8743d', V: '#6b4220', T: '#cd7f32', t: '#f0a860', U: '#8c5220', K: '#2b1608'},
         silver: {o: '#1e2530', W: '#4b5a70', w: '#61728a', V: '#39465a', T: '#c9d3df', t: '#ffffff', U: '#8a97a8', K: '#1e2530'},
-        gold: {o: '#3a1406', W: '#a0302a', w: '#c4473d', V: '#7a221d', T: '#f5c542', t: '#fff3a0', U: '#c08a1a', K: '#3a1406'}
+        gold: {o: '#3a1406', W: '#a0302a', w: '#c4473d', V: '#7a221d', T: '#f5c542', t: '#fff3a0', U: '#c08a1a', K: '#3a1406'},
+        platinum: {o: '#1b2a36', W: '#5d7d93', w: '#7fa3ba', V: '#3e5a6e', T: '#e8fbff', t: '#ffffff', U: '#9fd8ec', K: '#1b2a36'}
     };
     var SVG_NS = 'http://www.w3.org/2000/svg';
     var chanceFormat = new Intl.NumberFormat('vi-VN', {maximumFractionDigits: 2});

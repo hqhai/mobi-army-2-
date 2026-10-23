@@ -144,6 +144,11 @@ Server chỉ cho đăng nhập client từ **bản LAN** nó yêu cầu trở l�
 
 ## Thay đổi bản LAN
 
+- Nâng cấp +1..+14 trên web (`LanPlayerGame`): +13 tỉ lệ 1/500, +14 tỉ lệ 1/1000, chắc chắn thành công ở lần thứ 500/1000 (bảng `lan_upgrade_pity`); bảo hiểm sơ/trung/cao cấp (đồ đặc biệt 88-90) giữ cấp khi thất bại; hiệu ứng vòng xoáy 1 giây (2 giây khi thành công từ +12), server chặn bấm liên tục. Rương bạch kim (đồ đặc biệt 84) ra đồ +14. Kiểm tra: `scripts/tests/UpgradeTableCheck.java`.
+- Nội tại bộ +14 (`server/src/mobiarmy/war/SetPassive.java`): đủ 5 món cùng bộ, cùng +14; bộ 1 được 50% sức mạnh, bộ vàng 100%. Gunner Đòn kết liễu (gần đau xa nhẹ, POW chắc may mắn, với "Chỉ kẻ đầu" thì nổ lớn và choáng mất lượt), Miss 6 phát trúng thứ 3 sát thương chuẩn, Electrician/Granos hố to hơn, King Kong đứng yên giảm sát thương và giữ đất, Rocketer +25%, Chicky phát thứ 4 chắc trúng và đóng băng, Tarzan giảm sát thương nhận, Magenta miễn gió. Kiểm tra: `scripts/tests/SetPassiveCheck.java`. Tỉ lệ thắng từng nhân vật ghi vào `lan_match_result`, xem ở trang admin → Cân bằng.
+- Vật phẩm mới 36 Chỉ kẻ đầu, 37 Bê tông cốt thép, 38 Cơn mưa độc (client bản LAN 3 trở lên). Chữ "Độc"/"Choáng" trên đầu nhân vật (tin nhắn 114).
+- Trang Nhân vật: đồ đang mặc hiện cấp +N và chỉ số, mô tả nội tại ở tab Chỉ số, đặt lại tiềm năng miễn phí.
+- Luyện tập: chọn map bằng chat `map N`; nội tại bộ +14 có tác dụng. Phím C/Ctrl mở chat. Gói client cho macOS (`MobiArmy2-Mac.tar.gz`).
 - Cấu hình địa chỉ server qua `army.host` / `army.port`, chạy desktop bằng Java portable.
 - Thêm trang đăng ký tài khoản trên web (cổng 8123) để người chơi không phải nhờ admin tạo tài khoản.
 - Thêm trang quản trị `/admin/`: cộng xu/lượng, tăng cấp cho người chơi; sửa giá và chỉ số nhân vật, đồ.

@@ -435,6 +435,7 @@ public class GameScr extends CScreen {
     }
 
     public void initGame(byte MapID, byte timeInterval, short[] playerX, short[] playerY, short[] maxHP, int team) {
+        CPlayer.headGuideShots = 0; // item 36 never carries over to the next match
         desktopCameraMode = false;
         desktopCameraToggleHeld = false;
         desktopKeys.clear();

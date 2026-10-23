@@ -75,6 +75,26 @@ final class LanPlayerGame {
         });
     }
 
+    /** Gives back every stat point spent on the selected character: stats go back to the character's defaults. */
+    Map<String, Object> resetPoints(int userId, String username) throws Exception {
+        return game.call(() -> {
+            User user = player(userId, username);
+            requireFree(user);
+            Glass glass = user.glass();
+            int[] base = Glass.entrys[glass.id].ability;
+            int spent = 0;
+            for (int i = 0; i < 5; i++) spent += Math.max(0, glass.ability[i] - base[i]);
+            if (spent == 0) throw new LanApi.BadRequest(glass.name + " chưa cộng điểm nào để đặt lại.");
+            glass.ability = base.clone();
+            glass.point += spent;
+            glass.updateAll();
+            if (user.session != null) user.session.sessionHandler.loadInfo();
+            Server.requestSave();
+            log(user, "reset " + spent + " stat points on " + glass.name);
+            return done(user, "Đã đặt lại tiềm năng của " + glass.name + ": trả lại " + spent + " điểm, giờ có " + glass.point + " điểm để cộng.");
+        });
+    }
+
     Map<String, Object> wear(int userId, String username, int dbKey) throws Exception {
         return game.call(() -> {
             User user = player(userId, username);
@@ -463,7 +483,7 @@ final class LanPlayerGame {
             int rate = 100 - ((gem.id + 1) % 10) * 10;
             int tries = amount / 5, success = 0;
             for (int i = 0; i < tries; i++) {
-                if (Util.nextInt(1, 100) <= rate) {
+                if (Util.nextInt(1, 101) <= rate) {
                     success++;
                     user.addLinhTinh(gem.id, -5);
                     user.addLinhTinh(gem.id + 1, 1);
@@ -482,28 +502,129 @@ final class LanPlayerGame {
         });
     }
 
-    // --- upgrade (+1 to +12) -------------------------------------------------------------------
+    // --- upgrade (+1 to +14) -------------------------------------------------------------------
 
-    static final int MAX_PLUS = 12;
+    static final int MAX_PLUS = 14;
     /** Special item used as upgrade stone; its icon is server/res/icon/item/80.png. */
     static final int STONE_ID = 80;
-    /** Index = target level. Success rate falls evenly from 100% at +1 to 10% at +12. */
-    static final int[] UPGRADE_RATE = {0, 100, 92, 84, 75, 67, 59, 51, 43, 35, 26, 18, 10};
-    static final int[] UPGRADE_XU = {0, 5_000, 9_000, 16_000, 29_000, 52_000, 94_000, 170_000, 306_000, 551_000, 992_000, 1_785_000, 3_213_000};
-    static final int[] UPGRADE_LUONG = {0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320};
-    static final int[] UPGRADE_STONES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+    /** Index = target level, in tenths of a percent. Money is plentiful on the LAN server, so the rate is what makes the top levels rare. */
+    static final int[] UPGRADE_RATE = {0, 1000, 900, 800, 700, 600, 500, 400, 320, 250, 180, 120, 80, 2, 1};
+    /** Success chance is UPGRADE_RATE[level] out of this many. */
+    static final int RATE_SCALE = 1000;
+    /** +13 and +14 never take more than this many tries in a row: the last one always succeeds. */
+    static final int[] UPGRADE_PITY = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 500, 1000};
+    static final int[] UPGRADE_XU = {0, 5_000, 9_000, 16_000, 29_000, 52_000, 94_000, 170_000, 306_000, 551_000, 992_000, 1_785_000, 3_213_000, 5_784_000, 10_411_000};
+    static final int[] UPGRADE_LUONG = {0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320, 640, 1280};
+    static final int[] UPGRADE_STONES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
     /** Total points added to each stat the item has at a given level (stored in level2). */
-    static final int[] UPGRADE_BONUS = {0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26};
+    static final int[] UPGRADE_BONUS = {0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26, 31, 37};
     /** From this level a failed try drops the item one level. */
     static final int DROP_FROM = 7;
 
-    Map<String, Object> upgrade(int userId, String username, int dbKey) throws Exception {
+    /** Upgrade insurance: special items that keep the level on a failed try, each up to a target level. */
+    enum Insurance {
+        BASIC(88, "Bảo hiểm sơ cấp", 9, 50_000, 20),
+        MEDIUM(89, "Bảo hiểm trung cấp", 12, 300_000, 100),
+        HIGH(90, "Bảo hiểm cao cấp", 14, 2_000_000, 500);
+
+        final int id;
+        final String name;
+        final int upTo;
+        final int xu;
+        final int luong;
+
+        Insurance(int id, String name, int upTo, int xu, int luong) {
+            this.id = id;
+            this.name = name;
+            this.upTo = upTo;
+            this.xu = xu;
+            this.luong = luong;
+        }
+
+        static Insurance of(int id) {
+            for (Insurance insurance : values()) if (insurance.id == id) return insurance;
+            throw new LanApi.BadRequest("Không có loại bảo hiểm này.");
+        }
+    }
+
+    /**
+     * The swirl on the web page lasts this long, a success at +12 or higher a little longer, and the server refuses
+     * the next try before it ends, so auto clickers gain nothing over watching it.
+     */
+    static int spinMillis(int target, boolean success) {
+        return success && target >= 12 ? 2000 : 1000;
+    }
+
+    /** Failed tries in a row at this target level for one item (pity counter), kept in the database. */
+    private static int pityFails(int userId, int dbKey, int target) throws java.sql.SQLException {
+        var rows = Server.dbManager.selectColumnName("SELECT fails FROM lan_upgrade_pity WHERE user_id = ? AND db_key = ? AND level = ?", userId, dbKey, target);
+        return rows.isEmpty() ? 0 : rows.get(0).getInt("fails");
+    }
+
+    /** pityFails for the page: a database hiccup shows 0 rather than breaking the whole view. */
+    private static int shownPityFails(int userId, int dbKey, int target) {
+        try {
+            return pityFails(userId, dbKey, target);
+        } catch (java.sql.SQLException e) {
+            return 0;
+        }
+    }
+
+    private static void setPityFails(int userId, int dbKey, int target, int fails) {
+        if (fails == 0) {
+            Server.dbManager.update("DELETE FROM lan_upgrade_pity WHERE user_id = ? AND db_key = ? AND level = ?", userId, dbKey, target);
+        } else {
+            Server.dbManager.update("INSERT INTO lan_upgrade_pity (user_id, db_key, level, fails) VALUES (?, ?, ?, ?)"
+                    + " ON DUPLICATE KEY UPDATE fails = VALUES(fails)", userId, dbKey, target, fails);
+        }
+    }
+
+    private final Map<Integer, Long> nextUpgradeAt = new java.util.HashMap<>();
+
+    /** Adds the insurance rows to the special item catalog and the shop, and the pity table; safe to run on every start. */
+    static void ensureUpgradeCatalog(java.sql.Connection conn) throws java.sql.SQLException {
+        try (java.sql.Statement create = conn.createStatement()) {
+            create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_upgrade_pity (user_id INT NOT NULL, db_key INT NOT NULL,"
+                    + " level TINYINT NOT NULL, fails INT NOT NULL, PRIMARY KEY (user_id, db_key, level))");
+        }
+        try (java.sql.PreparedStatement item = conn.prepareStatement(
+                "INSERT INTO linhtinh (id, name, detail, ability, xu, luong, date) SELECT ?, ?, ?, '[0,0,0,0,0]', ?, ?, 0"
+                        + " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM linhtinh WHERE id = ?)");
+             java.sql.PreparedStatement shop = conn.prepareStatement(
+                "INSERT INTO shop_linhtinh (id, isSelectNum) SELECT ?, 1 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM shop_linhtinh WHERE id = ?)")) {
+            for (Insurance insurance : Insurance.values()) {
+                item.setInt(1, insurance.id);
+                item.setString(2, insurance.name);
+                item.setString(3, "Nâng cấp tới +" + insurance.upTo + " thất bại không bị tụt cấp. Mất 1 cái mỗi lần nâng cấp có dùng.");
+                item.setInt(4, insurance.xu);
+                item.setInt(5, insurance.luong);
+                item.setInt(6, insurance.id);
+                item.executeUpdate();
+                shop.setInt(1, insurance.id);
+                shop.setInt(2, insurance.id);
+                shop.executeUpdate();
+            }
+        }
+    }
+
+    Map<String, Object> upgrade(int userId, String username, int dbKey, int insuranceId) throws Exception {
         return game.call(() -> {
             User user = player(userId, username);
             requireFree(user);
+            long now = System.currentTimeMillis();
+            long waitUntil = nextUpgradeAt.getOrDefault(userId, 0L);
+            if (now < waitUntil) {
+                throw new LanApi.ApiError(429, "Vòng xoáy còn đang quay, đợi " + ((waitUntil - now + 999) / 1000) + " giây nữa.");
+            }
             Equip equip = ownedForSelected(user, dbKey);
             int plus = equip.level2;
             if (plus >= MAX_PLUS) throw new LanApi.BadRequest(displayName(equip) + " đã đạt +" + MAX_PLUS + ".");
+            Insurance insurance = insuranceId == 0 ? null : Insurance.of(insuranceId);
+            if (insurance != null) {
+                if (plus + 1 > insurance.upTo) throw new LanApi.BadRequest(insurance.name + " chỉ dùng được khi nâng tới +" + insurance.upTo + ".");
+                LinhTinh owned = user.getLinhTinh(insurance.id);
+                if (owned == null || owned.num < 1) throw new LanApi.BadRequest("Bạn không có " + insurance.name + ". Mua ở Cửa hàng → Đồ đặc biệt.");
+            }
             boolean[] stats = upgradeStats(equip);
             if (!any(stats)) throw new LanApi.BadRequest(displayName(equip) + " không có chỉ số để nâng cấp.");
             if (equip.date() <= 0 && !ThorSkin.is(equip)) throw new LanApi.BadRequest(displayName(equip) + " đã hết hạn.");
@@ -519,18 +640,25 @@ final class LanPlayerGame {
             user.addXu(-UPGRADE_XU[next], online);
             if (UPGRADE_LUONG[next] > 0) user.addLuong(-UPGRADE_LUONG[next], online);
             user.addLinhTinh(STONE_ID, -UPGRADE_STONES[next]);
-            boolean success = Util.nextInt(1, 100) <= UPGRADE_RATE[next];
-            int target = success ? next : plus >= DROP_FROM ? plus - 1 : plus;
+            if (insurance != null) user.addLinhTinh(insurance.id, -1);
+            int pity = UPGRADE_PITY[next];
+            int fails = pity > 0 ? pityFails(userId, dbKey, next) : 0;
+            boolean success = Util.nextInt(1, RATE_SCALE + 1) <= UPGRADE_RATE[next] || (pity > 0 && fails + 1 >= pity);
+            if (pity > 0) setPityFails(userId, dbKey, next, success ? 0 : fails + 1);
+            int spin = spinMillis(next, success);
+            nextUpgradeAt.put(userId, now + spin);
+            int target = success ? next : plus >= DROP_FROM && insurance == null ? plus - 1 : plus;
             setPlus(equip, stats, target);
             if (online) user.session.sessionHandler.updateEquip(equip);
             Server.requestSave();
             syncGame(user);
-            log(user, "upgrade " + displayName(equip) + " +" + plus + " -> +" + target + (success ? " (success)" : " (fail)"));
+            log(user, "upgrade " + displayName(equip) + " +" + plus + " -> +" + target + (success ? " (success)" : " (fail)")
+                    + (insurance != null ? " with " + insurance.name : ""));
             Map<String, Object> result = done(user, success
                     ? "Thành công! " + displayName(equip) + " đã lên +" + target + "."
                     : target < plus ? "Thất bại, " + displayName(equip) + " bị tụt xuống +" + target + "."
-                    : "Thất bại, " + displayName(equip) + " vẫn giữ +" + plus + ".");
-            result.put("upgrade", Map.of("dbKey", dbKey, "success", success, "from", plus, "to", target));
+                    : "Thất bại, " + displayName(equip) + " vẫn giữ +" + plus + (insurance != null && plus >= DROP_FROM ? " nhờ " + insurance.name : "") + ".");
+            result.put("upgrade", Map.of("dbKey", dbKey, "success", success, "from", plus, "to", target, "spinMs", spin));
             return result;
         });
     }
@@ -789,7 +917,8 @@ final class LanPlayerGame {
                     if (plus < MAX_PLUS) {
                         int next = plus + 1;
                         row.put("next", Map.of("rate", UPGRADE_RATE[next], "xu", UPGRADE_XU[next], "luong", UPGRADE_LUONG[next],
-                                "stones", UPGRADE_STONES[next], "bonus", UPGRADE_BONUS[next] - UPGRADE_BONUS[plus], "dropOnFail", plus >= DROP_FROM));
+                                "stones", UPGRADE_STONES[next], "bonus", UPGRADE_BONUS[next] - UPGRADE_BONUS[plus], "dropOnFail", plus >= DROP_FROM,
+                                "pity", UPGRADE_PITY[next], "fails", UPGRADE_PITY[next] > 0 ? shownPityFails(user.id, equip.dbKey, next) : 0));
                     }
                     bag.add(row);
                 });

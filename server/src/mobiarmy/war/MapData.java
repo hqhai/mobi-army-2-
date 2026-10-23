@@ -114,6 +114,7 @@ public class MapData {
             if (user != null) {
                 int []  iArr = RoomRules.battleStats(user, this.rules);
                 Player player = new Player(this, user, user.name, user.glass().id, user.glass().level, iArr[0], iArr[1], iArr[2], iArr[3], iArr[4], 24, 24, user.setItems);
+                player.setTier = this.rules == RoomRules.BASE ? 0 : SetPassive.tier(user, user.glass().id);
                 player.baseAtt = user.glass().att;
                 player.isBoss = false;
                 player.isFly = false;
@@ -254,10 +255,43 @@ public class MapData {
     }
     
     public void makeHole(int x, int y, int bulletType) {
-        int w = GameData.holeIMask[GameData.getHoleType(bulletType)].getWidth();
-        int h = GameData.holeIMask[GameData.getHoleType(bulletType)].getHeight();
-        int[] rgb = new int[w * h];
-        GameData.holeIMask[GameData.getHoleType(bulletType)].getRGB(0, 0, w, h, rgb, 0, w);
+        this.makeHole(x, y, bulletType, 100);
+    }
+
+    /** Ground under a King Kong with his set passive; refreshed with every shot and sent to the clients with it. */
+    public java.util.List<short[]> protectedGround = new ArrayList<>();
+    private static final java.util.Map<Integer, int[][]> SCALED_HOLES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** scale: hole size in percent (SetPassive.holeScale). */
+    public void makeHole(int x, int y, int bulletType, int scale) {
+        int type = GameData.getHoleType(bulletType);
+        int[][] hole = SCALED_HOLES.computeIfAbsent(type * 10000 + scale, key -> {
+            int w = GameData.holeIMask[type].getWidth();
+            int h = GameData.holeIMask[type].getHeight();
+            int[] rgb = new int[w * h];
+            GameData.holeIMask[type].getRGB(0, 0, w, h, rgb, 0, w);
+            if (scale == 100) return new int[][] {rgb, {w, h}};
+            int[] size = new int[2];
+            int[] scaled = SetPassive.scaleMask(rgb, w, h, scale, size);
+            return new int[][] {scaled, size};
+        });
+        int[] rgb = hole[0];
+        int w = hole[1][0];
+        int h = hole[1][1];
+        if (!this.protectedGround.isEmpty()) {
+            rgb = rgb.clone();
+            for (int i = 0; i < h; i++) {
+                for (int j = 0; j < w; j++) {
+                    int px = x - w / 2 + j, py = y - h / 2 + i;
+                    for (short[] r : this.protectedGround) {
+                        if (px >= r[0] && px < r[0] + r[2] && py >= r[1] && py < r[1] + r[3]) {
+                            rgb[i * w + j] = 0; // neither dig nor blacken this pixel
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         int num = 0;
         while(num < this.data.size()) {
             this.data.get(num).collision(x, y, w, h, rgb);
@@ -349,10 +383,17 @@ public class MapData {
     public void endTheWar() {
         if (!this.isWar || this.typeComplete == -1) return;
         this.isWar = false;
+        int fighters = 0;
+        for (Player player : this.players) if (player != null && player.user != null) fighters++;
         for (Player player : this.players) {
             if (player != null && player.user != null) {
                 int result = this.typeComplete == 3 ? 0
                         : (this.typeComplete == 4 || this.typeComplete == player.team ? 1 : -1);
+                // LAN: win rates per character and set feed the SetPassive balance (admin page "Cân bằng").
+                if (!this.isFightBoss) {
+                    Server.dbManager.update("INSERT INTO lan_match_result (glass_id, set_tier, rules, players, result) VALUES (?, ?, ?, ?, ?)",
+                            player.glassID, player.setTier, (int) this.rules, fighters, result);
+                }
                 long before = player.user.xu;
                 player.user.addXu(result * this.wager, player.user.session != null);
                 if (player.user.session != null) {
@@ -582,10 +623,23 @@ public class MapData {
         return this.roundWind;
     }
 
-    public void setWind(int x, int y) {
+    /** Tells everyone who is poisoned or stunned (SessionHandler.status). */
+    public void sendStatus() {
         for (Player player : this.players) {
             if (player != null && player.user != null && player.user.session != null) {
-                player.user.session.sessionHandler.setWind(x, y);
+                player.user.session.sessionHandler.status(this.players);
+            }
+        }
+    }
+
+    public void setWind(int x, int y) {
+        int turn = this.getTurn();
+        for (Player player : this.players) {
+            if (player != null && player.user != null && player.user.session != null) {
+                // Magenta's set passive: on her own turn she is shown the wind her laser feels, so her aim guide
+                // matches the real path; everyone else sees the real wind.
+                int share = player.index == turn ? SetPassive.windShare(player, 100) : 100;
+                player.user.session.sessionHandler.setWind(x * share / 100, y * share / 100);
             }
         }
     }
@@ -716,13 +770,40 @@ public class MapData {
             if (bulletID == -1) {
                 bulletID = player.bulletId;
             }
+            SetPassive.beforeShot(player);
+            if (player.passiveFreezeShot && bulletID == 19) {
+                force2 = this.sureHitForce2(player, bulletID, ang, force, force2, att);
+            }
             this.shootBullet(player.index, player.isPow, bulletID, player.x, player.y, player.width, player.height, ang, force, force2, player.nshoot, att, -1);
             this.updateAffect(index);
+            SetPassive.afterShot(player);
+            this.sendStatus();
             this.isTurn = true;
         }
     }
     
+    /**
+     * Chicky's set passive: on the fourth shot the egg drops where it hits an opponent. Trial shots try the second
+     * force nearest the player's own first; when none lands on anyone the player's choice stands.
+     */
+    public int sureHitForce2(Player player, int bulletId, int ang, int force, int force2, int att) {
+        for (int d = 0; d <= 30; d++) {
+            for (int f : new int[] {force2 - d, force2 + d}) {
+                if (f < 1 || f > 30 || (d == 0 && f != force2)) continue;
+                Gun trial = new Gun(this, player.index, player.isPow);
+                trial.dryRun = true;
+                trial.shootBullet(bulletId, player.x, player.y, player.width, player.height, ang, force, f, player.nshoot, att, -1);
+                trial.fillXY();
+                for (Player hit : trial.dryHits) {
+                    if (SetPassive.enemies(player, hit)) return f;
+                }
+            }
+        }
+        return force2;
+    }
+
     public void shootBullet(int index, boolean isPow, int bulletId, int x, int y, int width, int height, int ang, int force, int force2, int nshoot, int att, int radius) {
+        this.protectedGround = SetPassive.protectedGround(this);
 //        //Khóa các hành động lại
 //        this.roomWait.lock = true;
 //        for (Player player : this.players) {
@@ -740,7 +821,14 @@ public class MapData {
                 for (Bullet bullet : gun.bullets) {
                     this.addTimeUntilAction(50 * bullet.frames.size());
                 }
+                Player shooter = gun.shooter();
+                if (shooter != null && shooter.poisonRain) {
+                    gun.poisonRain = true;
+                    shooter.poisonRain = false;
+                    for (Player hit : gun.setEff) hit.antiHealTurns = Player.ANTI_HEAL_TURNS;
+                }
                 this.nextLuck();
+                SetPassive.powLuck(gun.shooter());
                 MapData.this.updateLuck();
                 MapData.this.shoot(gun);
 //                Server.addCommand(1, MapData.this);
@@ -940,6 +1028,19 @@ public class MapData {
             //Sao bang
             if (item.itemId == 21) {
                 player.bulletId = 23;
+            }
+            // LAN item 36 "Chỉ kẻ đầu": the client shows the whole aim guide; Gunner's set passive turns it into a finisher.
+            if (item.itemId == 36) {
+                player.headGuideShots = 2;
+            }
+            // LAN item 37 "Bê tông cốt thép": the ground under the player cannot be dug this round and the next.
+            if (item.itemId == 37) {
+                player.concreteTurns = 2;
+            }
+            // LAN item 38 "Cơn mưa độc": falls like Sao băng; whoever it hits heals half as much for 3 turns.
+            if (item.itemId == 38) {
+                player.bulletId = 23;
+                player.poisonRain = true;
             }
             //Mua dan
             if (item.itemId == 22) {
@@ -1179,6 +1280,13 @@ public class MapData {
 //                            num2 = 0;
 //                        }
                     if (this.players[num2] != null && !this.players[num2].isDie && this.players[num2].isTurn && ((typeTurn == 2 && this.players[num2].isBoss) || (typeTurn == 3 && !this.players[num2].isBoss))) {
+                        if (this.players[num2].stunTurns > 0) {
+                            // Stunned by Gunner's finisher: this turn is skipped.
+                            this.players[num2].stunTurns--;
+                            this.sendStatus();
+                            if (num2 == num3) break;
+                            continue;
+                        }
                         idTurn = num2;
                         break;
                     }
@@ -1222,6 +1330,7 @@ public class MapData {
                 }
                 player.updateTurn();
                 //turn
+                this.sendStatus();
                 this.timeWait = System.currentTimeMillis() + (this.maxSecondTurn * 1000);
                 this.nTurn++;
             }

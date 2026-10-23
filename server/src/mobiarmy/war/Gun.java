@@ -32,6 +32,17 @@ public class Gun {
     public int windY;
     public boolean test;
     
+    /** Trial shot: bullets only record who they would hit (dryHits), the map and players stay as they are. */
+    public boolean dryRun;
+    /** LAN item 38: this shot is the poison rain (the client paints it purple). */
+    public boolean poisonRain;
+    public final java.util.Set<Player> dryHits = new java.util.HashSet<>();
+
+    /** The player who fired, or null (bosses, items without a shooter). */
+    public Player shooter() {
+        return this.mapData.players != null && this.index >= 0 && this.index < this.mapData.players.length ? this.mapData.players[this.index] : null;
+    }
+
     public Gun(MapData mapData, int index, boolean isPow) {
         this.mapData = mapData;
         this.index = index;
@@ -39,8 +50,10 @@ public class Gun {
         this.isSuper = 0;
         this.setEff = new HashSet();
         this.isPow = isPow ? 1 : 0;
-        this.windX = mapData.windX;
-        this.windY = mapData.windY;
+        // Magenta's set passive: her shots feel less (at full strength no) wind; MapData.setWind shows her the same.
+        int share = SetPassive.windShare(this.shooter(), 100);
+        this.windX = mapData.windX * share / 100;
+        this.windY = mapData.windY * share / 100;
         this.test = false;
     }
     

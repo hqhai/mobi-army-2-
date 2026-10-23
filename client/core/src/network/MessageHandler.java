@@ -16,6 +16,7 @@ import item.Item;
 
 import java.util.Vector;
 
+import map.CMap;
 import map.MM;
 import model.BoardInfo;
 import model.CRes;
@@ -140,7 +141,7 @@ public class MessageHandler implements IMessageHandler {
                         }
                         Vector<Item> SellItem = new Vector<Item>();
                         int i2 = 0;
-                        while (i2 < 36) {
+                        while (i2 < 39) { // 36 game items + LAN items 36-38 (server sends every catalog item)
                             byte numI = msg.reader().readByte();
                             int price = msg.reader().readInt();
                             int price2 = msg.reader().readInt();
@@ -738,6 +739,23 @@ public class MessageHandler implements IMessageHandler {
                         } else if (typeSuper != 3) {
                             // empty if block
                         }
+                        // LAN set passives that change the ground (server SessionHandler.shoot): hole size for the
+                        // shooter's own bullet, then ground King Kong protects. Older servers send none of it.
+                        CMap.holeScale = 100;
+                        CMap.holeScaleBullet = -1;
+                        CMap.protectedGround = new short[0][];
+                        CMap.poisonRain = false;
+                        if (msg.reader().available() >= 4) {
+                            CMap.holeScale = msg.reader().readShort();
+                            CMap.holeScaleBullet = msg.reader().readByte();
+                            short[][] rects = new short[msg.reader().readUnsignedByte()][];
+                            for (int r = 0; r < rects.length; r++) {
+                                rects[r] = new short[] {msg.reader().readShort(), msg.reader().readShort(), msg.reader().readShort(), msg.reader().readShort()};
+                            }
+                            CMap.protectedGround = rects;
+                            if (msg.reader().available() >= 2) PM.p[whoFire].passiveBonus = msg.reader().readShort();
+                            if (msg.reader().available() >= 1) CMap.poisonRain = msg.reader().readByte() == 1;
+                        }
                         PM.p[whoFire].shoot(critical, whoFire, xS, yS, type, xArr, yArr, nShoot, force_2, angle, xHitArr, yHitArr, xSuper, ySuper);
                         if (CCanvas.curScr == CCanvas.gameScr) {
                             Session_ME.receiveSynchronized = 1;
@@ -754,6 +772,20 @@ public class MessageHandler implements IMessageHandler {
                             }
                         } else if (PM.findPlayerByIndex(whoUpdateHP) != null) {
                             PM.findPlayerByIndex(whoUpdateHP).updateHP(nextHP, pixel);
+                        }
+                        break;
+                    }
+                    case 114: {
+                        // LAN: who is poisoned (heals half) or stunned (loses a turn), shown over their heads.
+                        int count = msg.reader().readUnsignedByte();
+                        for (int s = 0; s < count; s++) {
+                            int who = msg.reader().readUnsignedByte();
+                            boolean poisoned = msg.reader().readBoolean();
+                            boolean stunned = msg.reader().readBoolean();
+                            if (PM.p != null && who < PM.p.length && PM.p[who] != null) {
+                                PM.p[who].poisoned = poisoned;
+                                PM.p[who].stunned = stunned;
+                            }
                         }
                         break;
                     }

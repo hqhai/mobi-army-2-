@@ -88,7 +88,16 @@ public class Bullet {
     }
 
     public void collision() {
-        this.gun.mapData.makeHole(this.bX, this.bY, this.bulletId);
+        if (this.gun.dryRun) {
+            // Trial shot (SetPassive, Chicky): only note who it would hit.
+            for (Player player : this.gun.mapData.players) {
+                if (player != null && !player.isDie && player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0) {
+                    this.gun.dryHits.add(player);
+                }
+            }
+            return;
+        }
+        this.gun.mapData.makeHole(this.bX, this.bY, this.bulletId, mobiarmy.war.SetPassive.holeScale(this.gun.shooter(), this.bulletId));
         for (Player player : this.gun.mapData.players) {
             if (player != null && !player.isDie) {
                 if (player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0) {

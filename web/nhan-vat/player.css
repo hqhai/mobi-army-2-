@@ -441,7 +441,7 @@
 
 .slots {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
     gap: 6px;
     margin: 8px 0 4px;
 }
@@ -791,11 +791,13 @@ dialog#confirm::backdrop {
     max-width: 100%;
 }
 
-/* --- Upgrade +1..+12: blue 1-4, purple 5-7, gold 8-10, red 11-12 ------------------------- */
+/* --- Upgrade +1..+14: blue 1-4, purple 5-7, gold 8-10, red 11-12, platinum 13, chaos 14 ------------------------- */
 .tier-1 { --tier: #2f8cff; --tier-2: #8fd0ff; --tier-dark: #0b4fa8; }
 .tier-2 { --tier: #9b45ff; --tier-2: #e0b8ff; --tier-dark: #5a1aa8; }
 .tier-3 { --tier: #ffb400; --tier-2: #fff27a; --tier-dark: #a86400; }
 .tier-4 { --tier: #ff2e2e; --tier-2: #ffb03a; --tier-dark: #8e0000; }
+/* Platinum +13: icy white-cyan with a rainbow sheen. */
+.tier-5 { --tier: #36c9e8; --tier-2: #f2feff; --tier-dark: #0d6680; }
 
 .plus-badge {
     display: inline-block;
@@ -829,8 +831,8 @@ dialog#confirm::backdrop {
 .aura.tier-2 { box-shadow: 0 0 0 2px var(--tier), 0 0 12px var(--tier); animation: aura-breathe 2.4s ease-in-out infinite; }
 
 /* Gold and red: a light band runs around the frame. */
-.aura.tier-3, .aura.tier-4 { padding: 3px; overflow: visible; }
-.aura.tier-3::before, .aura.tier-4::before {
+.aura.tier-3, .aura.tier-4, .aura.tier-5, .aura.tier-6 { padding: 3px; overflow: visible; }
+.aura.tier-3::before, .aura.tier-4::before, .aura.tier-5::before, .aura.tier-6::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -842,6 +844,12 @@ dialog#confirm::backdrop {
 }
 .aura.tier-4::before { animation-duration: 1.4s; box-shadow: 0 0 18px var(--tier), 0 0 34px var(--tier-2); }
 .aura.tier-4 { animation: aura-flicker 1.8s steps(1) infinite; }
+.aura.tier-5::before {
+    background: conic-gradient(from var(--spin, 0deg), #ff8fd8, #ffe27a, #8fffd0, #8fd8ff, #c8a0ff, #ff8fd8);
+    animation-duration: 1.1s;
+    box-shadow: 0 0 18px var(--tier), 0 0 40px var(--tier-2);
+}
+.aura.tier-5 { animation: aura-flicker 1.4s steps(1) infinite; }
 
 /* Sparkles (gold) and embers (red) around the frame. */
 .aura .spark {
@@ -883,7 +891,8 @@ dialog#confirm::backdrop {
 .card.upgrade-card.tier-2 { border-color: var(--tier); box-shadow: 0 0 10px rgba(155, 69, 255, .35); }
 .card.upgrade-card.tier-3 { border-color: var(--tier); box-shadow: 0 0 12px rgba(255, 180, 0, .45); background: linear-gradient(180deg, #fffbe6, #ffe9a8); }
 .card.upgrade-card.tier-4 { border-color: var(--tier); box-shadow: 0 0 14px rgba(255, 46, 46, .5); background: linear-gradient(180deg, #fff1ea, #ffd0b8); }
-.card.upgrade-card.tier-3 .card-name, .card.upgrade-card.tier-4 .card-name {
+.card.upgrade-card.tier-5 { border-color: var(--tier); box-shadow: 0 0 16px rgba(54, 201, 232, .6), 0 0 30px rgba(255, 143, 216, .3); background: linear-gradient(180deg, #f4feff, #d6f3ff 60%, #f6e4ff); }
+.card.upgrade-card.tier-3 .card-name, .card.upgrade-card.tier-4 .card-name, .card.upgrade-card.tier-5 .card-name, .card.upgrade-card.tier-6 .card-name {
     background: linear-gradient(90deg, var(--tier-dark), var(--tier), var(--tier-dark));
     -webkit-background-clip: text;
     background-clip: text;
@@ -900,51 +909,12 @@ dialog#confirm::backdrop {
 }
 .warn-text { color: #b3261e; font-weight: 700; }
 .max-line { color: #8e0000; font-weight: 800; }
-.upgrade-btn.tier-1, .upgrade-btn.tier-2, .upgrade-btn.tier-3, .upgrade-btn.tier-4 {
+.upgrade-btn.tier-1, .upgrade-btn.tier-2, .upgrade-btn.tier-3, .upgrade-btn.tier-4, .upgrade-btn.tier-5, .upgrade-btn.tier-6 {
     background: linear-gradient(180deg, var(--tier-2), var(--tier) 60%, var(--tier-dark));
     border-color: var(--tier-dark);
     color: #fff;
     text-shadow: 0 1px 0 rgba(0, 0, 0, .4);
 }
-
-/* Result effect over the card. */
-.upgrade-fx {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    pointer-events: none;
-    z-index: 5;
-}
-.upgrade-fx .ray {
-    position: absolute;
-    width: 4px;
-    height: 46%;
-    bottom: 50%;
-    left: calc(50% - 2px);
-    transform-origin: 50% 100%;
-    transform: rotate(var(--a)) scaleY(0);
-    background: linear-gradient(0deg, transparent, var(--tier-2), #fff);
-    border-radius: 2px;
-    animation: ray-burst .9s ease-out forwards;
-}
-.upgrade-fx.win { background: radial-gradient(circle, rgba(255, 255, 255, .85), transparent 60%); animation: fx-fade 1.6s ease-out forwards; }
-.upgrade-fx.lose { background: radial-gradient(circle, rgba(90, 90, 90, .55), transparent 65%); animation: fx-fade 1.4s ease-out forwards; }
-.upgrade-fx .fx-text {
-    font-size: 40px;
-    font-weight: 900;
-    color: #fff;
-    -webkit-text-stroke: 2px var(--tier-dark, #444);
-    text-shadow: 0 0 12px var(--tier, #000);
-    animation: fx-pop 1.2s cubic-bezier(.2, 1.6, .4, 1) forwards;
-}
-.upgrade-fx.lose .fx-text { color: #ddd; -webkit-text-stroke-color: #333; text-shadow: none; }
-.card.shake { animation: card-shake .5s; }
-
-@keyframes ray-burst { 40% { transform: rotate(var(--a)) scaleY(1); opacity: 1; } 100% { transform: rotate(var(--a)) scaleY(1.2); opacity: 0; } }
-@keyframes fx-pop { 0% { transform: scale(.2); opacity: 0; } 30% { transform: scale(1.25); opacity: 1; } 75% { transform: scale(1); opacity: 1; } 100% { transform: translateY(-20px); opacity: 0; } }
-@keyframes fx-fade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes card-shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
 
 .upgrade-table-box { margin-top: 10px; }
 .upgrade-table-box summary { cursor: pointer; font-weight: 700; color: var(--box-title, #456ad4); }
@@ -954,7 +924,7 @@ dialog#confirm::backdrop {
 .upgrade-table th { background: #fdecc6; color: #4a2508; }
 
 @media (prefers-reduced-motion: reduce) {
-    .aura, .aura::before, .aura .spark, .upgrade-fx, .upgrade-fx *, .card.shake { animation: none !important; }
+    .aura, .aura::before, .aura .spark, .focus-swirl, .focus-burst, .focus-wave, .focus-mote, .focus-item, .focus-text { animation: none !important; }
     .aura .spark { display: none; }
 }
 
@@ -1042,10 +1012,11 @@ dialog#confirm::backdrop {
 .rules-box li + li { margin-top: 3px; }
 .rules-box .rules-default { margin: 6px 0 0; font-weight: bold; }
 
-/* --- Lucky chests: bronze, silver, gold --------------------------------------------------- */
+/* --- Lucky chests: bronze, silver, gold, platinum --------------------------------------------------- */
 .chest-bronze { --chest: #cd7f32; --chest-light: #f0a860; --chest-bg: #fff3e4; }
 .chest-silver { --chest: #8a97a8; --chest-light: #e6edf6; --chest-bg: #f1f5fa; }
 .chest-gold { --chest: #e0a400; --chest-light: #fff3a0; --chest-bg: #fff8d6; }
+.chest-platinum { --chest: #36c9e8; --chest-light: #f2feff; --chest-bg: #eefbff; }
 .chest-hint { grid-column: 1 / -1; margin: 0; }
 .chest-card {
     align-items: center;
@@ -1054,6 +1025,7 @@ dialog#confirm::backdrop {
     background: linear-gradient(180deg, #fff, var(--chest-bg));
 }
 .chest-card.chest-gold { box-shadow: 0 0 12px rgba(255, 196, 0, .45); }
+.chest-card.chest-platinum { box-shadow: 0 0 14px rgba(54, 201, 232, .55), 0 0 26px rgba(255, 143, 216, .25); }
 .chest-card .card-actions { width: 100%; }
 .chest-stage {
     display: grid;
@@ -1123,3 +1095,163 @@ dialog.chest-dialog::backdrop { background: rgba(10, 14, 40, .65); }
     .chest-art, .chest-rays, .chest-prize .prize-card, .chest-scene .chest-art { animation: none !important; }
     .chest-lid { transition: none; }
 }
+
+/* --- +14 Hỗn mang (chaos): deep violet with a dark swirl --------------------------------- */
+.tier-6 { --tier: #6a00c8; --tier-2: #d79bff; --tier-dark: #1e0038; }
+.aura.tier-6::before {
+    background: conic-gradient(from var(--spin, 0deg), #12001f, #6a00c8, #d79bff, #12001f, #3d0078, #b45cff, #12001f);
+    animation-duration: .9s;
+    box-shadow: 0 0 20px #8a2be2, 0 0 44px rgba(106, 0, 200, .7);
+}
+.aura.tier-6 { animation: chaos-pulse 2s ease-in-out infinite; }
+.aura.tier-6 .spark { background: #f0d0ff; box-shadow: 0 0 8px #8a2be2, 0 0 2px #fff; animation-duration: 2s; }
+.card.upgrade-card.tier-6 {
+    border-color: var(--tier);
+    box-shadow: 0 0 18px rgba(106, 0, 200, .65), 0 0 36px rgba(30, 0, 56, .45);
+    background: linear-gradient(180deg, #f3e6ff, #d9b8ff 55%, #b98af0);
+}
+@keyframes chaos-pulse { 50% { filter: drop-shadow(0 0 6px #8a2be2) saturate(1.3); } }
+
+/* --- Upgrade focus: everything is sucked into the item, then bursts out with the result --------
+   (the new level's colour on success, grey on failure). */
+.insurance-pick { width: 100%; margin: 6px 0 2px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--tier, #888); font: inherit; }
+.focus-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle, rgba(20, 12, 50, .6), rgba(4, 2, 14, .9));
+    animation: focus-dim .25s ease-out;
+}
+.focus-stage { position: relative; display: grid; place-items: center; width: 300px; height: 300px; }
+.focus-stage > * { grid-area: 1 / 1; }
+
+/* Vortex disc: arms turning inward, tightening as the charge builds. */
+.focus-swirl {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background:
+        repeating-conic-gradient(from 0deg, transparent 0 14deg, var(--tier) 22deg, var(--tier-2) 26deg, transparent 34deg 60deg);
+    -webkit-mask: radial-gradient(circle, transparent 14%, #000 30%, rgba(0, 0, 0, .7) 60%, transparent 71%);
+    mask: radial-gradient(circle, transparent 14%, #000 30%, rgba(0, 0, 0, .7) 60%, transparent 71%);
+    filter: blur(.5px) drop-shadow(0 0 12px var(--tier));
+    animation: vortex-turn .55s linear infinite, vortex-pull var(--spin-ms, 2000ms) cubic-bezier(.5, 0, .9, .6) forwards;
+}
+
+/* Motes spiralling into the centre, over and over. */
+.focus-motes { position: relative; width: 0; height: 0; }
+.focus-mote {
+    position: absolute;
+    left: -4px;
+    top: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tier-2);
+    box-shadow: 0 0 10px var(--tier), 0 0 3px #fff;
+    animation: mote-in .9s cubic-bezier(.55, 0, .9, .4) infinite;
+    animation-delay: var(--d);
+}
+
+/* The item shrinks and trembles as it absorbs the energy. */
+.focus-item {
+    position: relative;
+    z-index: 2;
+    border-radius: 16px;
+    animation: item-absorb var(--spin-ms, 2000ms) cubic-bezier(.6, 0, .9, .5) forwards, item-tremble .12s linear infinite;
+}
+.focus-text {
+    position: relative;
+    z-index: 3;
+    align-self: end;
+    margin: 0;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 10px var(--tier), 0 2px 0 var(--tier-dark);
+}
+.focus-burst, .focus-wave { width: 300px; height: 300px; border-radius: 50%; opacity: 0; pointer-events: none; }
+
+/* Release: the vortex vanishes, a shockwave and a flash burst out, motes fly away. */
+.focus-win .focus-swirl, .focus-lose .focus-swirl { animation: vortex-gone .3s ease-out forwards; }
+.focus-win .focus-mote, .focus-lose .focus-mote { animation: mote-out .8s cubic-bezier(.1, .8, .3, 1) forwards; animation-delay: 0s; }
+.focus-win .focus-item, .focus-lose .focus-item { animation: item-release .5s cubic-bezier(.2, 1.8, .4, 1) forwards; }
+.focus-win .focus-wave, .focus-lose .focus-wave { border: 6px solid var(--tier-2); box-shadow: 0 0 24px var(--tier), inset 0 0 24px var(--tier); animation: wave-out .7s ease-out forwards; }
+.focus-win .focus-burst { background: radial-gradient(circle, #fff 0 10%, var(--tier-2) 22%, var(--tier) 42%, transparent 68%); animation: burst-out .8s ease-out forwards; }
+.focus-win .focus-item { filter: drop-shadow(0 0 20px var(--tier)) brightness(1.2); }
+.focus-win .focus-text { animation: text-pop .5s cubic-bezier(.2, 1.6, .4, 1); }
+
+/* Failure: everything comes out grey. */
+.focus-lose { --tier: #8a8a8a; --tier-2: #d6d6d6; --tier-dark: #3a3a3a; }
+.focus-lose .focus-burst { background: radial-gradient(circle, rgba(220, 220, 220, .9) 0 12%, rgba(130, 130, 130, .75) 32%, transparent 66%); animation: burst-out .8s ease-out forwards; }
+.focus-lose .focus-item { filter: grayscale(1) brightness(.7); }
+.focus-lose .focus-text { color: #ddd; text-shadow: 0 2px 0 #333; animation: text-pop .5s ease-out; }
+
+@keyframes focus-dim { from { opacity: 0; } }
+@keyframes vortex-turn { to { rotate: 360deg; } }
+@keyframes vortex-pull { from { scale: 1.15; opacity: .5; } to { scale: .45; opacity: 1; } }
+@keyframes vortex-gone { to { scale: 1.8; opacity: 0; } }
+@keyframes mote-in {
+    0% { transform: rotate(var(--a)) translateX(var(--r)) scale(1.2); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: rotate(calc(var(--a) + 300deg)) translateX(0) scale(.2); opacity: .9; }
+}
+@keyframes mote-out {
+    from { transform: rotate(var(--a)) translateX(0) scale(.4); opacity: 1; }
+    to { transform: rotate(calc(var(--a) + 40deg)) translateX(calc(var(--r) + 60px)) scale(1.3); opacity: 0; }
+}
+@keyframes item-absorb {
+    from { scale: 1; filter: drop-shadow(0 0 4px var(--tier)); }
+    to { scale: .72; filter: drop-shadow(0 0 26px var(--tier)) brightness(1.6); }
+}
+@keyframes item-tremble { 25% { translate: 1px -1px; } 75% { translate: -1px 1px; } }
+@keyframes item-release { 0% { scale: .72; } 45% { scale: 1.35; } 100% { scale: 1.1; } }
+@keyframes wave-out { 0% { scale: .15; opacity: 1; } 100% { scale: 1.3; opacity: 0; } }
+@keyframes burst-out { 0% { scale: .2; opacity: 0; } 20% { opacity: 1; } 100% { scale: 1.5; opacity: 0; } }
+@keyframes text-pop { from { scale: .3; opacity: 0; } }
+/* A +12 or higher success keeps charging for one more second: faster, brighter, the item pulsing. */
+.focus-charged .focus-swirl { animation: vortex-turn .25s linear infinite; scale: .45; opacity: 1; filter: blur(.5px) drop-shadow(0 0 24px var(--tier)) brightness(1.5); }
+.focus-charged .focus-mote { animation-duration: .45s; }
+.focus-charged .focus-item { animation: item-charged .3s ease-in-out infinite alternate, item-tremble .06s linear infinite; }
+@keyframes item-charged { from { scale: .72; filter: drop-shadow(0 0 26px var(--tier)) brightness(1.6); } to { scale: .64; filter: drop-shadow(0 0 40px var(--tier-2)) brightness(2); } }
+
+/* --- Worn gear: upgrade aura, stats per piece, and what it all adds up to ---------------- */
+.slot.upgrade-card { border-style: solid; }
+.slot .slot-name { font-weight: 700; }
+.slot .tags { justify-content: center; }
+.slot .tag-stat { font-size: 11px; padding: 0 4px; }
+.worn-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 10px;
+    padding: 8px 10px;
+    border: 2px solid #d9a35b;
+    border-radius: 8px;
+    background: #fff9ea;
+    color: #4a2508;
+    font-size: 13px;
+}
+.worn-summary .set-line { margin: 0; color: #6b5a45; }
+.worn-summary .set-line.on { color: #5a1aa8; font-weight: 800; text-shadow: 0 0 6px rgba(155, 69, 255, .35); }
+
+/* --- Set passive (Chỉ số tab) ------------------------------------------------------------ */
+.passive-box {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border: 2px solid #9b45ff;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #f8f0ff, #efe0ff);
+    color: #2e1250;
+}
+.passive-box h3 { margin: 0 0 4px; font-size: 16px; }
+.passive-box .passive-name { color: #6a00c8; text-shadow: 0 0 8px rgba(155, 69, 255, .35); }
+.passive-box .passive-state { margin: 0 0 6px; font-weight: 700; color: #7a6a90; }
+.passive-box .passive-state.on { color: #5a1aa8; }
+.passive-box .passive-detail { margin: 0 0 6px; font-size: 14px; line-height: 1.45; }
+.passive-box .passive-sets summary { cursor: pointer; font-weight: 700; color: #5a1aa8; }
+.passive-box .upgrade-table td:last-child { white-space: normal; text-align: left; min-width: 260px; }
+.passive-box .upgrade-table tr.current td { background: #ead6ff; font-weight: 700; }

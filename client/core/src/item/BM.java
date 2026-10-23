@@ -713,12 +713,17 @@ public class BM {
 
    }
 
+   private static final com.badlogic.gdx.graphics.Color POISON_TINT = new com.badlogic.gdx.graphics.Color(0.78f, 0.35f, 1f, 1f);
+
    public void paint(mGraphics g) {
       this.thorImpacts.paint(g, GameScr.curGRAPHIC_LEVEL == 2);
       int i;
+      // LAN item 38 "Cơn mưa độc": the Sao băng rain of that shot is painted purple.
+      if (map.CMap.poisonRain) g.tint = POISON_TINT;
       for(i = 0; i < this.bullets.size(); ++i) {
          ((Bullet)this.bullets.elementAt(i)).paint(g);
       }
+      g.tint = null;
 
       if (isActiveAirFly) {
          g.drawImage(airFighter, airPlaneX, airPlaneY + CCanvas.gameTick % 3, mGraphics.VCENTER | mGraphics.HCENTER, false);

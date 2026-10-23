@@ -71,6 +71,30 @@ public class Player {
     public int baseAtt;
     /** Part of attAffect from explosions inside this player's body. */
     public int attDirect;
+    /** LAN item 37 "Bê tông cốt thép": own turns left with ground that cannot be dug. */
+    public int concreteTurns;
+    /** LAN item 38 "Cơn mưa độc": armed for this turn's shot. */
+    public boolean poisonRain;
+    /** Hit by the poison rain: own turns left healing half as much. */
+    public int antiHealTurns;
+    public static final int ANTI_HEAL_TURNS = 3;
+
+    /** Full +14 set tier for SetPassive, 0 when none. */
+    public int setTier;
+    /** SetPassive state: shots fired, shots that hit, rounds stood still. */
+    int passiveShots, passiveHits, passiveStill;
+    /** Where the player stood at the start of its last turn; -1 before the first one. */
+    int passiveX = -1, passiveY = -1;
+    boolean passiveHit, passiveTrueShot, passiveFreezeShot, passiveFinisher;
+    /** LAN item 36 "Chỉ kẻ đầu": shots left with it on (Gunner's finisher needs it). */
+    public int headGuideShots;
+    /** Stunned by Gunner's finisher: turns to skip. */
+    public int stunTurns;
+
+    /** True on Chicky's fourth shot with her set passive (SetPassive). */
+    public boolean passiveFreezeShot() {
+        return this.passiveFreezeShot;
+    }
 
     public class Item {
         
@@ -170,6 +194,7 @@ public class Player {
     }
 
     public void updateHP(int addHP) {
+        if (addHP > 0 && this.antiHealTurns > 0) addHP /= 2; // poison rain: heals count half
         this.hp += addHP;
         if(this.hp <= 0) {
             this.hp = 0;
@@ -282,6 +307,9 @@ public class Player {
         if (this.attAffect > 0 || this.y > this.mapData.height + 100) {
             if (this.y > this.mapData.height + 100) {
                 this.attAffect = this.hp;
+            } else if (SetPassive.trueHit(player, this)) {
+                // Miss 6's third hit: true damage (no defense, no luck save) and a sure crit.
+                this.attAffect = this.attAffect * SetPassive.trueHitCrit(player) / 100;
             } else if (this.mapData.skillRules) {
                 int def = this.def + (this.lucky ? 3000 : 0);
                 boolean direct = this.attDirect > 0;
@@ -305,8 +333,12 @@ public class Player {
                     this.attAffect = this.hp - 10;
                 }
             }
+            if (this.y <= this.mapData.height + 100) {
+                this.attAffect = SetPassive.taken(this, this.attAffect);
+            }
             this.mapData.addTimeUntilAction(1000);
             this.updateHP(-this.attAffect);
+            if (this.y <= this.mapData.height + 100) SetPassive.afterHit(player, this, this.attAffect);
             
             this.mapData.updateHP(this.index, this.hp, this.pixel);
             this.mapData.updateAngry(this.index, this.angry);
@@ -428,6 +460,8 @@ public class Player {
         if (bullet.radius > 0) {
             int att = this.calcAtt(bullet.bX, bullet.bY, bullet.radius, bullet.att);
             boolean direct = false;
+            int shooterIndex = bullet.gun.index;
+            Player shooterPlayer = shooterIndex >= 0 && shooterIndex < this.mapData.players.length ? this.mapData.players[shooterIndex] : null;
             if (this.mapData.skillRules) {
                 int shooter = bullet.gun.index;
                 Player owner = shooter >= 0 && shooter < this.mapData.players.length ? this.mapData.players[shooter] : null;
@@ -440,6 +474,7 @@ public class Player {
             if (bullet.isSuper == 2) {
                 att = (int) (att + (att * 0.1F));
             }
+            att = SetPassive.dealt(shooterPlayer, this, att);
             this.attAffect += att;
             if (direct) {
                 this.attDirect += att;
@@ -469,6 +504,9 @@ public class Player {
     }
     
     public void updateTurn() {
+        if (this.concreteTurns > 0) this.concreteTurns--;
+        if (this.antiHealTurns > 0) this.antiHealTurns--;
+        SetPassive.newTurn(this);
         this.buocdi = 0;
         this.nTest = 0;
         this.isUseItem = false;

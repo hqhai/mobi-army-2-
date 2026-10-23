@@ -56,8 +56,11 @@ public class LanServer {
         // Before Server.start() loads the special item catalog.
         try (Connection conn = database.open()) {
             LanChests.ensureCatalog(conn);
+            LanPlayerGame.ensureUpgradeCatalog(conn);
+            LanGameAdmin.ensureMatchResults(conn);
+            LanGameAdmin.ensureItems(conn);
         } catch (SQLException e) {
-            System.err.println("Lucky chests missing, database setup failed: " + e.getMessage());
+            System.err.println("LAN tables missing, database setup failed: " + e.getMessage());
         }
         LanPlayer player = new LanPlayer(database, new LanPlayerGame(gameThread), System::currentTimeMillis);
         LanAdmin admin = startAdmin(database, new LanGameAdmin(database, gameThread, player::endSessions));

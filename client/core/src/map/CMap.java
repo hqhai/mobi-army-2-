@@ -30,6 +30,43 @@ public class CMap {
    public static int[][] holeIntMask = new int[10][];
    static int holeW;
    static int holeH;
+   /** LAN set passives, from the last shot: hole size in percent for bullet type holeScaleBullet (others 100). */
+   public static int holeScale = 100;
+   public static int holeScaleBullet = -1;
+   /** Ground King Kong protects: {x, y, width, height} in map pixels; holes leave it as it is. */
+   public static short[][] protectedGround = new short[0][];
+   /** LAN item 38 "Cơn mưa độc": the last shot was the poison rain (painted purple). */
+   public static boolean poisonRain;
+   private static final java.util.HashMap<Integer, int[]> scaledMasks = new java.util.HashMap<Integer, int[]>();
+
+   /** Hole mask scaled by percent, nearest pixel; the server's SetPassive.scaleMask does exactly this. */
+   static int[] scaledMask(int type, int percent, int[] size) {
+      int w = holeIMask[type].image.getWidth();
+      int h = holeIMask[type].image.getHeight();
+      int w2 = Math.max(1, w * percent / 100);
+      int h2 = Math.max(1, h * percent / 100);
+      size[0] = w2;
+      size[1] = h2;
+      if (percent == 100) return holeIntMask[type];
+      int key = type * 10000 + percent;
+      int[] out = scaledMasks.get(key);
+      if (out == null) {
+         int[] mask = holeIntMask[type];
+         out = new int[w2 * h2];
+         for (int i = 0; i < h2; i++) {
+            for (int j = 0; j < w2; j++) out[i * w2 + j] = mask[(i * h / h2) * w + (j * w / w2)];
+         }
+         scaledMasks.put(key, out);
+      }
+      return out;
+   }
+
+   static boolean isProtected(int x, int y) {
+      for (short[] r : protectedGround) {
+         if (x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) return true;
+      }
+      return false;
+   }
    mGraphics gMask;
    public int width;
    public int height;
@@ -290,8 +327,10 @@ public class CMap {
 
    public void makeHole(int bx, int by, int bullType) {
       curHoleType = getHoleType(bullType);
-      holeW = holeIMask[curHoleType].image.getWidth();
-      holeH = holeIMask[curHoleType].image.getHeight();
+      int[] size = new int[2];
+      int[] mask = scaledMask(curHoleType, bullType == holeScaleBullet ? holeScale : 100, size);
+      holeW = size[0];
+      holeH = size[1];
       int xM = this.x;
       int yM = this.y;
       int xH = bx - holeW / 2;
@@ -336,9 +375,9 @@ public class CMap {
 
       for(int i = b1; i < b2; ++i) {
          for(int j = a1; j < a2; ++j) {
-            if (CRes.inRect(lcx + j, lcy + i, 0, 0, this.width, this.height)) {
+            if (CRes.inRect(lcx + j, lcy + i, 0, 0, this.width, this.height) && (protectedGround.length == 0 || !isProtected(bx - holeW / 2 + j, by - holeH / 2 + i))) {
                HoleInfo holeInfo;
-               if (holeIntMask[curHoleType][i * holeW + j] == -65536 && CRes.isLand(this.getPixel(lcx + j, lcy + i))) {
+               if (mask[i * holeW + j] == -65536 && CRes.isLand(this.getPixel(lcx + j, lcy + i))) {
                   this.aMap[(lcy + i) * this.width + lcx + j] = -16777216;
                   if (!isHole) {
                      isHole = true;
@@ -349,7 +388,7 @@ public class CMap {
                      holeInfo.holeType = (byte)bullType;
                      MM.vHoleInfo.addElement(holeInfo);
                   }
-               } else if (holeIntMask[curHoleType][i * holeW + j] == -16777216 || holeIntMask[curHoleType][i * holeW + j] == 16777216) {
+               } else if (mask[i * holeW + j] == -16777216 || mask[i * holeW + j] == 16777216) {
                   this.aMap[(lcy + i) * this.width + lcx + j] = 16777215;
                   if (!isHole) {
                      isHole = true;

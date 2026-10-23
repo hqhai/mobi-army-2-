@@ -122,8 +122,21 @@ public class Item {
 
    }
 
+   /** LAN items 36 "Chỉ kẻ đầu", 37 "Bê tông cốt thép", 38 "Cơn mưa độc" are not in the game's item.png strip. */
+   public static final int HEAD_GUIDE = 36, CONCRETE = 37, POISON_RAIN = 38;
+   private static final mImage[] ownIcons = new mImage[3];
+
+   private static boolean drawOwnIcon(mGraphics g, int itemID, int x, int y, int anchor, boolean useClip) {
+      if (itemID < HEAD_GUIDE || itemID > POISON_RAIN) return false;
+      int i = itemID - HEAD_GUIDE;
+      if (ownIcons[i] == null) ownIcons[i] = mImage.createImage("/gui/item" + itemID + ".png");
+      g.drawRegion(ownIcons[i], 0, 0, 16, 16, 0, x, y, anchor, useClip);
+      return true;
+   }
+
    public static void DrawItem(mGraphics g, int itemID, int x, int y) {
       try {
+         if (drawOwnIcon(g, itemID, x + 8, y + 8, 3, true)) return;
          g.drawRegion(s_imgITEM, 0, (itemID + 2) * 16, 16, 16, 0, x + 8, y + 8, 3, true);
       } catch (Exception var5) {
          g.setColor(16777215);
@@ -134,6 +147,7 @@ public class Item {
 
    public void drawThisItem(mGraphics g, int x, int y) {
       try {
+         if (drawOwnIcon(g, this.type, x, y, 0, true)) return;
          g.drawRegion(s_imgITEM, 0, (this.type + 2) * 16, 16, 16, 0, x, y, 0, true);
       } catch (Exception var5) {
          g.setColor(16777215);
@@ -165,7 +179,8 @@ public class Item {
          }
 
          try {
-            g.drawRegion(s_imgITEM, 0, (setItem[n] + 2) * 16, 16, 16, 0, x1, y1, 0, false);
+            if (!drawOwnIcon(g, setItem[n], x1, y1, 0, false))
+                g.drawRegion(s_imgITEM, 0, (setItem[n] + 2) * 16, 16, 16, 0, x1, y1, 0, false);
          } catch (Exception var19) {
             g.fillRect(x1, y1, 16, 16, false);
          }

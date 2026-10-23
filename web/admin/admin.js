@@ -132,7 +132,8 @@
         equipment: function () { return loadCatalog('equipment'); },
         items: function () { return loadCatalog('items'); },
         specials: function () { return loadCatalog('specials'); },
-        rules: loadRules
+        rules: loadRules,
+        balance: loadBalance
     };
 
     document.querySelectorAll('.sidebar button').forEach(function (button) {
@@ -615,6 +616,26 @@
         $(id).addEventListener('change', function () { renderCatalog('equipment'); });
     });
     $('equipment-search').addEventListener('input', function () { renderCatalog('equipment'); });
+
+    // --- balance: win rates per character ----------------------------------------------------
+
+    async function loadBalance() {
+        var rows = await api('GET', 'balance');
+        var table = $('balance-table');
+        table.replaceChildren(el('thead', null, [el('tr', null, ['Nhân vật', 'Nội tại +14', 'Số trận', 'Thắng', 'Hòa', 'Thua', 'Tỉ lệ thắng']
+            .map(function (h, i) { return el('th', {text: h, className: i >= 2 ? 'num' : ''}); }))]));
+        var body = el('tbody');
+        rows.filter(function (row) { return row.matches > 0 || !row.passive; }).forEach(function (row) {
+            var rate = row.matches ? Math.round((row.wins + row.draws / 2) * 1000 / row.matches) / 10 + '%' : '–';
+            body.append(el('tr', null, [
+                el('td', {text: row.name}), el('td', {text: row.passive ? 'Có' : 'Không'}),
+                el('td', {className: 'num', text: number.format(row.matches)}), el('td', {className: 'num', text: number.format(row.wins)}),
+                el('td', {className: 'num', text: number.format(row.draws)}), el('td', {className: 'num', text: number.format(row.losses)}),
+                el('td', {className: 'num', text: rate})
+            ]));
+        });
+        table.append(body);
+    }
 
     // --- match rules ---------------------------------------------------------------------------
 

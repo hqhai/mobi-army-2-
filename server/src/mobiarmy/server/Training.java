@@ -23,6 +23,9 @@ public final class Training {
                     session.user.glass().id, 1, 1000, 0, 0, 0, 0, 24, 24, null);
             Map.Point point = map.map.data.points[i == 0 ? 0 : map.map.data.points.length - 1];
             player.index = (byte) i;
+            player.team = i + 1; // the dummy is an opponent (set passives such as Chicky's egg aim at opponents)
+            // The player's full +14 set works in practice too (wider holes, sure egg, Gunner's stacks).
+            if (i == 0) player.setTier = mobiarmy.war.SetPassive.tier(session.user, session.user.glass().id);
             player.x = point.x;
             player.y = point.y;
             map.players[i] = player;
@@ -59,11 +62,21 @@ public final class Training {
         Player player = map.players[0];
         player.x = x;
         player.y = y;
+        // Checked on every shot: gear changed on the web during practice counts at once.
+        int tier = mobiarmy.war.SetPassive.tier(session.user, session.user.glass().id);
+        if (tier != player.setTier) {
+            player.setTier = tier;
+            mobiarmy.war.SetPassive.resetCounters(player);
+        }
+        int bullet = player.bulletIdByGlassID();
+        int ang = Math.floorMod(angle, 360), f = Math.max(1, Math.min(30, force)), f2 = Math.max(1, Math.min(30, force2));
+        mobiarmy.war.SetPassive.beforeShot(player);
+        if (player.passiveFreezeShot() && bullet == 19) f2 = map.sureHitForce2(player, bullet, ang, f, f2, 0);
+        map.protectedGround = mobiarmy.war.SetPassive.protectedGround(map);
         Gun gun = new Gun(map, 0, false);
-        gun.shootBullet(player.bulletIdByGlassID(), x, y, 24, 24,
-                Math.floorMod(angle, 360), Math.max(1, Math.min(30, force)),
-                Math.max(1, Math.min(30, force2)), 1, 0, -1);
+        gun.shootBullet(bullet, x, y, 24, 24, ang, f, f2, 1, 0, -1);
         gun.fillXY();
         session.sessionHandler.shoot(gun);
+        mobiarmy.war.SetPassive.afterShot(player);
     }
 }

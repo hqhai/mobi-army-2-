@@ -131,7 +131,7 @@ public class Confirm {
                     }
                     int count = 0;
                     for (int i = 0; i < array[1]; i++) {
-                        boolean flag = Util.nextInt(1, 100) <= 100 - ((item.id + 1) % 10) * 10;
+                        boolean flag = Util.nextInt(1, 101) <= 100 - ((item.id + 1) % 10) * 10;
                         if (flag) {
                             count++;
                             this.user.addLinhTinh(item.id, -5);
