@@ -116,6 +116,7 @@ public class MapData {
                 Player player = new Player(this, user, user.name, user.glass().id, user.glass().level, iArr[0], iArr[1], iArr[2], iArr[3], iArr[4], 24, 24, user.setItems);
                 player.setTier = this.rules == RoomRules.BASE ? 0 : SetPassive.tier(user, user.glass().id);
                 player.baseAtt = user.glass().att;
+                player.hiddenAtt = SetPassive.hiddenAtt(user, user.glass().id);
                 player.isBoss = false;
                 player.isFly = false;
                 player.team = this.roomWait.type == 5 ? 3 : user.team;
@@ -383,6 +384,7 @@ public class MapData {
     public void endTheWar() {
         if (!this.isWar || this.typeComplete == -1) return;
         this.isWar = false;
+        String matchKey = System.currentTimeMillis() + "-" + System.identityHashCode(this);
         int fighters = 0;
         for (Player player : this.players) if (player != null && player.user != null) fighters++;
         for (Player player : this.players) {
@@ -393,6 +395,12 @@ public class MapData {
                 if (!this.isFightBoss) {
                     Server.dbManager.update("INSERT INTO lan_match_result (glass_id, set_tier, rules, players, result) VALUES (?, ?, ?, ?, ?)",
                             player.glassID, player.setTier, (int) this.rules, fighters, result);
+                }
+                if (!this.isFightBoss) {
+                    Server.dbManager.update("INSERT INTO lan_match_player (match_key, map_id, user_id, name, glass_id, team, result,"
+                            + " dealt, taken, healed, kills) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", matchKey, this.mapId,
+                            player.user.id, player.user.name, player.glassID, player.team, result,
+                            player.statDealt, player.statTaken, player.statHealed, player.statKills);
                 }
                 long before = player.user.xu;
                 player.user.addXu(result * this.wager, player.user.session != null);

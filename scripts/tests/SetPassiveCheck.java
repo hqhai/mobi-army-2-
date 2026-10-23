@@ -125,7 +125,7 @@ public class SetPassiveCheck {
         SetPassive.beforeShot(miss);
         check(apply(map, miss, ally) < plain * 50 / 100, "no true damage on a teammate");
 
-        // Tarzan takes 12% less; King Kong 10% less per round stood still, up to 30%.
+        // Tarzan takes 12% less; King Kong 5% less per round stood still, up to 15%.
         Player tarzan = player(map, 7, 100, SetPassive.TARZAN, 6);
         check(hit(map, rocketer, tarzan, false) == plain * 125 / 100 * 88 / 100, "Tarzan takes 12% less");
         MapData map2 = map();
@@ -136,9 +136,9 @@ public class SetPassiveCheck {
         check(kong.passiveStill == 0, "the first turn does not count");
         SetPassive.newTurn(kong);
         SetPassive.newTurn(kong);
-        check(hit(map2, shooter, kong, false) == full * 80 / 100, "King Kong after 2 still rounds: -20%");
+        check(hit(map2, shooter, kong, false) == full * 90 / 100, "King Kong after 2 still rounds: -10%");
         for (int i = 0; i < 5; i++) SetPassive.newTurn(kong);
-        check(hit(map2, shooter, kong, false) == full * 70 / 100, "King Kong caps at -30%");
+        check(hit(map2, shooter, kong, false) == full * 85 / 100, "King Kong caps at -15%");
         kong.x += 5;
         SetPassive.newTurn(kong);
         check(hit(map2, shooter, kong, false) == full, "moving resets King Kong");

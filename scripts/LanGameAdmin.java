@@ -254,6 +254,15 @@ public final class LanGameAdmin {
             create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_match_result (id INT AUTO_INCREMENT PRIMARY KEY,"
                     + " played_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, glass_id TINYINT NOT NULL,"
                     + " set_tier TINYINT NOT NULL, rules TINYINT NOT NULL, players TINYINT NOT NULL, result TINYINT NOT NULL)");
+            // One row per fighter per match; rows of a match share match_key (web "Thành tích").
+            create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_match_player (id INT AUTO_INCREMENT PRIMARY KEY,"
+                    + " played_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, match_key VARCHAR(40) NOT NULL, map_id TINYINT NOT NULL,"
+                    + " user_id INT NOT NULL, name VARCHAR(64) NOT NULL, glass_id TINYINT NOT NULL, team TINYINT NOT NULL,"
+                    + " result TINYINT NOT NULL, dealt INT NOT NULL, taken INT NOT NULL, healed INT NOT NULL, kills INT NOT NULL,"
+                    + " KEY (user_id), KEY (match_key))");
+            // Admin-granted rare pieces with a hidden damage bonus (SetPassive.hiddenAtt); never shown to players.
+            create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_hidden_bonus (user_id INT NOT NULL, db_key INT NOT NULL,"
+                    + " att_percent INT NOT NULL, PRIMARY KEY (user_id, db_key))");
         }
     }
 

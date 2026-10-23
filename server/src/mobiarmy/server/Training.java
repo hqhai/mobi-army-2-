@@ -57,26 +57,62 @@ public final class Training {
         session.sendMessage(message);
     }
 
-    public void shoot(short x, short y, short angle, byte force, byte force2) {
+    /** Bullets the practice accepts from the client besides the character's own: the items' (MapData.useItem). */
+    private static final java.util.Set<Integer> ITEM_BULLETS = java.util.Set.of(4, 5, 6, 7, 8, 13, 14, 16, 22, 23, 25, 26, 28, 30, 51, 52, 54, 55, 56, 57);
+
+    /**
+     * Practice items (LAN): free and never used up. POW needs a full rage bar like a match; the others that matter on
+     * the server are Chỉ kẻ đầu (Gunner's finisher), Bê tông cốt thép and Cơn mưa độc. Bullet items arrive with the shot.
+     */
+    public void useItem(byte itemID) {
+        if (!started) return;
+        Player player = map.players[0];
+        switch (itemID) {
+            case 100 -> {
+                if (player.angry < 100) return;
+                player.isPow = true;
+                player.angry = 0;
+                session.sessionHandler.updateAngry(0, 0);
+            }
+            case 36 -> player.headGuideShots = 2;
+            case 37 -> player.concreteTurns = 2;
+            case 38 -> player.poisonRain = true;
+            default -> { }
+        }
+    }
+
+    public void shoot(byte requested, short x, short y, short angle, byte force, byte force2, byte nShoot) {
         if (!started || x < 0 || x >= map.width || y < 0 || y >= map.height) return;
         Player player = map.players[0];
         player.x = x;
         player.y = y;
         // Checked on every shot: gear changed on the web during practice counts at once.
         int tier = mobiarmy.war.SetPassive.tier(session.user, session.user.glass().id);
+        player.hiddenAtt = mobiarmy.war.SetPassive.hiddenAtt(session.user, session.user.glass().id);
         if (tier != player.setTier) {
             player.setTier = tier;
             mobiarmy.war.SetPassive.resetCounters(player);
         }
-        int bullet = player.bulletIdByGlassID();
+        int own = player.bulletIdByGlassID();
+        int bullet = requested == own || ITEM_BULLETS.contains((int) requested) ? requested : own;
+        if (player.poisonRain) bullet = 23; // the poison rain falls like Sao băng
         int ang = Math.floorMod(angle, 360), f = Math.max(1, Math.min(30, force)), f2 = Math.max(1, Math.min(30, force2));
         mobiarmy.war.SetPassive.beforeShot(player);
         if (player.passiveFreezeShot() && bullet == 19) f2 = map.sureHitForce2(player, bullet, ang, f, f2, 0);
         map.protectedGround = mobiarmy.war.SetPassive.protectedGround(map);
-        Gun gun = new Gun(map, 0, false);
-        gun.shootBullet(bullet, x, y, 24, 24, ang, f, f2, 1, 0, -1);
+        Gun gun = new Gun(map, 0, player.isPow);
+        gun.shootBullet(bullet, x, y, 24, 24, ang, f, f2, Math.max(1, Math.min(2, nShoot)), 0, -1);
         gun.fillXY();
+        if (player.poisonRain) {
+            gun.poisonRain = true;
+            player.poisonRain = false;
+        }
         session.sessionHandler.shoot(gun);
         mobiarmy.war.SetPassive.afterShot(player);
+        player.isPow = false;
+        player.updateTurn(); // the next practice shot is a new turn: concrete, poison and stun count down
+        // Rage grows like a match: +10 a turn (Player.updateTurn adds it at each turn of a match).
+        player.updateAngry(10);
+        session.sessionHandler.updateAngry(0, player.angry);
     }
 }

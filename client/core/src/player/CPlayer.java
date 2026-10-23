@@ -1088,6 +1088,7 @@ public class CPlayer {
     void sendWaitForFire(byte bulletType, byte numShoot) {
         if (GameScr.trainingMode) {
             GameService.gI().waitForFIRETraining(bulletType, (short) this.x, (short) this.y, (short) this.angle, this.force, this.force_2, numShoot);
+            this.isUsedItem = false; // practice: items and POW again on the next shot
             // Training has no next turn, so movement stamina would never refill after the first walk.
             this.movePoint = 0;
         } else {
@@ -1119,6 +1120,11 @@ public class CPlayer {
             this.isUsedItem = true;
         } else {
             boolean poisonRain = itemID == Item.POISON_RAIN;
+            if (GameScr.trainingMode && this.index == GameScr.myIndex && itemID != 100) {
+                // Practice: the server needs the item too (Gunner's finisher, concrete, poison rain); it is never used up.
+                GameService.gI().useItem((byte) itemID);
+                if (itemID == Item.HEAD_GUIDE) headGuideShots = 2;
+            }
             switch (itemID) {
                 case 0:
                 case 2:
@@ -1212,7 +1218,7 @@ public class CPlayer {
                 new Explosion(this.x, this.y - 12, (byte) 3, this.index, (byte) itemID);
             }
 
-            if (this.index == GameScr.myIndex && itemID != 100) {
+            if (this.index == GameScr.myIndex && itemID != 100 && !GameScr.trainingMode) {
                 --ShopItem.getI(itemID).num;
             }
 

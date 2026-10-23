@@ -78,6 +78,12 @@
 
     function gear(item, box) {
         var holder = el('span', {className: 'thumb' + (box < 60 ? ' small' : '')});
+        if (item.icon) {
+            // Own picture (Thor costumes), scaled to fit the box.
+            var size = Math.max(16, Math.min(box - 6, 48));
+            holder.append(el('img', {className: 'own-icon', src: item.icon, alt: '', style: 'max-height:' + size + 'px;max-width:' + size + 'px'}));
+            return holder;
+        }
         if (item.sprite) {
             var x = item.sprite[0], y = item.sprite[1], w = item.sprite[2], h = item.sprite[3];
             var node = el('span', {className: 'sprite'});
@@ -369,8 +375,8 @@
                 + '%. Chuyên phá địa hình, làm đối thủ rơi khỏi map. Vật phẩm vẫn đục như thường.';
         }},
         3: {name: 'Bàn thạch', detail: function (s) {
-            return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(10, s) + '% sát thương nhận vào, tối đa ' + scaledText(30, s)
-                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
+            return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(5, s) + '% sát thương nhận vào, tối đa ' + scaledText(15, s)
+                + '%. Đứng yên từ 3 vòng, đất dưới chân không bị phá. Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
         }},
         4: {name: 'Nạp liệu', detail: function (s) {
             return 'Mọi phát bắn gây thêm ' + scaledText(25, s) + '% sát thương.';
@@ -1413,6 +1419,60 @@
             renderShop();
             loadShop();
         }
+        if (tab === 'record') loadRecord();
+    }
+
+    // --- Thành tích: totals, leaderboard, head-to-head, match history ---------------------------
+
+    var RESULT_TEXT = {'1': 'Thắng', '0': 'Hoà', '-1': 'Thua'};
+
+    function fmt(n) { return Number(n || 0).toLocaleString('vi-VN'); }
+
+    function table(id, head, rows) {
+        var t = document.getElementById(id);
+        t.replaceChildren(el('tr', {}, head.map(function (h) { return el('th', {text: h}); })));
+        if (!rows.length) t.append(el('tr', {}, [el('td', {colspan: head.length, text: 'Chưa có trận nào.'})]));
+        rows.forEach(function (r) { t.append(r); });
+    }
+
+    function cells(values, className) {
+        return el('tr', {className: className}, values.map(function (v) { return el('td', {text: String(v)}); }));
+    }
+
+    async function loadRecord() {
+        var data;
+        try {
+            data = await api('GET', 'stats');
+        } catch (error) {
+            document.getElementById('record-total').replaceChildren(el('p', {className: 'hint', text: error.message}));
+            return;
+        }
+        var t = data.total;
+        var rate = t.matches ? Math.round(t.wins * 100 / t.matches) + '%' : '-';
+        document.getElementById('record-total').replaceChildren.apply(document.getElementById('record-total'), [
+            ['Điểm', fmt(t.points)], ['Trận', fmt(t.matches)], ['Thắng / Hoà / Thua', t.wins + ' / ' + t.draws + ' / ' + t.losses],
+            ['Tỉ lệ thắng', rate], ['Sát thương gây ra', fmt(t.dealt)], ['Sát thương hứng chịu', fmt(t.taken)],
+            ['Máu đã hồi', fmt(t.healed)], ['Hạ gục', fmt(t.kills)]
+        ].map(function (p, i) { return el('div', {className: 'final-stat stat-' + (i % 4)}, [el('span', {className: 'final-name', text: p[0]}), el('b', {className: 'final-value', text: p[1]})]); }));
+        table('record-ranking', ['#', 'Người chơi', 'Điểm', 'Trận', 'Thắng', 'Sát thương', 'Hạ gục'],
+            data.ranking.map(function (r, i) {
+                return cells([i + 1, r.name, fmt(r.points), r.matches, r.wins, fmt(r.dealt), r.kills], r.user_id === data.me ? 'me-row' : null);
+            }));
+        table('record-rivals', ['Đối thủ', 'Trận', 'Thắng', 'Hoà', 'Thua'],
+            data.rivals.map(function (r) { return cells([r.name, r.matches, r.wins, r.draws, r.losses]); }));
+        var box = document.getElementById('record-matches');
+        box.replaceChildren();
+        if (!data.matches.length) box.append(el('p', {className: 'hint', text: 'Chưa có trận nào.'}));
+        data.matches.forEach(function (m) {
+            var head = el('summary', {}, [el('b', {className: 'res res' + m.result, text: RESULT_TEXT[m.result]}),
+                ' ' + m.at + ' · ' + m.glass + ' · gây ' + fmt(m.dealt) + ' · chịu ' + fmt(m.taken) + ' · hồi ' + fmt(m.healed) + ' · hạ ' + m.kills]);
+            var rows = el('table', {className: 'upgrade-table'}, [el('tr', {}, ['Đội', 'Người chơi', 'Nhân vật', 'Kết quả', 'Gây ra', 'Hứng chịu', 'Hồi máu', 'Hạ gục']
+                .map(function (h) { return el('th', {text: h}); }))]);
+            m.fighters.forEach(function (f) {
+                rows.append(cells([f.team, f.name, f.glass, RESULT_TEXT[f.result], fmt(f.dealt), fmt(f.taken), fmt(f.healed), f.kills]));
+            });
+            box.append(el('details', {className: 'match-row'}, [head, el('div', {className: 'table-scroll'}, [rows])]));
+        });
     }
 
     api('GET', 'me').then(showApp, showLogin);

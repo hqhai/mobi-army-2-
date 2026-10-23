@@ -1255,3 +1255,11 @@ dialog.chest-dialog::backdrop { background: rgba(10, 14, 40, .65); }
 .passive-box .passive-sets summary { cursor: pointer; font-weight: 700; color: #5a1aa8; }
 .passive-box .upgrade-table td:last-child { white-space: normal; text-align: left; min-width: 260px; }
 .passive-box .upgrade-table tr.current td { background: #ead6ff; font-weight: 700; }
+
+/* Thành tích */
+.me-row td { background: #fff3cf; font-weight: 700; }
+.match-row { border: 1px solid rgba(0,0,0,.12); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+.match-row summary { cursor: pointer; }
+.match-row .table-scroll { margin-top: 6px; }
+.res { display: inline-block; min-width: 44px; text-align: center; border-radius: 6px; padding: 1px 6px; color: #fff; }
+.res1 { background: #2e9e4f; } .res0 { background: #888; } .res-1 { background: #d62d2d; }

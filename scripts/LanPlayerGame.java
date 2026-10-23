@@ -582,6 +582,47 @@ final class LanPlayerGame {
     private final Map<Integer, Long> nextUpgradeAt = new java.util.HashMap<>();
 
     /** Adds the insurance rows to the special item catalog and the shop, and the pity table; safe to run on every start. */
+    // --- match stats ("Thành tích"): win 3 points, draw 1 ----------------------------------------
+
+    private static final String POINTS = "3 * SUM(result = 1) + SUM(result = 0)";
+
+    /** Totals, last 30 matches with every fighter, head-to-head against each enemy, and the leaderboard. */
+    Map<String, Object> stats(int userId, String username) throws Exception {
+        game.call(() -> player(userId, username));
+        Map<String, Object> out = new LinkedHashMap<>();
+        var total = Server.dbManager.selectColumnName("SELECT COUNT(*) AS matches, COALESCE(SUM(result = 1), 0) AS wins,"
+                + " COALESCE(SUM(result = 0), 0) AS draws, COALESCE(SUM(result = -1), 0) AS losses, COALESCE(SUM(dealt), 0) AS dealt,"
+                + " COALESCE(SUM(taken), 0) AS taken, COALESCE(SUM(healed), 0) AS healed, COALESCE(SUM(kills), 0) AS kills,"
+                + " COALESCE(" + POINTS + ", 0) AS points FROM lan_match_player WHERE user_id = ?", userId);
+        out.put("total", total.get(0));
+        var mine = Server.dbManager.selectColumnName("SELECT match_key, DATE_FORMAT(played_at, '%d/%m %H:%i') AS at, map_id, glass_id,"
+                + " team, result, dealt, taken, healed, kills FROM lan_match_player WHERE user_id = ? ORDER BY id DESC LIMIT 30", userId);
+        List<Object> matches = new ArrayList<>();
+        for (var m : mine) {
+            m.put("glass", glassName(m.getInt("glass_id")));
+            var fighters = Server.dbManager.selectColumnName("SELECT name, glass_id, team, result, dealt, taken, healed, kills"
+                    + " FROM lan_match_player WHERE match_key = ? ORDER BY team, id", m.getString("match_key"));
+            for (var f : fighters) f.put("glass", glassName(f.getInt("glass_id")));
+            m.put("fighters", fighters);
+            matches.add(m);
+        }
+        out.put("matches", matches);
+        out.put("rivals", Server.dbManager.selectColumnName("SELECT o.name, COUNT(*) AS matches, SUM(me.result = 1) AS wins,"
+                + " SUM(me.result = 0) AS draws, SUM(me.result = -1) AS losses FROM lan_match_player me"
+                + " JOIN lan_match_player o ON o.match_key = me.match_key AND o.team <> me.team AND o.user_id <> me.user_id"
+                + " WHERE me.user_id = ? GROUP BY o.user_id, o.name ORDER BY matches DESC LIMIT 20", userId));
+        out.put("ranking", Server.dbManager.selectColumnName("SELECT user_id, MAX(name) AS name, " + POINTS + " AS points,"
+                + " COUNT(*) AS matches, SUM(result = 1) AS wins, SUM(dealt) AS dealt, SUM(kills) AS kills"
+                + " FROM lan_match_player GROUP BY user_id ORDER BY points DESC, wins DESC, dealt DESC LIMIT 50"));
+        out.put("me", userId);
+        return out;
+    }
+
+    private static String glassName(int id) {
+        String[] names = {"Gunner", "Miss 6", "Electrician", "King Kong", "Rocketer", "Granos", "Chicky", "Tarzan", "Apache", "Magenta"};
+        return id >= 0 && id < names.length ? names[id] : "?";
+    }
+
     static void ensureUpgradeCatalog(java.sql.Connection conn) throws java.sql.SQLException {
         try (java.sql.Statement create = conn.createStatement()) {
             create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_upgrade_pity (user_id INT NOT NULL, db_key INT NOT NULL,"
@@ -816,7 +857,10 @@ final class LanPlayerGame {
         row.put("permanent", ThorSkin.is(equip));
         row.put("ability", toInts(equip.inv_ability));
         row.put("percent", toInts(equip.inv_percen));
-        if (equip.x != null && equip.x.length > 0 && equip.w[0] > 0 && equip.h[0] > 0) {
+        if (ThorSkin.is(equip) || (equip.id >= 30100 && equip.id <= 30109)) {
+            // Thor costumes borrow Iron Man's spot in the game's picture; the web shows their own icon (web/img/thor).
+            row.put("icon", "../img/thor/" + equip.id + ".png");
+        } else if (equip.x != null && equip.x.length > 0 && equip.w[0] > 0 && equip.h[0] > 0) {
             row.put("sprite", List.of((int) equip.x[0], (int) equip.y[0], (int) equip.w[0], (int) equip.h[0]));
         }
         return row;

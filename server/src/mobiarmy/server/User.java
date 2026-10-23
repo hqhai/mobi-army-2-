@@ -940,6 +940,10 @@ public class User {
     }
     
     public void useItem(byte itemID) {
+        if (this.session != null && this.session.training != null && this.roomWait == null) {
+            this.session.training.useItem(itemID); // practice: items are free and never used up
+            return;
+        }
         if (this.roomWait != null && this.roomWait.started) {
             this.roomWait.mapData.useItem(this.index, itemID);
         }

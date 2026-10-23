@@ -84,6 +84,7 @@
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="upgrade">Nâng cấp</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="gems">Khảm ngọc</button>
                 <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="shop">Cửa hàng</button>
+                <button type="button" role="tab" class="tab-btn" aria-selected="false" data-tab="record">Thành tích</button>
             </div>
 
             <section class="box tab-panel" id="tab-upgrade" role="tabpanel" aria-labelledby="upgrade-title" hidden>
@@ -113,6 +114,17 @@
                 <div class="cards" id="socket-list"></div>
             </section>
 
+            <section class="box tab-panel" id="tab-record" role="tabpanel" aria-labelledby="record-title" hidden>
+                <h2 class="box-title" id="record-title">Thành tích</h2>
+                <div class="final-stats" id="record-total"></div>
+                <p class="hint">Điểm: thắng +3, hoà +1, thua 0. Không tính trận đánh boss và luyện tập.</p>
+                <h2 class="box-title">Bảng xếp hạng</h2>
+                <div class="table-scroll"><table class="upgrade-table" id="record-ranking"></table></div>
+                <h2 class="box-title">Lịch sử đối đầu</h2>
+                <div class="table-scroll"><table class="upgrade-table" id="record-rivals"></table></div>
+                <h2 class="box-title">Lịch sử thi đấu <span class="muted-count">(30 trận gần nhất)</span></h2>
+                <div id="record-matches"></div>
+            </section>
             <section class="box tab-panel" id="tab-stats" role="tabpanel" aria-labelledby="stats-title" hidden>
                 <h2 class="box-title" id="stats-title">Chỉ số khi vào trận <span class="muted-count" id="stats-worn"></span></h2>
                 <div class="final-stats" id="final-stats"></div>

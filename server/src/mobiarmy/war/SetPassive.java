@@ -36,12 +36,12 @@ public final class SetPassive {
     static final int CHICKY_EVERY = 4, CHICKY_FREEZE = 2;
     static final int TARZAN_LESS = 12;
     /** King Kong: each round he stands still takes this much off damage he takes, up to KINGKONG_MAX. */
-    static final int KINGKONG_STEP = 10, KINGKONG_MAX = 30;
+    static final int KINGKONG_STEP = 5, KINGKONG_MAX = 15;
     /** Electrician digs 50% wider holes with his own bullets, Granos three times as wide (percent, full strength). */
     static final int ELECTRICIAN_HOLE = 150, GRANOS_HOLE = 300;
     static final int ELECTRICIAN = 2, GRANOS = 5;
     /** King Kong: after this many rounds stood still the ground under him cannot be dug until he moves. */
-    static final int KINGKONG_ROCK_ROUNDS = 2;
+    static final int KINGKONG_ROCK_ROUNDS = 3;
 
     /** Magenta: how much of the wind her laser no longer feels, in percent (full strength: none at all). */
     static final int MAGENTA_WIND_IGNORED = 100;
@@ -122,7 +122,36 @@ public final class SetPassive {
     }
 
     /** Damage of one explosion on target after the shooter's passive. */
+    /**
+     * Hidden damage bonus in percent (table lan_hidden_bonus, admin-granted rare sets): every worn slot of this
+     * character must be one of the user's rare pieces. Not shown anywhere in the game or on the web.
+     */
+    public static int hiddenAtt(User user, int glassId) {
+        java.util.Map<Integer, Integer> rare = new java.util.HashMap<>();
+        try {
+            for (var row : mobiarmy.server.Server.dbManager.selectColumnName(
+                    "SELECT db_key, att_percent FROM lan_hidden_bonus WHERE user_id = ?", user.id)) {
+                rare.put(row.getInt("db_key"), row.getInt("att_percent"));
+            }
+        } catch (Exception e) {
+            return 0;
+        }
+        if (rare.isEmpty()) return 0;
+        boolean[] slots = new boolean[5];
+        int percent = Integer.MAX_VALUE;
+        for (Equip equip : user.equips) {
+            if (equip.glassID != glassId || !equip.isUse || equip.vip != 0 || ThorSkin.is(equip)) continue;
+            Integer p = rare.get(equip.dbKey);
+            if (p == null || equip.type < 0 || equip.type > 4) return 0;
+            slots[equip.type] = true;
+            percent = Math.min(percent, p);
+        }
+        for (boolean slot : slots) if (!slot) return 0;
+        return percent;
+    }
+
     static int dealt(Player shooter, Player target, int att) {
+        if (shooter != null && shooter.hiddenAtt > 0 && att > 0) att += att * shooter.hiddenAtt / 100;
         if (shooter == null || shooter.setTier == 0 || att <= 0) return att;
         int bonus = switch (shooter.glassID) {
             case GUNNER -> gunnerRange(shooter, target);

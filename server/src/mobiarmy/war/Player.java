@@ -78,6 +78,10 @@ public class Player {
     /** Hit by the poison rain: own turns left healing half as much. */
     public int antiHealTurns;
     public static final int ANTI_HEAL_TURNS = 3;
+    /** LAN match stats (web "Thành tích"): HP dealt to enemies, HP lost, HP healed, enemies finished. */
+    public int statDealt, statTaken, statHealed, statKills;
+    /** Hidden damage bonus in percent from an admin-granted rare set (SetPassive.hiddenAtt). */
+    public int hiddenAtt;
 
     /** Full +14 set tier for SetPassive, 0 when none. */
     public int setTier;
@@ -195,6 +199,7 @@ public class Player {
 
     public void updateHP(int addHP) {
         if (addHP > 0 && this.antiHealTurns > 0) addHP /= 2; // poison rain: heals count half
+        int hpBefore = this.hp;
         this.hp += addHP;
         if(this.hp <= 0) {
             this.hp = 0;
@@ -203,6 +208,8 @@ public class Player {
         } else if(this.hp > this.hpMax) {
             this.hp = this.hpMax;
         }
+        if (this.hp > hpBefore) this.statHealed += this.hp - hpBefore;
+        else this.statTaken += hpBefore - this.hp;
         int oldPixel = this.pixel;
         this.pixel = this.hp * 25 / this.hpMax;
         this.updateAngry(Math.abs(oldPixel - this.pixel) * 4);
@@ -345,6 +352,10 @@ public class Player {
         }
         if (player.countSuck > 0) {
             player.suckHP += ((hpOld - this.hp) / 2);
+        }
+        if (player != this && player.team != this.team && hpOld > this.hp) {
+            player.statDealt += hpOld - this.hp;
+            if (this.isDie) player.statKills++;
         }
         this.attAffect = 0;
         this.attDirect = 0;

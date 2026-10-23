@@ -89,8 +89,8 @@ public class ControlHandler {
                     short angle = msg.reader().readShort();
                     byte force = msg.reader().readByte();
                     byte force2 = bullet == 17 || bullet == 19 ? msg.reader().readByte() : 0;
-                    msg.reader().readByte();
-                    session.training.shoot(x, y, angle, force, force2);
+                    byte nShoot = msg.reader().readByte();
+                    session.training.shoot(bullet, x, y, angle, force, force2, nShoot);
                 }
             }
             case -28 -> {

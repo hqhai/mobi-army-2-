@@ -661,6 +661,29 @@ public class GameScr extends CScreen {
         this.isChat = false;
         String typed = tfChat.getText();
         java.util.regex.Matcher mapCommand = TRAINING_MAP_COMMAND.matcher(typed == null ? "" : typed.trim().toLowerCase());
+        java.util.regex.Matcher itemCommand = TRAINING_ITEM_COMMAND.matcher(typed == null ? "" : typed.trim().toLowerCase());
+        if (trainingMode && itemCommand.matches()) {
+            // Practice: "item 21 19 28" puts those items in the slots, any items, free and never used up.
+            tfChat.setText("");
+            java.util.ArrayList<Integer> picked = new java.util.ArrayList<Integer>();
+            for (String part : itemCommand.group(1).trim().split("\\s+")) {
+                int id = Integer.parseInt(part);
+                if (id >= 0 && id <= item.Item.POISON_RAIN && (id < 12 || id > 15) && picked.size() < 8) picked.add(id);
+            }
+            String shown;
+            if (picked.isEmpty()) {
+                shown = "Mã vật phẩm 0-38 (trừ 12-15)";
+            } else {
+                PrepareScr.trainingItems = new int[picked.size()];
+                for (int i = 0; i < picked.size(); i++) PrepareScr.trainingItems[i] = picked.get(i);
+                PM.getMyPlayer().item = PrepareScr.getStrainingItem();
+                shown = "Vật phẩm: " + picked;
+            }
+            this.showChat(TerrainMidlet.myInfo.IDDB, shown);
+            CCanvas.gameScr.showChat(TerrainMidlet.myInfo.IDDB, shown, 90);
+            clearKey();
+            return;
+        }
         if (trainingMode && mapCommand.matches()) {
             // Practice on another map: reload training there, without the tutorial steps of map 0.
             tfChat.setText("");
@@ -693,6 +716,7 @@ public class GameScr extends CScreen {
     }
 
     private static final java.util.regex.Pattern TRAINING_MAP_COMMAND = java.util.regex.Pattern.compile("map\\s*(\\d{1,3})");
+    private static final java.util.regex.Pattern TRAINING_ITEM_COMMAND = java.util.regex.Pattern.compile("item((?:\\s+\\d{1,3}){1,8})");
     /** Map picked with "map N" in training; 0 is the tutorial map. */
     public static byte trainingMapId;
 

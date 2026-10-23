@@ -197,14 +197,13 @@ public class PrepareScr extends CScreen {
         this.itemCur[3] = 1;
     }
 
+    /** Practice item slots (LAN): any items, free and never used up; chat "item 21 19 28" changes them. */
+    public static int[] trainingItems = {2, 21, 19, 28, 36, 37, 38, 16};
+
     public static int[] getStrainingItem() {
-        int[] item = new int[numCurItemSlot];
-        item[0] = 0;
-        item[1] = 0;
-        item[2] = 0;
-        item[3] = 0;
-        item[4] = 0;
-        item[5] = 0;
+        int[] item = new int[8]; // practice always has all 8 slots
+        java.util.Arrays.fill(item, -1);
+        System.arraycopy(trainingItems, 0, item, 0, Math.min(item.length, trainingItems.length));
         return item;
     }
 
