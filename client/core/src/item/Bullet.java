@@ -1741,7 +1741,10 @@ public class Bullet {
                     CCanvas.rotateImage(this.dan, this.angleRotate, g, this.x, this.y, true);
                 } else if (this.frmImg != null) {
                     if (this.type != 2 && this.type != 11) {
+                        // Gunner's set passive: his POW is a giant cannonball, as much bigger as the hole it digs.
+                        if (this.type == 0 && map.CMap.holeScaleBullet == 0 && map.CMap.holeScale > 100) g.drawScale = map.CMap.holeScale / 100f;
                         this.frmImg.drawFrame(this.curFrame, this.x, this.y, this.trans, 3, g, false);
+                        g.drawScale = 1f;
                     } else if (this.type == 2) {
                         // Electrician's set passive: his bullets are as much bigger as the holes they dig.
                         if (map.CMap.holeScaleBullet == 2 && map.CMap.holeScale > 100) g.drawScale = map.CMap.holeScale / 100f;

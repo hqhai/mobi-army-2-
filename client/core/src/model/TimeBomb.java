@@ -1,6 +1,7 @@
 package model;
 
 import CLib.mGraphics;
+import CLib.mImage;
 import coreLG.CCanvas;
 import effect.Camera;
 import effect.Explosion;
@@ -23,7 +24,20 @@ public class TimeBomb {
       new Explosion(x, y, (byte)1);
    }
 
+   /** Chicky's Easter egg (server ids 100 and up) instead of a time bomb. */
+   static mImage egg;
+
+   public boolean isEgg() {
+      return this.id >= 100;
+   }
+
    public void paint(mGraphics g) {
+      if (this.isEgg()) {
+         if (egg == null) egg = mImage.createImage("/gui/egg.png");
+         int bob = CCanvas.gameTick % 10 < 5 ? 0 : 1;
+         g.drawImage(egg, this.x, this.y - bob, mGraphics.HCENTER | mGraphics.BOTTOM, false);
+         return;
+      }
       int frame = CCanvas.gameTick % 3 == 0 ? 0 : 1;
       g.drawRegion(Explosion.timeBomb, 0, frame * 15, 28, 15, 0, this.x, this.y, mGraphics.HCENTER | mGraphics.BOTTOM, false);
    }

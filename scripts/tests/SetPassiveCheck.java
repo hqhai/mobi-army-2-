@@ -19,9 +19,8 @@ public class SetPassiveCheck {
         sets();
         damage();
         ground();
-        chickyEgg();
         items();
-        System.out.println("SET PASSIVE PASSED: " + checks + " checks; set detection, Gunner, Miss 6, Rocketer, Chicky, Tarzan, King Kong, Magenta");
+        System.out.println("SET PASSIVE PASSED: " + checks + " checks; set detection, Gunner, Miss 6, Rocketer, Chicky, Electrician, Tarzan, King Kong, Magenta");
     }
 
     static void sets() throws Exception {
@@ -51,43 +50,46 @@ public class SetPassiveCheck {
     }
 
     static void damage() throws Exception {
-        // Gunner "Đòn kết liễu": +30% point blank down to -20% from 600 px; POW always lucky; with "Chỉ kẻ đầu" a big
-        // blast that stuns.
+        // Gunner "Súng Thần Công": POW cannonball +50% and a hole twice as wide, nobody lucky on his shots, rage 20%
+        // faster, recoil of 20% of what the cannonball dealt to an opponent it killed.
         MapData map = map();
         Player target = player(map, 1, 1000, 5, 0);
         Player plainShooter = player(map, 6, 1000, 5, 0);
         plainShooter.team = 3 - target.team;
         int plain = hit(map, plainShooter, target, false);
         Player gunner = player(map, 0, 1000, SetPassive.GUNNER, 6);
-        check(hit(map, gunner, target, false) == plain * 130 / 100, "point blank: +30%");
-        gunner.x = 1300;
-        check(hit(map, gunner, target, false) == plain * 105 / 100, "300 px away: +5%");
-        gunner.x = 1600;
-        check(hit(map, gunner, target, false) == plain * 80 / 100, "600 px away: -20%");
-        gunner.x = 2500;
-        check(hit(map, gunner, target, false) == plain * 80 / 100, "farther stays at -20%");
-        gunner.setTier = 1;
-        gunner.x = 1000;
-        check(hit(map, gunner, target, false) == plain * 115 / 100, "set 1 point blank: +15%");
-        gunner.setTier = 6;
-        gunner.lucky = false;
-        SetPassive.powLuck(gunner);
-        check(!gunner.lucky, "no POW, luck as usual");
-        gunner.isPow = true;
-        SetPassive.powLuck(gunner);
-        check(gunner.lucky, "the POW shot is always lucky");
-        gunner.isPow = false;
+        check(hit(map, gunner, target, false) == plain, "a plain Gunner shot: usual damage");
         check(SetPassive.holeScale(gunner, 0) == 100, "a plain Gunner hole");
-        gunner.headGuideShots = 2; // item 36 "Chỉ kẻ đầu"
+        gunner.isPow = true;
+        check(hit(map, gunner, target, false) == plain * 150 / 100, "the cannonball: +50%");
+        check(SetPassive.holeScale(gunner, 0) == 200, "the cannonball digs twice as wide");
+        gunner.setTier = 1;
+        check(hit(map, gunner, target, false) == plain * 125 / 100, "set 1 cannonball: +25%");
+        gunner.setTier = 6;
+        map.disableLuck = false;
+        SetPassive.noLuck(plainShooter);
+        check(!map.disableLuck, "others' shots: luck as usual");
+        SetPassive.noLuck(gunner);
+        check(map.disableLuck, "Gunner's shots: nobody is lucky");
+        map.disableLuck = false;
+        gunner.angry = 0;
+        gunner.updateAngry(10);
+        check(gunner.angry == 12, "Gunner's rage grows 20% faster, got " + gunner.angry);
+        target.hpMax = 50;
+        gunner.hp = gunner.hpMax;
         SetPassive.beforeShot(gunner);
-        check(SetPassive.holeScale(gunner, 0) == 200, "the finisher blast digs twice as wide");
         apply(map, gunner, target);
-        check(target.stunTurns == 1, "the finisher stuns: the target loses its next turn");
+        check(target.isDie, "the cannonball kills");
         SetPassive.afterShot(gunner);
-        check(gunner.headGuideShots == 1 && SetPassive.holeScale(gunner, 0) == 100, "one finisher shot used");
-        target.stunTurns = 0;
+        check(gunner.hp == gunner.hpMax - 10, "recoil: 20% of the 50 dealt, got " + (gunner.hpMax - gunner.hp));
+        target.isDie = false;
+        target.hpMax = 100_000;
+        gunner.isPow = false;
+        gunner.hp = gunner.hpMax;
+        SetPassive.beforeShot(gunner);
         apply(map, gunner, target);
-        check(target.stunTurns == 0, "no stun outside the finisher");
+        SetPassive.afterShot(gunner);
+        check(gunner.hp == gunner.hpMax, "no kill, no recoil");
 
         // Rocketer +25%; Granos digs instead and deals plain damage.
         Player rocketer = player(map, 2, 100, SetPassive.ROCKETER, 6);
@@ -95,18 +97,50 @@ public class SetPassiveCheck {
         check(hit(map, rocketer, target, false) == plain * 125 / 100, "Rocketer +25%");
         check(hit(map, granos, target, false) == plain, "Granos: no extra damage");
 
-        // Chicky: every fourth shot freezes the opponent it hits for one turn.
+        // Chicky "Trứng Phục sinh": hit by the chicken and its egg, the opponent gets an egg that hatches for 2% of
+        // max HP as true damage; Chicky's team in reach heals 2% and keeps its ground.
         MapData map3 = map();
         Player chicky = player(map3, 0, 100, SetPassive.CHICKY, 6);
-        Player frozen = player(map3, 1, 300, 5, 0);
-        for (int i = 1; i <= 3; i++) hit(map3, chicky, frozen, true);
-        check(frozen.countFreeze == 0, "shots 1-3 do not freeze");
-        hit(map3, chicky, frozen, true);
-        check(frozen.countFreeze == SetPassive.CHICKY_FREEZE, "the fourth shot freezes");
-        frozen.updateTurn();
-        check(frozen.countFreeze == 1, "frozen through the next turn");
-        frozen.updateTurn();
-        check(frozen.countFreeze == 0, "thawed the turn after");
+        Player foe = player(map3, 1, 300, 5, 0);
+        SetPassive.beforeShot(chicky);
+        apply(map3, chicky, foe, 19);
+        SetPassive.afterShot(chicky);
+        check(map3.pendingEggs.isEmpty(), "the chicken alone lays no egg");
+        SetPassive.beforeShot(chicky);
+        apply(map3, chicky, foe, 19);
+        apply(map3, chicky, foe, 20);
+        SetPassive.afterShot(chicky);
+        check(map3.pendingEggs.size() == 1, "chicken and egg: an egg at the opponent's feet");
+        TimeBomb egg = map3.pendingEggs.get(0);
+        check(egg.egg && egg.id >= 100 && egg.x == foe.x && egg.count > 0, "the egg waits its rounds");
+        foe.hp = foe.hpMax;
+        map3.timeBombs.add(egg);
+        int eggHole = mobiarmy.server.GameData.getHoleType(57);
+        java.awt.image.BufferedImage savedHole = mobiarmy.server.GameData.holeIMask[eggHole];
+        mobiarmy.server.GameData.holeIMask[eggHole] = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        map3.hatchEgg(egg);
+        mobiarmy.server.GameData.holeIMask[eggHole] = savedHole;
+        check(foe.hpMax - foe.hp == foe.hpMax * 2 / 100, "hatching: 2% of max HP, got " + (foe.hpMax - foe.hp));
+        Player mate = player(map3, 2, 310, 5, 0);
+        mate.team = chicky.team;
+        mate.hp = mate.hpMax / 2;
+        foe.hp = foe.hpMax;
+        map3.hatchEgg(egg);
+        check(mate.hp == mate.hpMax / 2 + mate.hpMax * 2 / 100, "a teammate in reach heals 2%");
+        check(foe.hpMax - foe.hp == foe.hpMax * 2 / 100, "the opponent is still hurt");
+
+        // Electrician: an opponent hit by 3 bolts in one shot loses his next turn.
+        Player elec = player(map3, 4, 100, SetPassive.ELECTRICIAN, 6);
+        Player zapped = player(map3, 5, 300, 5, 0);
+        SetPassive.beforeShot(elec);
+        apply(map3, elec, zapped, 2);
+        apply(map3, elec, zapped, 2);
+        SetPassive.afterShot(elec);
+        check(zapped.stunTurns == 0, "2 bolts: no stun");
+        SetPassive.beforeShot(elec);
+        for (int i = 0; i < 3; i++) apply(map3, elec, zapped, 2);
+        SetPassive.afterShot(elec);
+        check(zapped.stunTurns == 1, "3 bolts: the opponent loses his next turn");
 
         // Miss 6: every third hit ignores defense and crits x1.5.
         Player miss = player(map, 4, 100, SetPassive.MISS6, 6);
@@ -125,7 +159,7 @@ public class SetPassiveCheck {
         SetPassive.beforeShot(miss);
         check(apply(map, miss, ally) < plain * 50 / 100, "no true damage on a teammate");
 
-        // Tarzan takes 12% less; King Kong 5% less per round stood still, up to 15%.
+        // Tarzan takes 12% less; King Kong 10% less per round stood still, up to 20%.
         Player tarzan = player(map, 7, 100, SetPassive.TARZAN, 6);
         check(hit(map, rocketer, tarzan, false) == plain * 125 / 100 * 88 / 100, "Tarzan takes 12% less");
         MapData map2 = map();
@@ -135,10 +169,9 @@ public class SetPassiveCheck {
         SetPassive.newTurn(kong);
         check(kong.passiveStill == 0, "the first turn does not count");
         SetPassive.newTurn(kong);
-        SetPassive.newTurn(kong);
-        check(hit(map2, shooter, kong, false) == full * 90 / 100, "King Kong after 2 still rounds: -10%");
+        check(hit(map2, shooter, kong, false) == full * 90 / 100, "King Kong after 1 still round: -10%");
         for (int i = 0; i < 5; i++) SetPassive.newTurn(kong);
-        check(hit(map2, shooter, kong, false) == full * 85 / 100, "King Kong caps at -15%");
+        check(hit(map2, shooter, kong, false) == full * 80 / 100, "King Kong caps at -20%");
         kong.x += 5;
         SetPassive.newTurn(kong);
         check(hit(map2, shooter, kong, false) == full, "moving resets King Kong");
@@ -157,17 +190,31 @@ public class SetPassiveCheck {
         check(new Gun(windy, magenta.index, false).windX == 60, "no set, no passive");
     }
 
-    /** Wider holes (Electrician, Granos), ground King Kong protects, and Chicky's sure egg. */
+    /** Wider holes (Granos, Gunner's cannonball), King Kong's rock: ground he protects, smaller and softer banana. */
     static void ground() throws Exception {
         MapData map = map();
         Player elec = player(map, 0, 100, SetPassive.ELECTRICIAN, 6);
         Player granos = player(map, 1, 300, SetPassive.GRANOS, 6);
-        check(SetPassive.holeScale(elec, 2) == 150, "Electrician's own bullet digs 50% wider");
-        check(SetPassive.holeScale(elec, 7) == 100, "items dig as usual");
+        check(SetPassive.holeScale(elec, 2) == 100, "Electrician digs as usual now");
+        check(SetPassive.holeScale(granos, 7) == 100, "items dig as usual");
         check(SetPassive.holeScale(granos, 11) == 300, "Granos digs three times as wide");
         granos.setTier = 1;
         check(SetPassive.holeScale(granos, 11) == 200, "set 1 Granos: twice as wide");
         check(SetPassive.holeScale(null, 2) == 100, "no shooter, usual hole");
+
+        Player kk = player(map, 2, 600, SetPassive.KINGKONG, 6);
+        Player foe = player(map, 3, 1600, 5, 0);
+        int banana = kk.bulletIdByGlassID();
+        int normal = hit(map, kk, foe, false);
+        int[] holes = {100, 90, 85, 70, 70};
+        for (int still = 1; still <= 5; still++) {
+            kk.passiveStill = still;
+            check(SetPassive.holeScale(kk, banana) == holes[still - 1], still + " still rounds: banana hole " + holes[still - 1] + "%");
+        }
+        kk.passiveStill = 1;
+        check(hit(map, kk, foe, false) == normal, "no rock yet: full damage");
+        kk.passiveStill = 2;
+        check(hit(map, kk, foe, false) == normal * 70 / 100, "on rock: banana 30% softer");
 
         // Nearest-pixel scaling, the same formula as the client's CMap.scaledMask.
         int[] mask = {1, 2, 3, 4};
@@ -203,34 +250,6 @@ public class SetPassiveCheck {
         } finally {
             mobiarmy.server.GameData.holeIMask[type] = saved;
         }
-    }
-
-    /** Chicky's fourth shot: the server picks the second force that drops the egg on an opponent. */
-    static void chickyEgg() throws Exception {
-        MapData map = map();
-        Player chicky = player(map, 0, 300, SetPassive.CHICKY, 6);
-        chicky.y = 1500;
-        int ang = 60, force = 20, att = 1000;
-        // Where the chicken flies: a trial with the egg dropped as late as possible.
-        Gun path = new Gun(map, chicky.index, false);
-        path.shootBullet(19, chicky.x, chicky.y, chicky.width, chicky.height, ang, force, 30, 1, att, -1);
-        path.fillXY();
-        mobiarmy.war.Boss.bullet.Bullet chicken = path.bullets.get(0);
-        mobiarmy.war.Boss.bullet.Bullet.Frame drop = chicken.frames.get(12);
-        Player enemy = player(map, 1, drop.fX, 5, 0);
-        enemy.y = (short) (drop.fY + 160);
-        int picked = map.sureHitForce2(chicky, 19, ang, force, 30, att);
-        Gun trial = new Gun(map, chicky.index, false);
-        trial.dryRun = true;
-        trial.shootBullet(19, chicky.x, chicky.y, chicky.width, chicky.height, ang, force, picked, 1, att, -1);
-        trial.fillXY();
-        check(trial.dryHits.contains(enemy), "the picked second force lands on the enemy (picked " + picked + ")");
-        Gun own = new Gun(map, chicky.index, false);
-        own.dryRun = true;
-        own.shootBullet(19, chicky.x, chicky.y, chicky.width, chicky.height, ang, force, 30, 1, att, -1);
-        own.fillXY();
-        check(!own.dryHits.contains(enemy), "the player's own second force would have missed");
-        check(enemy.hp == enemy.hpMax && map.data.isEmpty(), "trial shots change nothing");
     }
 
     /** LAN items 37 "Bê tông cốt thép" and 38 "Cơn mưa độc". */
@@ -275,7 +294,11 @@ public class SetPassiveCheck {
     }
 
     static int apply(MapData map, Player shooter, Player target) {
-        Bullet bullet = new Bullet(new Gun(map, shooter.index, false), 0, 1000, target.x, target.y - 12, 0, 0, 0, 0, 0);
+        return apply(map, shooter, target, 0);
+    }
+
+    static int apply(MapData map, Player shooter, Player target, int bulletId) {
+        Bullet bullet = new Bullet(new Gun(map, shooter.index, false), bulletId, 1000, target.x, target.y - 12, 0, 0, 0, 0, 0);
         bullet.radius = 16;
         target.hp = target.hpMax;
         target.lucky = false;
@@ -293,6 +316,8 @@ public class SetPassiveCheck {
         map.data = new ArrayList<>();
         map.tornados = new ArrayList<>();
         map.protectedGround = new ArrayList<>();
+        map.timeBombs = new ArrayList<>();
+        map.pendingEggs = new ArrayList<>();
         return map;
     }
 

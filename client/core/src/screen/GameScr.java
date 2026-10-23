@@ -23,6 +23,7 @@ import item.Item;
 import java.util.Vector;
 
 import map.Background;
+import map.CMap;
 import map.MM;
 import model.CRes;
 import model.CTime;
@@ -839,12 +840,33 @@ public class GameScr extends CScreen {
         waitting();
     }
 
+    /** Chicky's egg hatching next to her team: it goes off without digging. */
+    public void hatchEggNoHole(int id) {
+        for (int i = 0; i < timeBombs.size(); ++i) {
+            TimeBomb b = (TimeBomb) timeBombs.elementAt(i);
+            if (b.id == id) {
+                b.isExplore = true;
+                return;
+            }
+        }
+    }
+
     public void explodeTimeBomb(int id) {
         for (int i = 0; i < timeBombs.size(); ++i) {
             TimeBomb b = (TimeBomb) timeBombs.elementAt(i);
             if (b.id == id) {
                 b.isExplore = true;
-                mm.makeHole(b.x, b.y, (byte) 57, 9);
+                if (b.isEgg()) {
+                    // Chicky's Easter egg (server SetPassive.CHICKY_EGG_HOLE): a hole twice the time bomb's.
+                    int scale = CMap.holeScale, scaleBullet = CMap.holeScaleBullet;
+                    CMap.holeScale = 200;
+                    CMap.holeScaleBullet = 57;
+                    mm.makeHole(b.x, b.y, (byte) 57, 9);
+                    CMap.holeScale = scale;
+                    CMap.holeScaleBullet = scaleBullet;
+                } else {
+                    mm.makeHole(b.x, b.y, (byte) 57, 9);
+                }
                 return;
             }
         }

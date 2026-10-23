@@ -89,16 +89,17 @@ public class Player {
     int passiveShots, passiveHits, passiveStill;
     /** Where the player stood at the start of its last turn; -1 before the first one. */
     int passiveX = -1, passiveY = -1;
-    boolean passiveHit, passiveTrueShot, passiveFreezeShot, passiveFinisher;
-    /** LAN item 36 "Chỉ kẻ đầu": shots left with it on (Gunner's finisher needs it). */
+    boolean passiveHit, passiveTrueShot;
+    /** This shot so far (SetPassive.bulletHit): hit by Chicky's chicken, by her egg, by how many Electrician bolts. */
+    boolean hitChicken, hitEgg;
+    int hitBolts;
+    /** Gunner's cannonball: recoil he takes after this shot. */
+    int cannonRecoil;
+    /** LAN item 36 "Chỉ kẻ đầu": shots left with the full aim guide. */
     public int headGuideShots;
-    /** Stunned by Gunner's finisher: turns to skip. */
+    /** Stunned (Electrician): turns to skip. */
     public int stunTurns;
 
-    /** True on Chicky's fourth shot with her set passive (SetPassive). */
-    public boolean passiveFreezeShot() {
-        return this.passiveFreezeShot;
-    }
 
     public class Item {
         
@@ -219,6 +220,7 @@ public class Player {
     }
 
     public void updateAngry(int addAngry) {
+        addAngry = SetPassive.rage(this, addAngry);
         this.angry += addAngry;
         if(this.angry < 0) {
             this.angry = 0;
@@ -353,9 +355,12 @@ public class Player {
         if (player.countSuck > 0) {
             player.suckHP += ((hpOld - this.hp) / 2);
         }
-        if (player != this && player.team != this.team && hpOld > this.hp) {
+        if (SetPassive.enemies(player, this) && hpOld > this.hp) {
             player.statDealt += hpOld - this.hp;
-            if (this.isDie) player.statKills++;
+            if (this.isDie) {
+                player.statKills++;
+                SetPassive.killed(player, hpOld - this.hp);
+            }
         }
         this.attAffect = 0;
         this.attDirect = 0;
@@ -486,6 +491,7 @@ public class Player {
                 att = (int) (att + (att * 0.1F));
             }
             att = SetPassive.dealt(shooterPlayer, this, att);
+            if (att > 0) SetPassive.bulletHit(shooterPlayer, this, bullet.bulletId);
             this.attAffect += att;
             if (direct) {
                 this.attDirect += att;

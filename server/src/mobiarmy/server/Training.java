@@ -98,7 +98,6 @@ public final class Training {
         if (player.poisonRain) bullet = 23; // the poison rain falls like Sao băng
         int ang = Math.floorMod(angle, 360), f = Math.max(1, Math.min(30, force)), f2 = Math.max(1, Math.min(30, force2));
         mobiarmy.war.SetPassive.beforeShot(player);
-        if (player.passiveFreezeShot() && bullet == 19) f2 = map.sureHitForce2(player, bullet, ang, f, f2, 0);
         map.protectedGround = mobiarmy.war.SetPassive.protectedGround(map);
         Gun gun = new Gun(map, 0, player.isPow);
         gun.shootBullet(bullet, x, y, 24, 24, ang, f, f2, Math.max(1, Math.min(2, nShoot)), 0, -1);

@@ -360,23 +360,23 @@
      */
     function scaledText(full, s) { return Math.round(full * s / 100); }
     var PASSIVES = {
-        0: {name: 'Đòn kết liễu', detail: function (s) {
-            return 'Bắn càng gần càng đau: sát thương +' + scaledText(30, s) + '% khi bắn sát đối thủ, giảm dần theo khoảng cách, còn −' + scaledText(20, s)
-                + '% khi cách từ 600 điểm ảnh trở lên. Đòn POW (thanh nộ đầy) luôn gặp may mắn (chí mạng). '
-                + 'Kết hợp vật phẩm "Chỉ kẻ đầu": trong 2 phát có vật phẩm, đạn Gunner gây vụ nổ lớn (hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN')
-                + ' lần), đối thủ trúng đòn bị choáng và mất lượt bắn kế tiếp (chữ "Choáng" hiện trên đầu).';
+        0: {name: 'Súng Thần Công', detail: function (s) {
+            return 'Khi Gunner bắn, không ai gặp may mắn, kể cả Gunner. Đòn POW bắn ra một viên thần công khổng lồ: sát thương +' + scaledText(50, s)
+                + '%, hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN') + ' lần. Thanh nộ tích nhanh hơn ' + scaledText(20, s)
+                + '%. Phản chấn: mỗi đối thủ bị viên thần công hạ gục, Gunner mất máu bằng ' + scaledText(20, s) + '% lượng máu đối thủ đó vừa mất.';
         }},
         1: {name: 'Mũi tên thứ ba', detail: function (s) {
             return 'Cứ mỗi phát trúng đối thủ thứ 3 gây sát thương chuẩn: bỏ qua toàn bộ phòng thủ, không bị may mắn cứu, và chắc chắn chí mạng x'
                 + (1 + scaledText(50, s) / 100).toLocaleString('vi-VN') + '. Bắn trượt không tính; trúng đồng đội không tính.';
         }},
-        2: {name: 'Đục đất', detail: function (s) {
-            return 'Đạn của Electrician to hơn ' + scaledText(50, s) + '% và đục hố rộng hơn ' + scaledText(50, s)
-                + '%. Chuyên phá địa hình, làm đối thủ rơi khỏi map. Vật phẩm vẫn đục như thường.';
+        2: {name: 'Tê liệt', detail: function () {
+            return 'Đối thủ trúng cả 3 viên đạn điện trong một phát bắn bị tê liệt, mất lượt bắn kế tiếp (chữ "Choáng" hiện trên đầu). Đạn và hố như thường.';
         }},
         3: {name: 'Bàn thạch', detail: function (s) {
-            return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(5, s) + '% sát thương nhận vào, tối đa ' + scaledText(15, s)
-                + '%. Đứng yên từ 3 vòng, đất dưới chân không bị phá. Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
+            return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(10, s) + '% sát thương nhận vào, tối đa ' + scaledText(20, s)
+                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Cái giá: khi đã có bàn thạch, chuối gây ít hơn ' + scaledText(30, s)
+                + '% sát thương và đục hố nhỏ dần (−' + scaledText(10, s) + '%, −' + scaledText(15, s) + '%, rồi −' + scaledText(30, s)
+                + '% từ vòng thứ 3). Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
         }},
         4: {name: 'Nạp liệu', detail: function (s) {
             return 'Mọi phát bắn gây thêm ' + scaledText(25, s) + '% sát thương.';
@@ -385,9 +385,10 @@
             return 'Đạn của Granos đục hố rộng gấp ' + (1 + scaledText(200, s) / 100).toLocaleString('vi-VN')
                 + ' lần, chuyên đào hố cho đối thủ rơi. Sát thương giữ như thường; vật phẩm vẫn đục như thường.';
         }},
-        6: {name: 'Gà thần', detail: function (s) {
-            return 'Cứ phát bắn thứ 4 (4, 8, 12…): trứng tự rơi trúng đối thủ, không cần căn lực 2, và đối thủ trúng đòn bị đóng băng 1 lượt (không di chuyển được).'
-                + (s < 100 ? ' Bộ thấp vẫn có đủ hiệu ứng này.' : '');
+        6: {name: 'Trứng Phục sinh', detail: function (s) {
+            return 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn sẽ bị đẻ một quả trứng Phục sinh dưới chân. Sau 2 vòng trứng nổ: đối thủ trong tầm mất '
+                + (2 * s / 100).toLocaleString('vi-VN') + '% máu tối đa (sát thương chuẩn, bỏ qua phòng thủ) và một hố to được đào. Đồng đội của Chicky trong tầm được hồi '
+                + (2 * s / 100).toLocaleString('vi-VN') + '% máu, và khi đó trứng không đào hố.';
         }},
         7: {name: 'Đu dây', detail: function (s) {
             return 'Giảm ' + scaledText(12, s) + '% mọi sát thương nhận vào.';

@@ -1118,6 +1118,16 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
+    /** Chicky's egg hatches (client build 4+): type 1 digs its hole like a time bomb, type 2 digs none. */
+    public void hatchEgg(int id, boolean dig) {
+        try {
+            Message message = new Message(109);
+            message.writer().writeByte(dig ? 1 : 2);
+            message.writer().writeByte(id);
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
     public void addPlayer(Player... players) {
         try {
             Message message = new Message(89);

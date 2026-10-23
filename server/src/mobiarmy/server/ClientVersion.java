@@ -8,7 +8,7 @@ package mobiarmy.server;
  */
 public final class ClientVersion {
     /** Must equal GameMidlet.LAN_BUILD of the client built from the same code (scripts/tests/ClientVersionCheck). */
-    public static final int REQUIRED = 3;
+    public static final int REQUIRED = 4;
 
     private ClientVersion() {
     }

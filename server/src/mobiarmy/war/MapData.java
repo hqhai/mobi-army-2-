@@ -424,6 +424,7 @@ public class MapData {
         this.data.clear();
         this.tornados.clear();
         this.timeBombs.clear();
+        this.pendingEggs.clear();
         for (int i = 0; i  <this.players.length; i++) {
             this.players[i] = null;
         }
@@ -563,14 +564,65 @@ public class MapData {
                 this.timeBombs.get(i).update();
             }
         }
+        //add Chicky's eggs laid during the last turn
+        for (TimeBomb egg : this.pendingEggs) {
+            this.timeBombs.add(egg);
+            this.addTimeBomb(egg.id, egg.x, egg.y);
+        }
+        this.pendingEggs.clear();
         //no
         for (int i = this.timeBombs.size() - 1; i >= 0; i--) {
-            this.timeBombs.get(i).count--;
-            if (this.timeBombs.get(i).count == 0) {
-                this.explodeTimeBomb(this.timeBombs.get(i));
+            TimeBomb bomb = this.timeBombs.get(i);
+            bomb.count--;
+            if (bomb.count == 0) {
+                if (bomb.egg) this.hatchEgg(bomb);
+                else this.explodeTimeBomb(bomb);
             }
-            i--;
         }
+    }
+
+    /** Chicky's eggs laid this turn; they appear at the start of the next one (like the time bomb item). */
+    ArrayList<TimeBomb> pendingEggs = new ArrayList<>();
+    private int countEgg;
+
+    /** Chicky's "Trứng Phục sinh": an egg at the target's feet that hatches after SetPassive.CHICKY_EGG_ROUNDS rounds. */
+    void layEgg(Player owner, Player target) {
+        int fighters = 0;
+        for (Player p : this.players) if (p != null && !p.isDie && p.isTurn) fighters++;
+        TimeBomb egg = new TimeBomb(this, 100 + this.countEgg++ % 27, owner.index, 0, target.x, target.y,
+                SetPassive.CHICKY_EGG_ROUNDS * Math.max(1, fighters), SetPassive.CHICKY_EGG_RADIUS);
+        egg.egg = true;
+        this.pendingEggs.add(egg);
+    }
+
+    /** The egg hatches: true damage to Chicky's opponents in reach, a heal for her team, a hole unless they are near. */
+    void hatchEgg(TimeBomb egg) {
+        this.timeBombs.remove(egg);
+        Player owner = egg.leadIndex >= 0 && egg.leadIndex < this.players.length ? this.players[egg.leadIndex] : null;
+        boolean allyNear = false;
+        if (owner != null) {
+            for (Player p : this.players) {
+                if (!SetPassive.eggReach(p, egg.x, egg.y)) continue;
+                int amount = SetPassive.eggAmount(owner, p);
+                if (SetPassive.enemies(owner, p)) {
+                    int before = p.hp;
+                    p.updateHP(-amount);
+                    owner.statDealt += before - p.hp;
+                    if (p.isDie) owner.statKills++;
+                } else {
+                    allyNear = true;
+                    p.updateHP(amount);
+                }
+                this.updateHP(p.index, p.hp, p.pixel);
+            }
+        }
+        for (Player player : this.players) {
+            if (player != null && player.user != null && player.user.session != null) {
+                player.user.session.sessionHandler.hatchEgg(egg.id, !allyNear);
+            }
+        }
+        if (!allyNear) this.makeHole(egg.x, egg.y, 57, SetPassive.CHICKY_EGG_HOLE);
+        this.addTimeUntilAction(1500);
     }
     
     public boolean isHaveBoss(int glassID) {
@@ -779,9 +831,6 @@ public class MapData {
                 bulletID = player.bulletId;
             }
             SetPassive.beforeShot(player);
-            if (player.passiveFreezeShot && bulletID == 19) {
-                force2 = this.sureHitForce2(player, bulletID, ang, force, force2, att);
-            }
             this.shootBullet(player.index, player.isPow, bulletID, player.x, player.y, player.width, player.height, ang, force, force2, player.nshoot, att, -1);
             this.updateAffect(index);
             SetPassive.afterShot(player);
@@ -790,26 +839,6 @@ public class MapData {
         }
     }
     
-    /**
-     * Chicky's set passive: on the fourth shot the egg drops where it hits an opponent. Trial shots try the second
-     * force nearest the player's own first; when none lands on anyone the player's choice stands.
-     */
-    public int sureHitForce2(Player player, int bulletId, int ang, int force, int force2, int att) {
-        for (int d = 0; d <= 30; d++) {
-            for (int f : new int[] {force2 - d, force2 + d}) {
-                if (f < 1 || f > 30 || (d == 0 && f != force2)) continue;
-                Gun trial = new Gun(this, player.index, player.isPow);
-                trial.dryRun = true;
-                trial.shootBullet(bulletId, player.x, player.y, player.width, player.height, ang, force, f, player.nshoot, att, -1);
-                trial.fillXY();
-                for (Player hit : trial.dryHits) {
-                    if (SetPassive.enemies(player, hit)) return f;
-                }
-            }
-        }
-        return force2;
-    }
-
     public void shootBullet(int index, boolean isPow, int bulletId, int x, int y, int width, int height, int ang, int force, int force2, int nshoot, int att, int radius) {
         this.protectedGround = SetPassive.protectedGround(this);
 //        //Khóa các hành động lại
@@ -835,8 +864,8 @@ public class MapData {
                     shooter.poisonRain = false;
                     for (Player hit : gun.setEff) hit.antiHealTurns = Player.ANTI_HEAL_TURNS;
                 }
+                SetPassive.noLuck(gun.shooter());
                 this.nextLuck();
-                SetPassive.powLuck(gun.shooter());
                 MapData.this.updateLuck();
                 MapData.this.shoot(gun);
 //                Server.addCommand(1, MapData.this);
@@ -1289,7 +1318,7 @@ public class MapData {
 //                        }
                     if (this.players[num2] != null && !this.players[num2].isDie && this.players[num2].isTurn && ((typeTurn == 2 && this.players[num2].isBoss) || (typeTurn == 3 && !this.players[num2].isBoss))) {
                         if (this.players[num2].stunTurns > 0) {
-                            // Stunned by Gunner's finisher: this turn is skipped.
+                            // Stunned (Electrician): this turn is skipped.
                             this.players[num2].stunTurns--;
                             this.sendStatus();
                             if (num2 == num3) break;

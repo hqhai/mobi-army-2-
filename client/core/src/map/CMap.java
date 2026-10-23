@@ -408,11 +408,13 @@ public class CMap {
    }
 
    public static int getHoleW(int bulletType) {
-      return holeIMask[getHoleType(bulletType)].image.getWidth();
+      int w = holeIMask[getHoleType(bulletType)].image.getWidth();
+      return bulletType == holeScaleBullet ? Math.max(1, w * holeScale / 100) : w;
    }
 
    public static int getHoleH(int bulletType) {
-      return holeIMask[getHoleType(bulletType)].image.getHeight();
+      int h = holeIMask[getHoleType(bulletType)].image.getHeight();
+      return bulletType == holeScaleBullet ? Math.max(1, h * holeScale / 100) : h;
    }
 
    public int getPixel(int x, int y) {

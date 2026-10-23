@@ -23,25 +23,38 @@ public final class SetPassive {
     static final int GUNNER = 0, MISS6 = 1, KINGKONG = 3, ROCKETER = 4, CHICKY = 6, TARZAN = 7, MAGENTA = 9;
 
     /**
-     * Gunner "Đòn kết liễu": the closer the target the harder he hits, GUNNER_CLOSE percent more point blank down to
-     * GUNNER_FAR percent less from GUNNER_RANGE pixels away (full strength); his POW shot is always lucky; and a shot
-     * while item 36 "Chỉ kẻ đầu" is on digs a hole GUNNER_FINISH_HOLE percent wide and stuns the opponents it hits:
-     * they lose their next turn.
+     * Gunner "Súng Thần Công": nobody is lucky on his shots, himself included; his POW fires one giant cannonball
+     * that hits GUNNER_POW_DAMAGE percent as hard and digs a GUNNER_CANNON_HOLE percent hole; he gains rage
+     * GUNNER_RAGE percent as fast; and each opponent the cannonball kills hits him back for GUNNER_RECOIL percent
+     * of the damage it dealt (all at full strength).
      */
-    static final int GUNNER_CLOSE = 30, GUNNER_FAR = 20, GUNNER_RANGE = 600, GUNNER_FINISH_HOLE = 200;
+    static final int GUNNER_POW_DAMAGE = 150, GUNNER_CANNON_HOLE = 200, GUNNER_RAGE = 120, GUNNER_RECOIL = 20;
     /** Miss 6: every third hit ignores all defense and crits for this multiplier (percent, full strength). */
     static final int MISS6_EVERY = 3, MISS6_CRIT = 150;
     static final int ROCKETER_DAMAGE = 25;
-    /** Chicky: every fourth shot freezes the opponents it hits for their next turn (Player.countFreeze). */
-    static final int CHICKY_EVERY = 4, CHICKY_FREEZE = 2;
+    /**
+     * Chicky "Trứng Phục sinh": an opponent hit by both the chicken (bullet 19) and its egg (20) in one shot gets an
+     * egg at his feet. It hatches after CHICKY_EGG_ROUNDS rounds: opponents within CHICKY_EGG_RADIUS take
+     * CHICKY_EGG_PERCENT of their max HP as true damage and the egg digs a CHICKY_EGG_HOLE percent hole; Chicky's
+     * team within reach heals that much instead, and then no hole is dug.
+     */
+    static final int CHICKY_EGG_ROUNDS = 2, CHICKY_EGG_RADIUS = 50, CHICKY_EGG_PERCENT = 2, CHICKY_EGG_HOLE = 200;
     static final int TARZAN_LESS = 12;
     /** King Kong: each round he stands still takes this much off damage he takes, up to KINGKONG_MAX. */
-    static final int KINGKONG_STEP = 5, KINGKONG_MAX = 15;
-    /** Electrician digs 50% wider holes with his own bullets, Granos three times as wide (percent, full strength). */
-    static final int ELECTRICIAN_HOLE = 150, GRANOS_HOLE = 300;
+    static final int KINGKONG_STEP = 10, KINGKONG_MAX = 20;
+    /**
+     * King Kong once his ground is rock: each further round still his banana digs this much smaller (percent, last
+     * value from then on), and it hits KINGKONG_ROCK_DAMAGE percent softer (full strength).
+     */
+    static final int[] KINGKONG_ROCK_SHRINK = {10, 15, 30};
+    static final int KINGKONG_ROCK_DAMAGE = 30;
+    /** Electrician: an opponent hit by ELECTRICIAN_STUN_BOLTS of his bolts in one shot loses his next turn. */
+    static final int ELECTRICIAN_STUN_BOLTS = 3;
+    /** Granos digs three times as wide holes with its own bullets (percent, full strength). */
+    static final int GRANOS_HOLE = 300;
     static final int ELECTRICIAN = 2, GRANOS = 5;
     /** King Kong: after this many rounds stood still the ground under him cannot be dug until he moves. */
-    static final int KINGKONG_ROCK_ROUNDS = 3;
+    static final int KINGKONG_ROCK_ROUNDS = 2;
 
     /** Magenta: how much of the wind her laser no longer feels, in percent (full strength: none at all). */
     static final int MAGENTA_WIND_IGNORED = 100;
@@ -88,40 +101,92 @@ public final class SetPassive {
 
     /** Called before a player's shot. */
     public static void beforeShot(Player shooter) {
+        for (Player p : shooter.mapData.players) {
+            if (p == null) continue;
+            p.hitChicken = false;
+            p.hitEgg = false;
+            p.hitBolts = 0;
+        }
+        shooter.cannonRecoil = 0;
         if (shooter.setTier == 0) return;
         shooter.passiveShots++;
         shooter.passiveHit = false;
         shooter.passiveTrueShot = shooter.glassID == MISS6 && shooter.passiveHits % MISS6_EVERY == MISS6_EVERY - 1;
-        shooter.passiveFreezeShot = shooter.glassID == CHICKY && shooter.passiveShots % CHICKY_EVERY == 0;
-        shooter.passiveFinisher = shooter.glassID == GUNNER && shooter.headGuideShots > 0;
     }
 
-    /** Gunner's POW shot is always lucky (call after the luck roll). */
-    static void powLuck(Player shooter) {
-        if (shooter != null && shooter.setTier != 0 && shooter.glassID == GUNNER && shooter.isPow) shooter.lucky = true;
+    /** Gunner's shots: nobody is lucky, himself included (call before the luck roll). */
+    static void noLuck(Player shooter) {
+        if (shooter != null && shooter.setTier != 0 && shooter.glassID == GUNNER) shooter.mapData.disableLuck = true;
     }
 
-    /** Called after a player's shot has been applied. */
+    /** True while this shot is Gunner's cannonball (his POW with the set passive). */
+    static boolean cannon(Player shooter) {
+        return shooter != null && shooter.setTier != 0 && shooter.glassID == GUNNER && shooter.isPow;
+    }
+
+    /** Rage gained, after Gunner's faster rage. */
+    static int rage(Player player, int add) {
+        if (add <= 0 || player.setTier == 0 || player.glassID != GUNNER) return add;
+        return add * (100 + scaled(player, GUNNER_RAGE - 100)) / 100;
+    }
+
+    /** One bullet of this shot hurt target: what Chicky's egg and Electrician's stun count. */
+    static void bulletHit(Player shooter, Player target, int bulletId) {
+        if (shooter == null || !enemies(shooter, target)) return;
+        if (bulletId == 19) target.hitChicken = true;
+        if (bulletId == 20) target.hitEgg = true;
+        if (bulletId == 2) target.hitBolts++;
+    }
+
+    /**
+     * Called after a player's shot has been applied: Chicky lays her eggs, Electrician stuns, Gunner takes the
+     * cannonball's recoil.
+     */
     public static void afterShot(Player shooter) {
         if (shooter.setTier != 0 && shooter.passiveHit) shooter.passiveHits++;
         shooter.passiveTrueShot = false;
-        shooter.passiveFreezeShot = false;
-        shooter.passiveFinisher = false;
         if (shooter.headGuideShots > 0) shooter.headGuideShots--;
+        if (shooter.setTier == 0) return;
+        MapData map = shooter.mapData;
+        for (Player target : map.players) {
+            if (target == null || target.isDie || !enemies(shooter, target)) continue;
+            if (shooter.glassID == CHICKY && target.hitChicken && target.hitEgg) map.layEgg(shooter, target);
+            if (shooter.glassID == ELECTRICIAN && target.hitBolts >= ELECTRICIAN_STUN_BOLTS) target.stunTurns = 1;
+        }
+        if (shooter.cannonRecoil > 0 && !shooter.isDie) {
+            shooter.updateHP(-shooter.cannonRecoil);
+            map.updateHP(shooter.index, shooter.hp, shooter.pixel);
+        }
+        shooter.cannonRecoil = 0;
     }
 
-    /** After a hit: Chicky's fourth shot freezes an opponent it damaged for one turn. */
+    /** After a hit: counts it. */
     static void afterHit(Player shooter, Player target, int damage) {
         if (damage <= 0 || !enemies(shooter, target)) return;
         shooter.passiveHit = true;
-        if (shooter.passiveFreezeShot && !target.isDie) {
-            target.countFreeze = Math.max(target.countFreeze, CHICKY_FREEZE);
-            target.mapData.freeze(target.index, 0);
-        }
-        if (shooter.passiveFinisher && !target.isDie) target.stunTurns = 1; // Gunner's finisher: loses the next turn
     }
 
-    /** Damage of one explosion on target after the shooter's passive. */
+    /** The shooter killed an opponent, who lost this much HP: Gunner's cannonball hits him back for part of it. */
+    static void killed(Player shooter, int lost) {
+        if (cannon(shooter)) shooter.cannonRecoil += lost * scaled(shooter, GUNNER_RECOIL) / 100;
+    }
+
+    /** Players within the egg's reach of (x, y). */
+    static boolean eggReach(Player p, int x, int y) {
+        return p != null && !p.isDie && Math.hypot(p.x - x, p.y - y) <= CHICKY_EGG_RADIUS;
+    }
+
+    /** Egg damage or heal for p: CHICKY_EGG_PERCENT of max HP at the owner's strength, at least 1. */
+    static int eggAmount(Player owner, Player p) {
+        return Math.max(1, p.hpMax * scaled(owner, CHICKY_EGG_PERCENT * 100) / 10000);
+    }
+
+    /** Rounds King Kong has had rock ground for this turn, 0 when he has none. */
+    static int rockRounds(Player p) {
+        if (p == null || p.setTier == 0 || p.glassID != KINGKONG) return 0;
+        return Math.max(0, p.passiveStill - KINGKONG_ROCK_ROUNDS + 1);
+    }
+
     /**
      * Hidden damage bonus in percent (table lan_hidden_bonus, admin-granted rare sets): every worn slot of this
      * character must be one of the user's rare pieces. Not shown anywhere in the game or on the web.
@@ -150,22 +215,19 @@ public final class SetPassive {
         return percent;
     }
 
+    /** Damage of one explosion on target after the shooter's passive. */
     static int dealt(Player shooter, Player target, int att) {
         if (shooter != null && shooter.hiddenAtt > 0 && att > 0) att += att * shooter.hiddenAtt / 100;
         if (shooter == null || shooter.setTier == 0 || att <= 0) return att;
         int bonus = switch (shooter.glassID) {
-            case GUNNER -> gunnerRange(shooter, target);
+            case GUNNER -> shooter.isPow ? GUNNER_POW_DAMAGE - 100 : 0;
             case ROCKETER -> ROCKETER_DAMAGE;
+            case KINGKONG -> rockRounds(shooter) > 0 ? -KINGKONG_ROCK_DAMAGE : 0;
             default -> 0;
         };
         return att + att * scaled(shooter, bonus) / 100;
     }
 
-    /** Gunner's damage change in percent at the target's distance: +GUNNER_CLOSE point blank down to -GUNNER_FAR. */
-    static int gunnerRange(Player shooter, Player target) {
-        double d = Math.min(GUNNER_RANGE, Math.hypot(shooter.x - target.x, shooter.y - target.y));
-        return (int) Math.round(GUNNER_CLOSE - (GUNNER_CLOSE + GUNNER_FAR) * d / GUNNER_RANGE);
-    }
 
     /** True when this hit from shooter ignores defense and crits (Miss 6's third hit). */
     static boolean trueHit(Player shooter, Player target) {
@@ -212,15 +274,17 @@ public final class SetPassive {
     }
 
     /**
-     * Hole size in percent for this shooter's bullet: Electrician's and Granos' own bullets dig wider holes. The
-     * client gets the same number with the shot (SessionHandler.shoot) and scales the hole the same way.
+     * Hole size in percent for this shooter's bullet: Granos digs wider, Gunner's cannonball too, King Kong on rock
+     * ground smaller. The client gets the same number with the shot (SessionHandler.shoot) and scales the hole the
+     * same way.
      */
     public static int holeScale(Player shooter, int bulletId) {
         if (shooter == null || shooter.setTier == 0 || bulletId != shooter.bulletIdByGlassID()) return 100;
-        if (shooter.passiveFinisher) return 100 + scaled(shooter, GUNNER_FINISH_HOLE - 100); // Gunner's finisher blast
+        int rock = rockRounds(shooter);
         return switch (shooter.glassID) {
-            case ELECTRICIAN -> 100 + scaled(shooter, ELECTRICIAN_HOLE - 100);
+            case GUNNER -> shooter.isPow ? 100 + scaled(shooter, GUNNER_CANNON_HOLE - 100) : 100;
             case GRANOS -> 100 + scaled(shooter, GRANOS_HOLE - 100);
+            case KINGKONG -> rock > 0 ? 100 - scaled(shooter, KINGKONG_ROCK_SHRINK[Math.min(rock, KINGKONG_ROCK_SHRINK.length) - 1]) : 100;
             default -> 100;
         };
     }

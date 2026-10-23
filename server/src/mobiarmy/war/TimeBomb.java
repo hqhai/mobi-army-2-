@@ -14,6 +14,8 @@ public class TimeBomb {
     public int att;
     public int radius;
     public MapData mapData;
+    /** Chicky's Easter egg (SetPassive) instead of a time bomb: ids 100 and up, owner in leadIndex. */
+    public boolean egg;
     
     public TimeBomb(MapData mapData, int id, int leadIndex, int att, int x, int y, int count, int radius) {
         this.id = id;

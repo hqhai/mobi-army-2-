@@ -1642,6 +1642,9 @@ public class MessageHandler implements IMessageHandler {
                             CRes.out("BOM EXPLORE id=" + bombId);
                             CCanvas.gameScr.explodeTimeBomb(bombId);
                         }
+                        if (typeBomb == 2) {
+                            CCanvas.gameScr.hatchEggNoHole(bombId);
+                        }
                         break;
                     }
                     case 112: {
