@@ -31,6 +31,11 @@ public class GameMidlet extends MIDlet implements IActionListener {
     public static GameMidlet instance = new GameMidlet();
     public static CCanvas gameCanvas;
     public static String version = "2.4.1";
+    /**
+     * LAN build, sent at login; the server turns away builds below the one it requires (mobiarmy.server.ClientVersion).
+     * Raise both together when every player must have this client, then publish the client update.
+     */
+    public static final int LAN_BUILD = 1;
     public static short versionByte = 241;
     public static byte versioncode = 11;
     public static byte server = -2;
@@ -333,9 +338,10 @@ public class GameMidlet extends MIDlet implements IActionListener {
     }
 
     public static void serverInformation(Font paint, mGraphics g) {
-        paint.drawString(g, version, CCanvas.width - 2 - paint.getWidth(version), 2 + paint.getHeight(), 0, false);
+        String shown = version + " LAN " + LAN_BUILD;
+        paint.drawString(g, shown, CCanvas.width - 2 - paint.getWidth(shown), 2 + paint.getHeight(), 0, false);
         if (CCanvas.isDebugging()) {
-            paint.drawString(g, String.valueOf(timePingPaint), CCanvas.width - 2 - paint.getWidth(version), 2 + paint.getHeight() * 2, 0, false);
+            paint.drawString(g, String.valueOf(timePingPaint), CCanvas.width - 2 - paint.getWidth(shown), 2 + paint.getHeight() * 2, 0, false);
         }
 
     }

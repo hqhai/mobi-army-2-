@@ -6,7 +6,7 @@ try {
     $java = "$root/tools/jdk-21/bin/java.exe"
     $javac = "$root/tools/jdk-21/bin/javac.exe"
     New-Item -ItemType Directory -Force verification, verification/tmp, verification/profile | Out-Null
-    & $javac -encoding UTF-8 -cp 'runtime/server-classes;server/lib/*' -d verification scripts/tests/ThorShopCheck.java scripts/tests/ApacheMechanicsCheck.java scripts/tests/SkillBalanceCheck.java
+    & $javac -encoding UTF-8 -cp 'runtime/server-classes;server/lib/*' -d verification scripts/tests/ThorShopCheck.java scripts/tests/ApacheMechanicsCheck.java scripts/tests/SkillBalanceCheck.java scripts/tests/ClientVersionCheck.java scripts/tests/WindCheck.java
     if ($LASTEXITCODE -ne 0) { throw 'Server test compilation failed.' }
     [Environment]::SetEnvironmentVariable('ARMY_DB_PASSWORD', (Import-Clixml runtime/db-credential.xml).GetNetworkCredential().Password, 'Process')
     try {
@@ -21,6 +21,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Apache mechanics failed.' }
     & $java -cp 'verification;runtime/server-classes;server/lib/*' SkillBalanceCheck
     if ($LASTEXITCODE -ne 0) { throw 'Skill balance checks failed.' }
+    & $java -cp 'verification;runtime/server-classes;server/lib/*' ClientVersionCheck
+    if ($LASTEXITCODE -ne 0) { throw 'Client version checks failed.' }
+    & $java -cp 'verification;runtime/server-classes;server/lib/*' WindCheck
+    if ($LASTEXITCODE -ne 0) { throw 'Wind checks failed.' }
     $clientCp = 'verification;desktop-build/build/install/army2-lan-desktop/lib/*'
     & $javac -encoding UTF-8 -cp $clientCp -d verification scripts/tests/ThorSkinCheck.java scripts/tests/ThorSkinDisabledCheck.java scripts/tests/ThorShopUiCheck.java scripts/tests/KeyboardControlsCheck.java scripts/tests/RoomRulesUiCheck.java scripts/tests/InventorySyncCheck.java
     if ($LASTEXITCODE -ne 0) { throw 'Client test compilation failed.' }

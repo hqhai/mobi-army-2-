@@ -183,6 +183,10 @@ public class KeyboardControlsCheck extends MainGame {
                     "typing lm 18 in the chat box sets the force and sends nothing");
             sent.clear(); GameScr.tfChat.setText("gg"); screen.isChat=true; screen.chatWait=0; screen.sendTypedChat();
             check(sent.size()==1 && sent.get(0).command==9,"ordinary chat is still sent to the room");
+            sent.clear(); network.GameService.gI().login("someone","abc123","2.4.1");
+            java.io.DataInputStream login=sent.get(0).reader();
+            check(sent.get(0).command==1 && login.readUTF().equals("someone") && login.readUTF().equals("abc123") && login.readUTF().equals("2.4.1")
+                    && login.readInt()==com.teamobi.mobiarmy2.GameMidlet.LAN_BUILD,"login sends the LAN build after the version");
             System.out.println("KEYBOARD CHECKS PASSED: " + checks);
         } catch(Throwable t) { failure=t; t.printStackTrace(); }
         finally { Gdx.app.exit(); }

@@ -343,6 +343,11 @@ input.stat::-webkit-outer-spin-button {
     vertical-align: middle;
 }
 
+/* Number columns: the header sits over the right-aligned numbers (.grid th would keep it left). */
+.grid th.num {
+    text-align: right;
+}
+
 .grid tr.editing td {
     background: var(--warn-bg);
     white-space: nowrap;

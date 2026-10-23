@@ -37,6 +37,7 @@ public class GameService {
             m.writer().writeUTF(username);
             m.writer().writeUTF(pass);
             m.writer().writeUTF(version);
+            m.writer().writeInt(GameMidlet.LAN_BUILD); // LAN server: older builds are turned away
             this.session.sendMessage(m);
             m.cleanup();
         } catch (IOException var6) {

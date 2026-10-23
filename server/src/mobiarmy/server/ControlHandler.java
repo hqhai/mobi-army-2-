@@ -162,7 +162,13 @@ public class ControlHandler {
                     String name = msg.reader().readUTF();
                     String pass = msg.reader().readUTF();
                     this.session.version = msg.reader().readUTF();
-                    try {
+                    // LAN: the client's build number follows the version string; older clients send none.
+                    int build = msg.reader().available() >= 4 ? msg.reader().readInt() : 0;
+                    String outdated = ClientVersion.problem(build);
+                    if (outdated != null) {
+                        System.out.println("Login of " + name + " refused: client build " + build + ", server needs " + ClientVersion.required());
+                        this.session.sessionHandler.log(outdated);
+                    } else try {
                         ArrayList<DataRow> rows = Server.dbManager.selectColumnName("SELECT * FROM user WHERE LOWER(username) = LOWER(?)", name);
                         if (rows.isEmpty() || !BCrypt.checkpw(pass, rows.get(0).getString("password").replaceFirst("^\\$2[aby]\\$", "\\$2a\\$"))) {
                             this.session.sessionHandler.log(__("Thông tin tài khoản hoặc mật khẩu không chính xác."));

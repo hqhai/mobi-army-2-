@@ -550,6 +550,38 @@ public class MapData {
         }
     }
     
+    /** Strongest wind either way. */
+    public static final int WIND_MAX = 70;
+    /** Most the wind changes from one round to the next. */
+    public static final int WIND_DRIFT = 20;
+    private int roundWind;
+    private boolean windStarted;
+    /** Players (not bosses) who have had their turn in the current round. */
+    private boolean[] shotThisRound;
+
+    /**
+     * Wind for the turn of player idTurn. Everyone in a round shoots with the same wind; a round ends when a player who
+     * already shot gets the turn again (bosses' turns in between do not count), and the next round's wind is the last
+     * one plus a small random change.
+     */
+    public int windForTurn(int idTurn) {
+        if (this.shotThisRound == null || this.shotThisRound.length != this.players.length) {
+            this.shotThisRound = new boolean[this.players.length];
+        }
+        if (!this.windStarted) {
+            this.windStarted = true;
+            this.roundWind = Util.nextInt(-WIND_MAX, WIND_MAX + 1);
+        }
+        if (!this.players[idTurn].isBoss) {
+            if (this.shotThisRound[idTurn]) {
+                Arrays.fill(this.shotThisRound, false);
+                this.roundWind = Math.max(-WIND_MAX, Math.min(WIND_MAX, this.roundWind + Util.nextInt(-WIND_DRIFT, WIND_DRIFT + 1)));
+            }
+            this.shotThisRound[idTurn] = true;
+        }
+        return this.roundWind;
+    }
+
     public void setWind(int x, int y) {
         for (Player player : this.players) {
             if (player != null && player.user != null && player.user.session != null) {
@@ -1173,8 +1205,10 @@ public class MapData {
                     this.windX = 0;
                     this.windY = 0;
                 }
-                this.windX = Util.nextInt(-70, 70);
-                this.windY = Util.nextInt(-70, 70);
+                // LAN: one horizontal wind per round, drifting a little between rounds
+                // (was a fresh random wind on both axes every turn).
+                this.windX = this.windForTurn(idTurn);
+                this.windY = 0;
                 this.setWind(this.windX, this.windY);
                 //reset power
                 for (Player player2 : this.players) {

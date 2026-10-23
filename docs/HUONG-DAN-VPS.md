@@ -84,12 +84,17 @@ Không sửa dữ liệu người chơi trực tiếp trong database khi server 
 
 ```bash
 cd /c/Users/mobiarmy/mobi-army-2-
+git pull
 export JAVA_HOME="$(pwd)/tools/jdk-21.0.12.1+1" GRADLE_USER_HOME="$(pwd)/tools/gradle-cache"
+# Liệt kê lại file nguồn: code mới có thể thêm file mà danh sách cũ không có.
+{ find server/src -name '*.java'; find scripts -maxdepth 1 -name '*.java'; } | sed 's/.*/"&"/' > runtime/server-sources.txt
 "$JAVA_HOME/bin/javac" -encoding UTF-8 --release 20 -cp "server/lib/*" -d runtime/server-classes @runtime/server-sources.txt
 cmd //c "client\\gradlew.bat -p desktop-build --no-daemon --console=plain installDist"
 ```
 
-Sau đó chạy `Stop-Server.cmd` rồi `Start-Server.cmd`. Nếu client thay đổi, đóng gói lại zip (thư mục `runtime\pkg\MobiArmy2-PC`, thay thư mục `lib` bằng bản mới trong `desktop-build\build\install\army2-lan-desktop\lib`) và gửi người chơi tải lại.
+Sau đó chạy `Stop-Server.cmd` rồi `Start-Server.cmd`. Nếu client thay đổi, chạy `powershell -ExecutionPolicy Bypass -File scripts\Publish-ClientUpdate.ps1`: launcher của người chơi tự tải bản mới ở lần mở game sau, gói tải về trên trang chủ cũng được cập nhật.
+
+**Khóa phiên bản client:** server chỉ cho đăng nhập client từ bản LAN nó yêu cầu trở lên (xem README, mục "Khóa phiên bản client"). Khi bản mới tăng số này, phải chạy `Publish-ClientUpdate.ps1` ngay sau khi khởi động lại server, nếu không sẽ không ai vào được. Cần tạm cho client cũ vào thì thêm `-Darmy.client.minBuild=0` vào lệnh chạy server trong `scripts\Start-Server.ps1`.
 
 ### Quên mật khẩu admin
 

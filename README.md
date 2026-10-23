@@ -133,12 +133,22 @@ Ví dụ (Magenta cùng điểm, đồ vàng +12 so với đồ vàng +0, số p
 
 Hằng số nằm ở `server/src/mobiarmy/war/SkillBalance.java`; sửa xong build lại server. Trang Nhân vật → Chỉ số giải thích cả 3 luật bằng số của từng người. Kiểm tra: `scripts/tests/SkillBalanceCheck.java` (chạy trong `Run-Thor-Checks.ps1`).
 
+## Khóa phiên bản client
+
+Server chỉ cho đăng nhập client từ **bản LAN** nó yêu cầu trở lên, để không ai dùng bản cũ né thay đổi bắt buộc (ví dụ đường ngắm đã rút ngắn, không còn chỉ thẳng vào đối thủ):
+
+- Khi đăng nhập, client gửi thêm số bản LAN (`GameMidlet.LAN_BUILD`, hiện ở góc màn hình đăng nhập và menu, ví dụ `2.4.1 LAN 1`). Client trước đó không gửi gì nên tính là bản 0.
+- Server so với `ClientVersion.REQUIRED` (`server/src/mobiarmy/server/ClientVersion.java`). Bản thấp hơn bị từ chối trước khi kiểm tra tài khoản, kèm lời nhắc tắt game mở lại để tự cập nhật hoặc tải bản mới; log server ghi `Login of … refused: client build …`.
+- Khi cần ép mọi người lên client mới: tăng **cả hai** số lên cùng giá trị (`scripts/tests/ClientVersionCheck.java` báo lỗi nếu lệch), build, khởi động lại server **và chạy `scripts/Publish-ClientUpdate.ps1` ngay** để launcher của người chơi tự tải bản mới. Quên phát hành thì không ai vào được.
+- Cần tạm cho client cũ vào (ví dụ chưa kịp phát hành): thêm `-Darmy.client.minBuild=0` vào lệnh chạy server.
+
 ## Thay đổi bản LAN
 
 - Cấu hình địa chỉ server qua `army.host` / `army.port`, chạy desktop bằng Java portable.
 - Thêm trang đăng ký tài khoản trên web (cổng 8123) để người chơi không phải nhờ admin tạo tài khoản.
 - Thêm trang quản trị `/admin/`: cộng xu/lượng, tăng cấp cho người chơi; sửa giá và chỉ số nhân vật, đồ.
 - Thêm trang nhân vật `/nhan-vat/`: người chơi mua đồ, mặc đồ, cộng điểm trên web.
+- Gió: chỉ còn gió ngang. Cả vòng (đến khi một người chơi được lượt lần thứ hai; lượt boss xen giữa không tính) dùng chung một gió; sang vòng mới gió chỉ trôi tối đa ±20 so với vòng trước, trong khoảng −70..70 (`MapData.windForTurn`, `WIND_MAX`, `WIND_DRIFT`; kiểm tra: `scripts/tests/WindCheck.java`). Item Ngưng gió giữ như cũ: chỉ lượt dùng không có gió.
 - Thêm 3 rương may mắn (đồng, bạc, vàng +10) trên web và luật trận do chủ phòng chọn: Tự do, Cân bằng (chỉ số chỉ phát huy khi bắn chính xác), Sát thương gốc.
 - Sửa lưu dữ liệu, kiểm tra giao dịch, quyền chủ phòng và vòng đời trận.
 - Quy tắc cược đã thống nhất: thắng +W, thua -W, hòa 0, rời trận -W; boss W=100.
