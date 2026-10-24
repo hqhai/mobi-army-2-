@@ -23,7 +23,6 @@ import item.Item;
 import java.util.Vector;
 
 import map.Background;
-import map.CMap;
 import map.MM;
 import model.CRes;
 import model.CTime;
@@ -506,6 +505,7 @@ public class GameScr extends CScreen {
         }
 
         pm.initPlayer(playerX, playerY, maxHP);
+        bm.prepareKinds();
 
         for (int i = 0; i < PM.p.length; ++i) {
             if (PM.p[i] != null) {
@@ -697,6 +697,7 @@ public class GameScr extends CScreen {
             return;
         }
         String forceSet = applyForceCommand(typed, PM.getMyPlayer());
+        if (forceSet == null) forceSet = applyAngleCommand(typed, PM.getMyPlayer());
         if (forceSet != null) {
             // A setting only for this player: shown in its own bubble, never sent to the room.
             tfChat.setText("");
@@ -722,6 +723,31 @@ public class GameScr extends CScreen {
     public static byte trainingMapId;
 
     private static final java.util.regex.Pattern FORCE_COMMAND = java.util.regex.Pattern.compile("lm\\s*(\\d{1,3})(?:\\s+(\\d{1,3}))?");
+    private static final java.util.regex.Pattern ANGLE_COMMAND = java.util.regex.Pattern.compile("(gs|g)\\s*(\\d{1,3})");
+
+    /**
+     * Chat shortcut for the aim: "g 45" aims 45 degrees above the horizontal, the way the player faces; "gs 20" aims
+     * 20 degrees below it. At most 90; each character's own limits apply as with the keys (angleUpdate). Returns what
+     * to show the player, or null when the text is ordinary chat.
+     */
+    public static String applyAngleCommand(String typed, CPlayer me) {
+        if (typed == null || me == null) {
+            return null;
+        }
+        java.util.regex.Matcher command = ANGLE_COMMAND.matcher(typed.trim().toLowerCase());
+        if (!command.matches()) {
+            return null;
+        }
+        int wanted = Math.min(90, Integer.parseInt(command.group(2)));
+        if (command.group(1).equals("gs")) {
+            wanted = -wanted;
+        }
+        // Facing right the angle is measured from the right, facing left from the left (180 - angle).
+        me.angle = me.look == 0 ? 180 - wanted : wanted;
+        me.angleUpdate();
+        me.checkAngleForSprite();
+        return "Góc: " + (me.look == 0 ? 180 - me.angle : me.angle);
+    }
 
     /**
      * Chat shortcut for the LỰC MAX menu: "lm 25" caps the force at 25; "lm 25 12" also sets the second force of
@@ -840,14 +866,30 @@ public class GameScr extends CScreen {
         waitting();
     }
 
-    /** Chicky's egg hatching next to her team: it goes off without digging. */
-    public void hatchEggNoHole(int id) {
+    /**
+     * Chicky's Easter egg hatches (server SetPassive): the camera goes to it, then it goes off in the giant mushroom of
+     * T-Rex's big rocket (without its white flash) and digs no ground (TimeBomb.hatchIn). The HP it heals and takes
+     * comes next from the server; those messages wait, so the numbers show once the egg has gone off.
+     */
+    public void hatchEgg(int id) {
         for (int i = 0; i < timeBombs.size(); ++i) {
             TimeBomb b = (TimeBomb) timeBombs.elementAt(i);
             if (b.id == id) {
-                b.isExplore = true;
+                if (b.hatchIn > 0) return;
+                b.hatchIn = TimeBomb.HATCH_FRAMES;
+                if (cam != null) cam.setTargetPointMode(b.x, b.y);
+                holdMessages(TimeBomb.HATCH_FRAMES + 12); // then the mushroom: 4 frames of 3 (Explosion type 7)
                 return;
             }
+        }
+    }
+
+    /** Holds the server's next messages for this many frames (waitting() holds them 20), so they show after an effect. */
+    static void holdMessages(int frames) {
+        CCanvas.tNotify = 20 - frames;
+        CCanvas.lockNotify = true;
+        if (CCanvas.curScr == CCanvas.gameScr) {
+            Session_ME.receiveSynchronized = 1;
         }
     }
 
@@ -855,18 +897,12 @@ public class GameScr extends CScreen {
         for (int i = 0; i < timeBombs.size(); ++i) {
             TimeBomb b = (TimeBomb) timeBombs.elementAt(i);
             if (b.id == id) {
-                b.isExplore = true;
                 if (b.isEgg()) {
-                    // Chicky's Easter egg (server SetPassive.CHICKY_EGG_HOLE): a hole twice the time bomb's.
-                    int scale = CMap.holeScale, scaleBullet = CMap.holeScaleBullet;
-                    CMap.holeScale = 200;
-                    CMap.holeScaleBullet = 57;
-                    mm.makeHole(b.x, b.y, (byte) 57, 9);
-                    CMap.holeScale = scale;
-                    CMap.holeScaleBullet = scaleBullet;
-                } else {
-                    mm.makeHole(b.x, b.y, (byte) 57, 9);
+                    this.hatchEgg(id);
+                    return;
                 }
+                b.isExplore = true;
+                mm.makeHole(b.x, b.y, (byte) 57, 9);
                 return;
             }
         }
@@ -1594,7 +1630,8 @@ public class GameScr extends CScreen {
         if (pm.isYourTurn() && PM.getCurPlayer() != null) {
             int forceT1 = PM.getMyPlayer().getState() == 3 ? PM.getMyPlayer().force : 0;
             int forceT2 = PM.getMyPlayer().getState() == 3 ? PM.getMyPlayer().force_2 : 0;
-            yPaint = PM.getMyPlayer().movePoint;
+            // The walk bar is drawn for 60 steps: Tarzan's longer walk is shown in proportion.
+            yPaint = PM.getMyPlayer().movePoint * CPlayer.MAX_MOVE_POINT / PM.getMyPlayer().maxMovePoint();
             int lastForcePoint1 = PM.getMyPlayer().lastForcePoint;
             int lastForcePoint2 = PM.getMyPlayer().lastForcePoint_2;
             if (!this.isSelectItem && MainGame.getNumberFingerOnScreen() < 2 && Camera.mode != 0 && !CPlayer.isShooting) {

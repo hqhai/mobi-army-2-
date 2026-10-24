@@ -618,18 +618,17 @@ public class GameService {
     }
 
     public void useItem(byte item) {
-        if (!GameScr.trainingMode) {
-            Message m = new Message((byte) 26);
+        // LAN: practice runs on the server too (Training.useItem), so POW and items are sent there as in a match.
+        Message m = new Message((byte) 26);
 
-            try {
-                m.writer().writeByte(item);
-            } catch (Exception var4) {
-            }
-
-            this.session.sendMessage(m);
-            m.cleanup();
-            CRes.out("==========> SendM UseITEM " + item);
+        try {
+            m.writer().writeByte(item);
+        } catch (Exception var4) {
         }
+
+        this.session.sendMessage(m);
+        m.cleanup();
+        CRes.out("==========> SendM UseITEM " + item);
     }
 
     public void changeItem(int[] typeItem) {

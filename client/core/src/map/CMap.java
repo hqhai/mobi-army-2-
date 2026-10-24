@@ -274,6 +274,8 @@ public class CMap {
          return 3;
       case 57:
          return 7;
+      case 61:
+         return 9; // Rocketer's WorldWar nuclear bombs dig as the B52's bomb (server GameData.getHoleType)
       }
    }
 

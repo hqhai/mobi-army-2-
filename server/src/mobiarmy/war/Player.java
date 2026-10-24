@@ -95,6 +95,23 @@ public class Player {
     int hitBolts;
     /** Gunner's cannonball: recoil he takes after this shot. */
     int cannonRecoil;
+    /**
+     * Apache's hunt (SetPassive): own turns in a row he lost no HP, whether he lost HP since his last turn, whether
+     * that count has started, and whether he is hidden from opponents now.
+     */
+    int huntSafe;
+    boolean huntHurt, huntStarted;
+    public boolean huntHidden;
+    /** Apache's hunt: hammers (bullets) of this POW shot that hit an opponent, each counted once. */
+    final java.util.Set<Object> huntHammers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    /**
+     * Chicky's Easter eggs (SetPassive): her eggs that hit an opponent this shot (each counted once) and the last
+     * opponent one hit, how many hit in the match toward the next Easter egg, and her damage dealt before this shot.
+     */
+    final java.util.Set<Object> eggsLanded = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    Player lastEggTarget;
+    int eggHits;
+    int dealtBeforeShot;
     /** LAN item 36 "Chỉ kẻ đầu": shots left with the full aim guide. */
     public int headGuideShots;
     /** Stunned (Electrician): turns to skip. */
@@ -235,6 +252,7 @@ public class Player {
         this.isDie = true;
         this.countInvisible = 0;
         this.countInvisible2 = 0;
+        this.huntHidden = false;
         this.isRunSpeed = false;
     }
     
@@ -348,6 +366,7 @@ public class Player {
             this.mapData.addTimeUntilAction(1000);
             this.updateHP(-this.attAffect);
             if (this.y <= this.mapData.height + 100) SetPassive.afterHit(player, this, this.attAffect);
+            if (this.attAffect > 0) SetPassive.hurt(this);
             
             this.mapData.updateHP(this.index, this.hp, this.pixel);
             this.mapData.updateAngry(this.index, this.angry);
@@ -491,7 +510,11 @@ public class Player {
                 att = (int) (att + (att * 0.1F));
             }
             att = SetPassive.dealt(shooterPlayer, this, att);
-            if (att > 0) SetPassive.bulletHit(shooterPlayer, this, bullet.bulletId);
+            if (att > 0) {
+                SetPassive.bulletHit(shooterPlayer, this, bullet.bulletId);
+                SetPassive.hammerHit(shooterPlayer, this, bullet);
+                SetPassive.eggHit(shooterPlayer, this, bullet);
+            }
             this.attAffect += att;
             if (direct) {
                 this.attDirect += att;
@@ -532,7 +555,7 @@ public class Player {
         this.trajectory = null;
         if (this.countInvisible > 0) {
             this.countInvisible--;
-            if (this.countInvisible == 0 && this.countInvisible2 == 0) {
+            if (this.countInvisible == 0 && this.countInvisible2 == 0 && !this.huntHidden) {
                 this.mapData.cancelInvisible(this.index);
             }
         }
@@ -568,7 +591,7 @@ public class Player {
         this.suckHP = 0;
         if (this.countInvisible2 > 0) {
             this.countInvisible2--;
-            if (this.countInvisible == 0 && this.countInvisible2 == 0) {
+            if (this.countInvisible == 0 && this.countInvisible2 == 0 && !this.huntHidden) {
                 this.mapData.cancelInvisible(this.index);
             }
         }

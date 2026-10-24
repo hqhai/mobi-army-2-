@@ -15,20 +15,27 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.mindrot.jbcrypt.BCrypt;
 
-/** /api/admin/*: admin login plus player and catalog management for the server owner. */
+/**
+ * /api/admin/*: admin login plus player and catalog management for the server owner. Accounts have a role: "admin",
+ * or "super" for a super-admin, who may also gift gear and items to players (scripts/Create-SuperAdmin.ps1 makes one).
+ */
 public final class LanAdmin implements HttpHandler {
     static final String DEFAULT_USERNAME = "admin";
     static final String DEFAULT_PASSWORD = "admin123";
+    static final String ROLE_ADMIN = "admin", ROLE_SUPER = "super";
     private static final String COOKIE = "lanadmin";
     private static final Pattern ROUTE = Pattern.compile("/api/admin/([a-z]+)(?:/(\\d{1,9}))?(?:/([a-z]+))?");
 
     private static final class AdminSession {
         final String username;
         volatile boolean defaultPassword;
+        /** Role at login, for the page; gift routes check the current role again (requireSuper). */
+        final boolean superAdmin;
 
-        AdminSession(String username, boolean defaultPassword) {
+        AdminSession(String username, boolean defaultPassword, boolean superAdmin) {
             this.username = username;
             this.defaultPassword = defaultPassword;
+            this.superAdmin = superAdmin;
         }
     }
 
@@ -47,7 +54,7 @@ public final class LanAdmin implements HttpHandler {
     /** Creates the admin account table and seeds admin/admin123 when it is empty. */
     void ensureAccount() throws SQLException {
         try (Connection conn = database.open(); Statement statement = conn.createStatement()) {
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS admin_account (username VARCHAR(50) NOT NULL PRIMARY KEY, password VARCHAR(255) NOT NULL)");
+            ensureTable(statement);
             try (ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM admin_account")) {
                 rs.next();
                 if (rs.getInt(1) > 0) return;
@@ -58,6 +65,17 @@ public final class LanAdmin implements HttpHandler {
                 insert.executeUpdate();
             }
         }
+    }
+
+    /** The admin account table with its role column (older installs get the column; their accounts stay admins). */
+    static void ensureTable(Statement statement) throws SQLException {
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS admin_account (username VARCHAR(50) NOT NULL PRIMARY KEY, password VARCHAR(255) NOT NULL)");
+        statement.executeUpdate("ALTER TABLE admin_account ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT '" + ROLE_ADMIN + "'");
+    }
+
+    /** Routes only a super-admin may use: gifting gear and items. */
+    static boolean superOnly(String key) {
+        return key.equals("POST players # set") || key.equals("POST players # items") || key.equals("GET sets");
     }
 
     @Override
@@ -73,6 +91,7 @@ public final class LanAdmin implements HttpHandler {
             String token = LanApi.cookie(exchange, COOKIE);
             AdminSession session = sessions.get(token, clock.getAsLong());
             if (session == null) throw new LanApi.ApiError(401, "Bạn cần đăng nhập.");
+            if (superOnly(key)) requireSuper(session);
             return switch (key) {
                 case "GET me" -> me(session);
                 case "POST logout" -> {
@@ -87,7 +106,11 @@ public final class LanAdmin implements HttpHandler {
                 case "POST players # level" -> game.levelUp(id, LanApi.intField(body, "glassId"), LanApi.intField(body, "level"));
                 case "POST players # password" -> game.resetPassword(id, LanApi.stringField(body, "password"));
                 case "POST players # name" -> game.rename(id, LanApi.stringField(body, "username"));
+                case "POST players # set" -> game.giftSet(id, LanApi.intField(body, "glassId"), LanApi.intField(body, "tier"),
+                        LanApi.intField(body, "wear") != 0, LanApi.intField(body, "hiddenAtt"));
+                case "POST players # items" -> game.giftItems(id, LanApi.intField(body, "itemId"), LanApi.intField(body, "amount"));
                 case "GET levels" -> game.levels();
+                case "GET sets" -> game.sets();
                 case "GET characters" -> game.characters();
                 case "PUT characters #" -> game.updateCharacter(id, LanApi.intField(body, "xu"), LanApi.intField(body, "luong"), LanApi.intField(body, "att"));
                 case "GET equipment" -> game.equipment();
@@ -119,10 +142,18 @@ public final class LanAdmin implements HttpHandler {
             throw new LanApi.ApiError(401, "Sai tên đăng nhập hoặc mật khẩu.");
         }
         guard.succeeded(ip);
-        AdminSession session = new AdminSession(username, BCrypt.checkpw(DEFAULT_PASSWORD, hash));
+        boolean superAdmin = ROLE_SUPER.equals(role(username));
+        AdminSession session = new AdminSession(username, BCrypt.checkpw(DEFAULT_PASSWORD, hash), superAdmin);
         LanApi.setCookie(exchange, COOKIE, sessions.create(session, now), 43200);
-        System.out.println("Admin " + username + " logged in from " + ip);
+        System.out.println((superAdmin ? "Super-admin " : "Admin ") + username + " logged in from " + ip);
         return me(session);
+    }
+
+    /** Gift routes: the account must be a super-admin now (a revoked one is refused at once, not at its next login). */
+    private void requireSuper(AdminSession session) throws SQLException {
+        if (!ROLE_SUPER.equals(role(session.username))) {
+            throw new LanApi.ApiError(403, "Chỉ super-admin mới được tặng đồ cho người chơi.");
+        }
     }
 
     private Map<String, Object> changePassword(AdminSession session, JsonObject body) throws SQLException {
@@ -149,7 +180,18 @@ public final class LanAdmin implements HttpHandler {
         Map<String, Object> me = new LinkedHashMap<>();
         me.put("username", session.username);
         me.put("defaultPassword", session.defaultPassword);
+        me.put("role", session.superAdmin ? ROLE_SUPER : ROLE_ADMIN);
         return me;
+    }
+
+    private String role(String username) throws SQLException {
+        try (Connection conn = database.open();
+             PreparedStatement statement = conn.prepareStatement("SELECT role FROM admin_account WHERE username = ?")) {
+            statement.setString(1, username);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
     }
 
     private String passwordHash(String username) throws SQLException {

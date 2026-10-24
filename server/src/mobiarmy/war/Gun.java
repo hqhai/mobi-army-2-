@@ -37,6 +37,10 @@ public class Gun {
     /** LAN item 38: this shot is the poison rain (the client paints it purple). */
     public boolean poisonRain;
     public final java.util.Set<Player> dryHits = new java.util.HashSet<>();
+    /** Rocketer's WorldWar (SetPassive): what its radiation takes at the heart of the blast once the bombs are out, or 0. */
+    public int worldWarShock;
+    /** Where the WorldWar blast is (the flare's spot): the radiation fades with distance from it. */
+    public int worldWarX, worldWarY;
 
     /** The player who fired, or null (bosses, items without a shooter). */
     public Player shooter() {
@@ -135,8 +139,14 @@ public class Gun {
 
                 case 10 -> {
                     // Rocketer
-                    for (int i = 0; i < 3; i++) {
-                        this.bullets.add(new Bullet(this, 10, att / 3 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 50 / 100, this.windY * 50 / 100, 80));
+                    if (num == 0 && SetPassive.worldWar(this.shooter(), this.isPow == 1)) {
+                        // His set passive's POW: the WorldWar flare; the clients play it as its own bullet.
+                        this.bulletId = WorldWarFlare.ID;
+                        this.bullets.add(new WorldWarFlare(this, att, bx, by, vx, vy));
+                    } else if (this.bulletId != WorldWarFlare.ID) {
+                        for (int i = 0; i < 3; i++) {
+                            this.bullets.add(new Bullet(this, 10, att / 3 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 50 / 100, this.windY * 50 / 100, 80));
+                        }
                     }
                 }
 
@@ -291,6 +301,17 @@ public class Gun {
                 bullet.nextXY();
             }
         } while(hasNext);
+        if (this.worldWarShock > 0 && !this.dryRun) {
+            // Rocketer's WorldWar: radiation spreads from the blast, weaker with distance. It reaches his opponents,
+            // and Rocketer himself when he stood too close.
+            Player shooter = this.shooter();
+            for (Player player : this.mapData.players) {
+                if (player == null || player.isDie) continue;
+                int dist = (int) Math.hypot(player.x - this.worldWarX, player.y - this.worldWarY);
+                boolean caught = player == shooter ? dist <= SetPassive.RADIATION_NEAR : SetPassive.enemies(shooter, player);
+                if (caught) player.attAffect += SetPassive.radiation(this.worldWarShock, dist);
+            }
+        }
     }
     
 }

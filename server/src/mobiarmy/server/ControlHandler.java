@@ -415,8 +415,11 @@ public class ControlHandler {
                         case 1 -> this.session.sessionHandler.iconInfo(12, version);
                         case 2 -> this.session.sessionHandler.mapInfo(12, version);
                         case 3 -> this.session.sessionHandler.layerInfo(12, version);
-                        case 4 -> this.session.sessionHandler.dataInfo(15, version);
-                        case 5 -> this.session.sessionHandler.captionInfo(12, version);
+                        // 16: Thor costumes in the game's own pieces (ThorCostume); 17: costume bullets (CostumeBullets).
+                        case 4 -> this.session.sessionHandler.dataInfo(17, version);
+                        // A new caption version also makes clients download the equipment atlases again
+                        // (res/bigImage*.png); 13: the Thor costume pieces.
+                        case 5 -> this.session.sessionHandler.captionInfo(13, version);
                         case 6 -> {
                             this.session.sessionHandler.loadInfo();
                             this.session.sessionHandler.updateRuong();

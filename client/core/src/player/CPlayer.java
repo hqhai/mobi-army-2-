@@ -169,6 +169,28 @@ public class CPlayer {
     public static final int SDOWN = 3;
     public int sLook;
     public static final int MAX_MOVE_POINT = 60;
+    /** LAN: tier of this player's set passive (message 114), 0 without one. */
+    public int setTier;
+
+    /** Tarzan with his set passive "Khế Ước Rừng Xanh" (server SetPassive): whole aim guide, no wind, longer walk. */
+    public boolean pactTarzan() {
+        return this.gun == 7 && this.setTier > 0;
+    }
+
+    /** Rocketer's POW with his set passive "WorldWar": a wind-free flare at any angle (server WorldWarFlare). */
+    public boolean worldWarPow() {
+        return this.gun == 4 && this.setTier > 0 && this.itemUsed == 100;
+    }
+
+    /** Lowest aim of this character (angleLock), or straight down for Rocketer's WorldWar POW. */
+    int angleLimit() {
+        return this.worldWarPow() ? -90 : angleLock[this.gun];
+    }
+
+    /** Steps a turn: 60, twice as many for Tarzan with his set passive (server Player.theluc). */
+    public int maxMovePoint() {
+        return this.pactTarzan() ? 120 : MAX_MOVE_POINT;
+    }
     public boolean active;
     boolean isSendM_autoDie;
     public int hp;
@@ -676,12 +698,12 @@ public class CPlayer {
         if (this.gun <= 9) {
             if (this.gun != 15) {
                 if (this.gun != 17) {
-                    if (this.look == 0 && this.angle > 180 - angleLock[this.gun]) {
-                        this.angle = 180 - angleLock[this.gun];
+                    if (this.look == 0 && this.angle > 180 - this.angleLimit()) {
+                        this.angle = 180 - this.angleLimit();
                     }
 
-                    if (this.look == 2 && this.angle < angleLock[this.gun]) {
-                        this.angle = angleLock[this.gun];
+                    if (this.look == 2 && this.angle < this.angleLimit()) {
+                        this.angle = this.angleLimit();
                     }
 
                 }
@@ -690,19 +712,20 @@ public class CPlayer {
     }
 
     public void checkNomarShoot() {
-        if (this.look == 0 && this.angle > 180 - angleLock[this.gun]) {
-            this.angle = 180 - angleLock[this.gun];
+        int limit = this.angleLimit();
+        if (this.look == 0 && this.angle > 180 - limit) {
+            this.angle = 180 - limit;
         }
 
         if (this.look == 2) {
-            if (this.angle < angleLock[this.gun]) {
-                this.angle = angleLock[this.gun];
+            if (this.angle < limit) {
+                this.angle = limit;
             }
 
             if (this.angle > 270) {
                 this.angle -= 360;
-                if (CRes.abs(this.angle) > CRes.abs(angleLock[this.gun])) {
-                    this.angle = angleLock[this.gun];
+                if (CRes.abs(this.angle) > CRes.abs(limit)) {
+                    this.angle = limit;
                 }
             }
         }
@@ -1208,7 +1231,7 @@ public class CPlayer {
                     new Explosion(this.x, this.y, (byte) 4, this.index, (byte) itemID);
                     break;
                 case 100:
-                    new Explosion(this.x, this.y - 12, (byte) 5, this.index, (byte) 38);
+                    new Explosion(this.x, this.y - 12, (byte) 5, this.index, Item.ITEM_ANGRY); // POW's own icon, not item 38's
             }
 
             // The poison rain aims and flies like Sao băng (item 21).
@@ -1554,6 +1577,21 @@ public class CPlayer {
         GameScr.waitting();
     }
 
+    /**
+     * LAN: hidden by Apache's set passive "Thợ săn ẩn nấp", drawn as with the invisibility item (opponents see
+     * nothing, the team sees the shimmer) until message 80 shows the player again.
+     */
+    public void hide() {
+        if (this.isInvisible || this.state == 5) return;
+        this.isInvisible = true;
+        if (GameScr.exs != null) new Explosion(this.x, this.y, (byte) 4, this.index, (byte) Item.ITEM_INVISIBLE); // set up by initGame
+    }
+
+    /** Kind of bullet this player's weapon throws (its row in the character's bullet sheet), or -1. */
+    public int bulletKind() {
+        return this.equip != null && this.equip.equips[0] != null ? this.equip.equips[0].bullet : -1;
+    }
+
     public void die() {
         CRes.out("======> Roi vao trang thai die!");
         this.setState((byte) 5);
@@ -1611,7 +1649,8 @@ public class CPlayer {
     void painthpChange(mGraphics g) {
         if (this.hpChangeVisible) {
             g.setColor(16711680);
-            Font.bigFont.drawString(g, this.hpText, this.x, this.y - this.dyhp, mGraphics.VCENTER | mGraphics.HCENTER);
+            // LAN: HP gained shows green with its plus (bigFont has no plus and only the orange of a hit).
+            (this.hpTang ? Font.bigHealFont : Font.bigFont).drawString(g, this.hpText, this.x, this.y - this.dyhp, mGraphics.VCENTER | mGraphics.HCENTER);
             ++this.dyhp;
             if (this.dyhp > 50) {
                 this.hpChangeVisible = false;
@@ -1657,7 +1696,7 @@ public class CPlayer {
                 }
 
                 if (!this.isCom) {
-                    if (this.movePoint > 60) {
+                    if (this.movePoint > this.maxMovePoint()) {
                         return;
                     }
 
@@ -1742,7 +1781,7 @@ public class CPlayer {
                 }
 
                 if (!this.isCom) {
-                    if (this.movePoint > 60) {
+                    if (this.movePoint > this.maxMovePoint()) {
                         return;
                     }
 
@@ -2161,12 +2200,12 @@ public class CPlayer {
                                 int dy = this.y - yScreen - Camera.y;
                                 int a = CRes.angle(-dx, dy);
                                 CRes.out("a Trc = " + a);
-                                if (this.look == 2 && a < angleLock[this.gun]) {
-                                    a = angleLock[this.gun];
+                                if (this.look == 2 && a < this.angleLimit()) {
+                                    a = this.angleLimit();
                                 }
 
-                                if (this.look == 0 && a > 180 - angleLock[this.gun]) {
-                                    a = 180 - angleLock[this.gun];
+                                if (this.look == 0 && a > 180 - this.angleLimit()) {
+                                    a = 180 - this.angleLimit();
                                 }
 
                                 this.angle = a;
@@ -2337,7 +2376,11 @@ public class CPlayer {
                         }
                         break;
                     case 4:
-                        drawBullet(g, 10, x, y, vx, vy, GameScr.windx * 50 / 100 , GameScr.windy * 50 / 100, 80);
+                        if (this.worldWarPow()) {
+                            drawBullet(g, 4, x, y, vx, vy, 0, 0, 80); // the WorldWar flare: no wind, like the B52's
+                        } else {
+                            drawBullet(g, 10, x, y, vx, vy, GameScr.windx * 50 / 100 , GameScr.windy * 50 / 100, 80);
+                        }
                         break;
                     case 5:
                         drawBullet(g, 11, x, y, vx, vy, GameScr.windx * 30 / 100 , GameScr.windy * 30 / 100, 90);
@@ -2346,7 +2389,9 @@ public class CPlayer {
                         drawBullet(g, 19, x, y, vx, vy, GameScr.windx * 20 / 100 , GameScr.windy * 20 / 100, 50);
                         break;
                     case 7:
-                        drawBullet(g, 21, x, y, vx, vy, GameScr.windx * 10 / 100 , GameScr.windy * 10 / 100, 50);
+                        // Tarzan's set passive: the wind no longer moves his boomerang.
+                        int boomerangWind = this.pactTarzan() ? 0 : 10;
+                        drawBullet(g, 21, x, y, vx, vy, GameScr.windx * boomerangWind / 100 , GameScr.windy * boomerangWind / 100, 50);
                         break;
                     case 8:
                         drawBullet(g, 17, x, y, vx, vy, GameScr.windx * 30 / 100 , GameScr.windy * 30 / 100, 100);
@@ -2369,7 +2414,8 @@ public class CPlayer {
 
     /** Aim guide shows only the first 3/4 of the predicted path (all of it with item 36). */
     private void drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100) {
-        if (headGuideShots > 0 && this == PM.getMyPlayer()) {
+        // Item 36, or Tarzan's set passive: the whole guide.
+        if ((headGuideShots > 0 || this.pactTarzan()) && this == PM.getMyPlayer()) {
             fullGuide = true;
             drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
             fullGuide = false;

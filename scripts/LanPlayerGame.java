@@ -724,6 +724,14 @@ final class LanPlayerGame {
         equip.level2 = (byte) plus;
     }
 
+    /** A new piece of a shop entry already upgraded to +plus, the way chest prizes and admin gifts are made. */
+    static Equip upgradedCopy(Equip entry, int plus) {
+        Equip piece = entry.deepCopy();
+        piece.renewalDate = System.currentTimeMillis();
+        if (plus > 0) setPlus(piece, upgradeStats(piece), plus);
+        return piece;
+    }
+
     private static boolean any(boolean[] values) {
         for (boolean value : values) if (value) return true;
         return false;
@@ -800,7 +808,7 @@ final class LanPlayerGame {
         return slots;
     }
 
-    private static void notifyGame(User user, String message) {
+    static void notifyGame(User user, String message) {
         if (user.session != null) user.session.sessionHandler.log(message);
     }
 

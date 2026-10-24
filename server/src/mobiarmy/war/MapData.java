@@ -115,6 +115,7 @@ public class MapData {
                 int []  iArr = RoomRules.battleStats(user, this.rules);
                 Player player = new Player(this, user, user.name, user.glass().id, user.glass().level, iArr[0], iArr[1], iArr[2], iArr[3], iArr[4], 24, 24, user.setItems);
                 player.setTier = this.rules == RoomRules.BASE ? 0 : SetPassive.tier(user, user.glass().id);
+                player.theluc = SetPassive.steps(player); // Tarzan's passive walks farther
                 player.baseAtt = user.glass().att;
                 player.hiddenAtt = SetPassive.hiddenAtt(user, user.glass().id);
                 player.isBoss = false;
@@ -507,6 +508,15 @@ public class MapData {
             }
         }
     }
+
+    /** Chicky's Easter egg appears, with whose it is (the clients colour it like her chicken). */
+    void addTimeBomb(int id, int x, int y, int owner) {
+        for (Player player : this.players) {
+            if (player != null && player.user != null && player.user.session != null) {
+                player.user.session.sessionHandler.addTimeBomb(id, x, y, owner);
+            }
+        }
+    }
     
     public Player[] addBoss(Player... players) {
         for (Player boss : players) {
@@ -567,7 +577,7 @@ public class MapData {
         //add Chicky's eggs laid during the last turn
         for (TimeBomb egg : this.pendingEggs) {
             this.timeBombs.add(egg);
-            this.addTimeBomb(egg.id, egg.x, egg.y);
+            this.addTimeBomb(egg.id, egg.x, egg.y, egg.leadIndex);
         }
         this.pendingEggs.clear();
         //no
@@ -585,44 +595,51 @@ public class MapData {
     ArrayList<TimeBomb> pendingEggs = new ArrayList<>();
     private int countEgg;
 
-    /** Chicky's "Trứng Phục sinh": an egg at the target's feet that hatches after SetPassive.CHICKY_EGG_ROUNDS rounds. */
-    void layEgg(Player owner, Player target) {
+    /**
+     * Chicky's "Trứng Phục sinh": an egg at the target's feet that hatches after SetPassive.CHICKY_EGG_ROUNDS rounds;
+     * it keeps (in att) the damage her shot that laid it dealt.
+     */
+    void layEgg(Player owner, Player target, int dealt) {
         int fighters = 0;
         for (Player p : this.players) if (p != null && !p.isDie && p.isTurn) fighters++;
-        TimeBomb egg = new TimeBomb(this, 100 + this.countEgg++ % 27, owner.index, 0, target.x, target.y,
+        TimeBomb egg = new TimeBomb(this, 100 + this.countEgg++ % 27, owner.index, dealt, target.x, target.y,
                 SetPassive.CHICKY_EGG_ROUNDS * Math.max(1, fighters), SetPassive.CHICKY_EGG_RADIUS);
         egg.egg = true;
         this.pendingEggs.add(egg);
     }
 
-    /** The egg hatches: true damage to Chicky's opponents in reach, a heal for her team, a hole unless they are near. */
+    /**
+     * The egg hatches. The clients see it go off first and only then the HP it changes: Chicky and her whole team heal
+     * a quarter of the damage it kept, her opponents within reach lose half as true damage. It digs no ground.
+     */
     void hatchEgg(TimeBomb egg) {
         this.timeBombs.remove(egg);
-        Player owner = egg.leadIndex >= 0 && egg.leadIndex < this.players.length ? this.players[egg.leadIndex] : null;
-        boolean allyNear = false;
-        if (owner != null) {
-            for (Player p : this.players) {
-                if (!SetPassive.eggReach(p, egg.x, egg.y)) continue;
-                int amount = SetPassive.eggAmount(owner, p);
-                if (SetPassive.enemies(owner, p)) {
-                    int before = p.hp;
-                    p.updateHP(-amount);
-                    owner.statDealt += before - p.hp;
-                    if (p.isDie) owner.statKills++;
-                } else {
-                    allyNear = true;
-                    p.updateHP(amount);
-                }
-                this.updateHP(p.index, p.hp, p.pixel);
-            }
-        }
         for (Player player : this.players) {
             if (player != null && player.user != null && player.user.session != null) {
-                player.user.session.sessionHandler.hatchEgg(egg.id, !allyNear);
+                player.user.session.sessionHandler.hatchEgg(egg.id);
             }
         }
-        if (!allyNear) this.makeHole(egg.x, egg.y, 57, SetPassive.CHICKY_EGG_HOLE);
-        this.addTimeUntilAction(1500);
+        Player owner = egg.leadIndex >= 0 && egg.leadIndex < this.players.length ? this.players[egg.leadIndex] : null;
+        if (owner != null) {
+            int heal = SetPassive.eggShare(owner, egg.att, SetPassive.CHICKY_EGG_HEAL);
+            int damage = SetPassive.eggShare(owner, egg.att, SetPassive.CHICKY_EGG_DAMAGE);
+            for (Player p : this.players) {
+                if (p == null || p.isDie) continue;
+                if (SetPassive.enemies(owner, p)) {
+                    if (!SetPassive.eggReach(p, egg.x, egg.y)) continue;
+                    int before = p.hp;
+                    p.updateHP(-damage);
+                    owner.statDealt += before - p.hp;
+                    if (p.isDie) owner.statKills++;
+                    if (p.hp < before) SetPassive.hurt(p);
+                } else {
+                    p.updateHP(heal); // Chicky herself and her team, wherever they stand
+                }
+                this.updateHP(p.index, p.hp, p.pixel);
+                this.updateAngry(p.index, p.angry);
+            }
+        }
+        this.addTimeUntilAction(2000);
     }
     
     public boolean isHaveBoss(int glassID) {

@@ -163,7 +163,6 @@ public class CCanvas extends MotherCanvas implements IActionListener {
     public static byte equipVersion;
     public static byte levelCVersion;
     boolean isTestMap = false;
-    private static int indexBullet = 0;
     public static Image imgTest;
     public static long timeHideStartWaitingDlg;
     public static Random r = new Random();
@@ -663,14 +662,13 @@ public class CCanvas extends MotherCanvas implements IActionListener {
                         short lentBullet = msg.reader().readShort();
                         bullets = new byte[lentBullet];
                         msg.reader().read(bullets, 0, lentBullet);
+                        // LAN: each character's sheet goes to its own slot. A running count here kept the sheets of
+                        // the cached data read at start-up, so newer data from the server at login (new bullet kinds)
+                        // only showed after the game was restarted.
+                        final int sheet = c;
                         mImage.createImage((byte[]) bullets, 0, lentBullet, (IAction2) (new IAction2() {
                             public void perform(Object object) {
-                                try {
-                                    PlayerEquip.bullets[CCanvas.indexBullet] = new mImage((Image) object);
-                                    CCanvas.indexBullet = CCanvas.indexBullet + 1;
-                                } catch (Exception var3) {
-                                }
-
+                                PlayerEquip.bullets[sheet] = new mImage((Image) object);
                             }
                         }));
                     }

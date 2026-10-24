@@ -378,23 +378,32 @@
                 + '% sát thương và đục hố nhỏ dần (−' + scaledText(10, s) + '%, −' + scaledText(15, s) + '%, rồi −' + scaledText(30, s)
                 + '% từ vòng thứ 3). Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
         }},
-        4: {name: 'Nạp liệu', detail: function (s) {
-            return 'Mọi phát bắn gây thêm ' + scaledText(25, s) + '% sát thương.';
+        4: {name: 'WorldWar', detail: function (s) {
+            return 'POW không bắn tên lửa nữa mà bắn pháo hiệu gọi máy bay: pháo hiệu không bị gió ảnh hưởng và được ngắm mọi góc. '
+                + 'Pháo hiệu rơi ở đâu, máy bay bay ngang bản đồ thả 5 quả bom hạt nhân cách nhau 50 quanh chỗ đó, mỗi quả nổ thành nấm lửa '
+                + 'như bom tên lửa của T-Rex với toàn bộ sức tấn công của Rocketer và đào hố lớn. Sóng nổ lan khắp bản đồ: mọi đối thủ '
+                + 'mất thêm ' + scaledText(20, s) + '% sức tấn công. Các phát bắn thường không còn được cộng sát thương.';
         }},
         5: {name: 'Bom phá đất', detail: function (s) {
             return 'Đạn của Granos đục hố rộng gấp ' + (1 + scaledText(200, s) / 100).toLocaleString('vi-VN')
                 + ' lần, chuyên đào hố cho đối thủ rơi. Sát thương giữ như thường; vật phẩm vẫn đục như thường.';
         }},
         6: {name: 'Trứng Phục sinh', detail: function (s) {
-            return 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn sẽ bị đẻ một quả trứng Phục sinh dưới chân. Sau 2 vòng trứng nổ: đối thủ trong tầm mất '
-                + (2 * s / 100).toLocaleString('vi-VN') + '% máu tối đa (sát thương chuẩn, bỏ qua phòng thủ) và một hố to được đào. Đồng đội của Chicky trong tầm được hồi '
-                + (2 * s / 100).toLocaleString('vi-VN') + '% máu, và khi đó trứng không đào hố.';
+            return 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn, hoặc trúng quả trứng gà thứ 5 của Chicky trong trận, sẽ bị đẻ một quả trứng Phục sinh '
+                + 'dưới chân, mang màu skin của gà. Sau 2 vòng trứng nổ thành cột nấm khổng lồ (như bom tên lửa của T-Rex) mà không làm hỏng địa hình: '
+                + 'Chicky và cả đội được hồi ' + scaledText(25, s) + '% sát thương mà gà và trứng đã gây ra trong lượt đẻ trứng, dù đứng ở đâu; '
+                + 'đối thủ trong tầm trứng mất ' + scaledText(50, s) + '% lượng đó (sát thương chuẩn, bỏ qua phòng thủ).';
         }},
-        7: {name: 'Đu dây', detail: function (s) {
-            return 'Giảm ' + scaledText(12, s) + '% mọi sát thương nhận vào.';
+        7: {name: 'Khế Ước Rừng Xanh', detail: function (s) {
+            return 'Khế ước với King Kong: Tarzan và King Kong ở hai phe chỉ gây cho nhau một nửa sát thương (luôn luôn, bộ nào cũng vậy); '
+                + 'cùng phe thì cả hai gây thêm ' + scaledText(20, s) + '% và nhận ít hơn ' + scaledText(10, s) + '% sát thương khi cả hai còn sống. '
+                + 'Boomerang không bị gió ảnh hưởng, luôn hiện đủ đường ngắm, nổ rộng gấp rưỡi và gây thêm 25% khi trúng lúc bay về. '
+                + 'Đi được 120 bước mỗi lượt (thường 60). Vẫn giảm ' + scaledText(12, s) + '% mọi sát thương nhận vào.';
         }},
-        8: {name: 'Không có', detail: function () {
-            return 'Apache không có nội tại: chỉ số gốc đã mạnh sẵn. Bộ +14 vẫn cho chỉ số cao.';
+        8: {name: 'Thợ săn ẩn nấp', detail: function (s) {
+            return 'Sau 2 vòng liền không bị mất máu, Apache tàng hình như khi dùng Tàng hình: đối thủ không nhìn thấy Apache. '
+                + 'Bị mất máu thì hiện hình và đếm lại 2 vòng từ đầu. Khi bắn POW, mỗi búa trúng đối thủ hồi cho Apache '
+                + scaledText(10, s) + '% máu tối đa.';
         }},
         9: {name: 'Miễn gió', detail: function (s) {
             return 'Mọi phát bắn chỉ chịu ' + (100 - scaledText(100, s)) + '% sức gió' + (s >= 100 ? ' (hoàn toàn không bị gió ảnh hưởng)' : '')

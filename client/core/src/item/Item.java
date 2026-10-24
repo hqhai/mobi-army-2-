@@ -134,10 +134,17 @@ public class Item {
       return true;
    }
 
+   /**
+    * POW's picture is number 38 of item.png (the burst). The game used to show POW as item 38, which is now LAN's
+    * "Cơn mưa độc" with its own picture, so POW goes by its own id (ITEM_ANGRY) and is drawn from here.
+    */
+   private static final int POW_PICTURE = 38;
+
    public static void DrawItem(mGraphics g, int itemID, int x, int y) {
       try {
          if (drawOwnIcon(g, itemID, x + 8, y + 8, 3, true)) return;
-         g.drawRegion(s_imgITEM, 0, (itemID + 2) * 16, 16, 16, 0, x + 8, y + 8, 3, true);
+         int picture = itemID == ITEM_ANGRY ? POW_PICTURE : itemID;
+         g.drawRegion(s_imgITEM, 0, (picture + 2) * 16, 16, 16, 0, x + 8, y + 8, 3, true);
       } catch (Exception var5) {
          g.setColor(16777215);
          g.fillRect(x, y, 16, 16, true);

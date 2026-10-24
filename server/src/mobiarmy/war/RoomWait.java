@@ -34,7 +34,6 @@ public class RoomWait {
     public User[] players;
     public long waitStart;
     public MapData mapData;
-    public long noWaitTime = -1;
     public boolean lock;
     /** RoomRules for the next match, picked by the owner. */
     public byte rules = RoomRules.defaultRules;
@@ -134,11 +133,9 @@ public class RoomWait {
             if (player != null) {
                 player.ready = false;
                 this.userID = player.id;
-                this.noWaitTime = System.currentTimeMillis();
                 return;
             }
         }
-        this.noWaitTime = -1;
         this.userID = -1;
     }
     
@@ -385,6 +382,24 @@ public class RoomWait {
         return this.type == 5 ? 100 : this.money;
     }
 
+    /** Boss rooms ("PHÒNG ĐẤU TRÙM"): everyone plays on one side against the bosses. */
+    public static final int BOSS_ROOM = 5;
+
+    /**
+     * Why a match cannot start yet, or null. notReady is a player other than the owner who is not ready. LAN solo:
+     * the sides need not be even (one player may take on a team) and a boss room may be played alone; a team room
+     * still needs someone on each side.
+     */
+    public static String startProblem(int type, int team1, int team2, String notReady) {
+        if (notReady != null) {
+            return String.format(__("Còn %s chưa sẵn sàng."), notReady);
+        }
+        if (type != BOSS_ROOM && (team1 == 0 || team2 == 0)) {
+            return __("Mỗi bên cần ít nhất 1 người.");
+        }
+        return null;
+    }
+
     public void startGame(User user ) {
         if (this.started) return;
         if (user == null || user.id == this.userID) {
@@ -396,15 +411,11 @@ public class RoomWait {
             }
             
 //            this.waitStart = System.currentTimeMillis() + 5000L;
-            int ready = 0, team1 = 0, team2 = 0;
+            int team1 = 0, team2 = 0;
             User notReady = null;
             for (User player : this.players) {
                 if (player != null) {
-                    if(player.id == this.userID || player.ready) {
-                        if (player.ready) {
-                            ready++;
-                        }
-                    } else if (notReady == null) {
+                    if (player.id != this.userID && !player.ready && notReady == null) {
                         notReady = player;
                     }
                     if (player.team == 1) {
@@ -415,21 +426,10 @@ public class RoomWait {
                     }
                 }
             }
-            if (ready == 0 && this.type != 5) {
+            String problem = startProblem(this.type, team1, team2, notReady == null ? null : notReady.name);
+            if (problem != null) {
                 if (user != null && user.session != null) {
-                    user.session.sessionHandler.log(__("Mọi người chưa sẵn sàng"));
-                }
-                return;
-            }
-            if (notReady != null) {
-                if (user != null && user.session != null) {
-                    user.session.sessionHandler.log(String.format(__("Còn %s chưa sẵn sàng."), notReady.name));
-                }
-                return;
-            }
-            if (team1 != team2 && this.type != 5) {
-                if (user != null && user.session != null) {
-                    user.session.sessionHandler.log(__("Số lượng 2 bên chưa ngang nhau"));
+                    user.session.sessionHandler.log(problem);
                 }
                 return;
             }
@@ -491,18 +491,13 @@ public class RoomWait {
     public void endGame() {
         this.started = false;
         this.waitStart = System.currentTimeMillis() + 10000L;
-        this.noWaitTime = System.currentTimeMillis();
     }
     
     public void update() {
         if (this.mapData != null) {
             this.mapData.update();
         }
-        if (!this.started) {
-            if (this.numPlayer > 0 && System.currentTimeMillis() - this.noWaitTime > 120000) {
-                this.kick(null, this.userID, __("Không start ván"));
-            }
-        }
+        // LAN: an owner who has not started is no longer kicked out of the room after 2 minutes.
     }
     
 }

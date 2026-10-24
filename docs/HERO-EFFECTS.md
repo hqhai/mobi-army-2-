@@ -6,7 +6,7 @@
 
 - Chạy `Start-Hero-Effects.cmd` để mở client đóng gói riêng trong `runtime/hero-effects-client-v2`. Server local hiện có vẫn dùng cổng 8122. Không cần cập nhật database hoặc khởi động lại server.
 - Magenta (gun 10, bullet 49): laser vàng cam, lõi trắng, lóe sáng ở đầu tia. Giữ điểm phản xạ và hai đoạn laser hiện có. POW tăng bề rộng, kích thước lóe sáng và thêm các vệt photon chạy dọc tia.
-- Thor đang mặc giáp 30000: giữ hiệu ứng lửa gốc quanh người, chỉ thêm tia điện trên búa mẹ và ba búa con khi bắn POW. Không có vòng hào quang hoặc sét quanh người. Apache thường không có hiệu ứng búa này.
+- Thor: tia điện trên búa POW và búa cắt từ ảnh concept **đã bỏ**. Skin Thor ném Mjölnir là kiểu đạn trong dải đạn gốc của Apache, POW dùng hiệu ứng gốc (xem APACHE-THOR.md, mục búa; đạn các trang phục: `art/costume-bullets`).
 - Búa POW lớn gấp đôi (40×40 thay cho 20×20), đủ tám hướng xoay, bảy nhánh sét chuyển động quanh từng búa và đuôi điện dài hơn. Kích thước hiển thị không thay vùng sát thương.
 - Trạng thái POW lấy từ item 100 đã được server thông báo, chụp lại trong BM lúc nhận phát bắn và sao sang từng Bullet. Không lấy từ `isSuper` hoặc chỉ số nộ đầy. Bắn thường tiếp theo xóa trạng thái.
 - Mức đồ họa thấp dùng tia mảnh và vòng búa đơn giản. Không đổi sát thương, đường đạn, hitbox, camera hoặc giá/chỉ số skin.

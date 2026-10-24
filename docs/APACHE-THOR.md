@@ -12,10 +12,11 @@ Các client đã cập nhật sẽ nhìn thấy Thor của người đang mặc 
 
 ## Chuyển động và búa
 
-- Bản cũ ánh xạ cả frame 4 và 5 vào ảnh đứng nên hai chân cứng đờ. Bản mới dùng trực tiếp hai dáng chân dang/thu của giáp Iron Man (Apache, trang bị 23, frame 4/5), đổi màu thép khi render và nhún thân cùng nhịp. Chuyển động được kích bởi hai frame đi thật của CPlayer, không chạy khi đứng yên.
+- Skin Thor và các trang phục Thor của mọi nhân vật được vẽ bằng **mảnh đồ kiểu của game**, không còn ghép ảnh concept: mũ là nón bạc của chính nhân vật đó, sáng hơn, thêm cánh trắng phía sau và lọn tóc vàng; vũ khí bạc; giáp bạc tối lại thành xám than còn khuy bạc; áo choàng của trang phục Batman đổi sang đỏ (Granos không có áo choàng). Mỗi mảnh giữ đúng 6 khung đồ và độ lệch của mảnh gốc nên đứng, ngắm, bắn, đi đều khớp như mọi trang phục; khung trúng đạn/chết/thắng như trang phục gốc của game.
 - Apache vẫn là nhân vật ID 8. Đạn 17 là búa mẹ; đến frame tương ứng lực thứ hai, server tách đúng ba đạn 18 với hướng cách nhau 15°. Không thay đường đạn, lực bắn hoặc hitbox.
-- Chỉ búa của người bắn đang trang bị Thor được đổi hình. Apache thường và người chơi khác giữ nguyên hình gốc.
-- Animation đi ghép chân Iron Man với thân Thor, chưa phải bộ sprite Thor vẽ mới đầy đủ. Tư thế trúng đạn/chết/chiến thắng vẫn là bản thử; chưa có vệt điện dài như hình concept. Lần yêu cầu tạo hai sprite bước chân bằng imagegen bị công cụ từ chối, không có ảnh mới được sinh.
+- Búa của người mặc Skin Thor là **Mjölnir**: kiểu đạn Thor trong dải đạn gốc của Apache (`server/res/bullet8.png`, đầu thép cán da), xoay tám hướng như búa gốc; POW dùng hiệu ứng POW gốc của game. Apache thường và người chơi khác giữ nguyên hình gốc. Bản trước dùng búa cắt từ ảnh concept và tia sét vẽ bằng nét; cả hai đã bỏ.
+- Cách làm: `art/thor-native/make_thor_costume.py` tạo các mảnh từ đồ có sẵn, ghép vào cuối atlas `server/res/bigImage*.png` (client đọc tối đa 65.535 byte mỗi atlas) và ghi toạ độ vào `server/res/thor-costume.json`. Server cài lúc khởi động (`ThorCostume`): mảnh ẩn 30110 mũ, 30111 vũ khí, 30112 giáp, 30113 áo choàng cho từng nhân vật; trang phục Thor 30100 + nhân vật trỏ vào các mảnh đó; Skin Thor 30000 lấy hình giáp, client vẽ thêm mũ, vũ khí, áo choàng cho Apache (`ThorSkin`). Icon trong game: `client/desktop/assets/skins/thor-native/icons.png`; icon web: `web/img/thor/`. Ảnh xem trước: `art/thor-native/preview.png`.
+- Đổi hình bộ Thor: sửa và chạy lại script (đọc danh mục `equip` xuất từ DB), rồi tăng số phiên bản ở `ControlHandler`: `dataInfo` (dữ liệu đồ) và `captionInfo` (khi số này đổi, client tải lại toàn bộ atlas). Quên tăng thì client cũ vẫn dùng atlas lưu sẵn và vẽ sai mảnh mới.
 
 ## Tích hợp
 
@@ -38,4 +39,4 @@ Chạy `scripts/tests/Run-Thor-Checks.ps1` khi database local ở cổng 3307 đ
 - Chưa nghiệm thu một trận bốn người dùng skin từ đầu tới cuối.
 
 Ảnh: `art/concepts/apache-thor/shop-preview.png`, `runtime-shop-walk-preview.png`.
-Nguồn hình hiện có: `client/desktop/assets/skins/apache-thor/concept.png` (concept tạo bằng imagegen ở lượt trước); chân lấy từ bản sao atlas gốc `server/res/bigImage8.png` tại `client/desktop/assets/skins/apache-thor/apache-equipment-source.png`; shader chỉ đổi màu chân và được phục hồi ngay sau khi vẽ.
+Nguồn hình: các mảnh đồ Thor tạo bằng `art/thor-native/make_thor_costume.py`, kiểu đạn bằng `art/costume-bullets/make_costume_bullets.py`, đều từ hình gốc của game. Ảnh concept tạo bằng imagegen và các hiệu ứng đạn theo ảnh (`skins/thor-classes`, `skins/apache-thor`) đã bỏ khỏi client.

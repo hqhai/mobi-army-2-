@@ -104,27 +104,4 @@ public final class HeroEffects {
             }
         }
     }
-
-    public static void hammer(mGraphics g, int x, int y, int lastX, int lastY, int phase) {
-        int dx=x-lastX, dy=y-lastY;
-        double length=Math.sqrt((double)dx*dx+(double)dy*dy);
-        if (length>0) {
-            int tx=x-(int)(dx/length*42), ty=y-(int)(dy/length*42);
-            line(g, 0x248bc9, tx, ty, x, y);
-            line(g, 0x63cfff, tx, ty, (tx+x)/2+3, (ty+y)/2-4);
-            line(g, 0xe9faff, (tx+x)/2+3, (ty+y)/2-4, x, y);
-        }
-        // Broken, branching arcs hug the hammer; no circular aura around the player.
-        for (int i=0;i<7;i++) {
-            double a=(i*360.0/7+phase*9)*Math.PI/180;
-            int radius=23+(phase+i*3)%7;
-            int ax=x+(int)(Math.cos(a)*radius), ay=y+(int)(Math.sin(a)*radius);
-            int bx=x+(int)(Math.cos(a+.3)*(radius-7)), by=y+(int)(Math.sin(a+.3)*(radius-7));
-            int cx=x+(int)(Math.cos(a+.6)*(radius+3)), cy=y+(int)(Math.sin(a+.6)*(radius+3));
-            line(g,0x248bc9,ax+1,ay+1,bx+1,by+1);
-            line(g,0x63cfff,ax,ay,bx,by);
-            line(g,0xe9faff,bx,by,cx,cy);
-            line(g,0x63cfff,bx,by,bx+(ax-x)/3,by-6);
-        }
-    }
 }

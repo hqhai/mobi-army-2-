@@ -58,6 +58,8 @@ public class Server {
                 MapBoss.loadMapBoss();
                 ThorSkin.ensureCatalog();
                 PhotonSkin.ensureCatalog();
+                ThorCostume.ensureCatalog();
+                CostumeBullets.ensureCatalog();
                 Equip.loadEquip();
                 Item.loadItem();
                 LinhTinh.loadLinhTinh();
@@ -69,7 +71,7 @@ public class Server {
                 Room.loadRoom();
                 RoomInfo.loadRoomInfo();
                 SessionManager.loadUser();
-            } catch(SQLException ex) {
+            } catch(SQLException | IOException ex) {
                 ex.printStackTrace();
             }
             try {

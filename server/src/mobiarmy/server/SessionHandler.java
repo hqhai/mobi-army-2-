@@ -1099,12 +1099,18 @@ public class SessionHandler {
     }
     
     public void addTimeBomb(int id, int x, int y) {
+        this.addTimeBomb(id, x, y, -1);
+    }
+
+    /** Owner >= 0 (Chicky's Easter egg, client build 5): her index follows, older clients stop reading before it. */
+    public void addTimeBomb(int id, int x, int y, int owner) {
         try {
             Message message = new Message(109);
             message.writer().writeByte(0);
             message.writer().writeByte(id);
             message.writer().writeInt(x);
             message.writer().writeInt(y);
+            if (owner >= 0) message.writer().writeByte(owner);
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
@@ -1118,11 +1124,11 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
-    /** Chicky's egg hatches (client build 4+): type 1 digs its hole like a time bomb, type 2 digs none. */
-    public void hatchEgg(int id, boolean dig) {
+    /** Chicky's egg hatches (client build 4+, type 2): it goes off without digging. */
+    public void hatchEgg(int id) {
         try {
             Message message = new Message(109);
-            message.writer().writeByte(dig ? 1 : 2);
+            message.writer().writeByte(2);
             message.writer().writeByte(id);
             this.session.sendMessage(message);
         } catch (IOException ex){}
@@ -1286,6 +1292,22 @@ public class SessionHandler {
                 message.writer().writeByte(player.index);
                 message.writer().writeBoolean(player.antiHealTurns > 0);
                 message.writer().writeBoolean(player.stunTurns > 0);
+            }
+            // Client build 5: who Apache's set passive hides from opponents (message 80 shows them again). Older
+            // clients stop reading before this.
+            int hidden = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && player.huntHidden) hidden++;
+            message.writer().writeByte(hidden);
+            for (mobiarmy.war.Player player : players) if (player != null && player.huntHidden) message.writer().writeByte(player.index);
+            // Then who has a set passive and at which tier: the client shows Tarzan's whole aim guide and longer walk,
+            // and lifts Rocketer's aim limit for his WorldWar POW.
+            int tiers = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && player.setTier > 0) tiers++;
+            message.writer().writeByte(tiers);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null || player.setTier <= 0) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeByte(player.setTier);
             }
             this.session.sendMessage(message);
         } catch (IOException ex){}

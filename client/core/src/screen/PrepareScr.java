@@ -589,7 +589,8 @@ public class PrepareScr extends CScreen {
             }
         }
 
-        if (readyCount != 0 && unReadyCount <= 0) {
+        // LAN solo: starting alone or with uneven sides is the server's call (a boss room can be fought alone).
+        if (unReadyCount <= 0) {
             if (this.money > TerrainMidlet.myInfo.xu) {
                 CCanvas.startOKDlg(Language.notEnoughMoney());
             }

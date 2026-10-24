@@ -105,7 +105,6 @@ public class BM {
    public static boolean isBombBalloon;
    public byte critical;
    public boolean heroPowShot;
-   private final player.ThorProjectiles.Impacts thorImpacts = new player.ThorProjectiles.Impacts();
    private int idBullet;
    boolean isDouble = false;
    boolean endShoot;
@@ -223,6 +222,15 @@ public class BM {
          airPlaneX = 400;
          airPlaneY = airPlaneStartVx;
          this.nBull = 2;
+         break;
+      case WORLDWAR_FLARE:
+         // Rocketer's WorldWar (server WorldWarFlare): the flare, then the bomber's nuclear bombs, one per path after it.
+         isActiveAirFly = false;
+         isActiveBomBay = false;
+         airPlaneX = 400;
+         airPlaneY = airPlaneStartVx;
+         this.nBull = this.xPaint.length;
+         this.worldWarBomb = 1;
          break;
       case 5:
       case 36:
@@ -381,6 +389,7 @@ public class BM {
          GameScr.isDarkEffect = false;
          break;
       case 4:
+      case WORLDWAR_FLARE:
          this.bullets.addElement(new Bullet(Type, this.xPaint[0], this.yPaint[0], this.whoShot));
          break;
       case 5:
@@ -543,6 +552,58 @@ public class BM {
 
    }
 
+   /**
+    * King Kong, Apache, Chicky and Tarzan bullets cut per kind. onInitSpecialBullet cuts one picture of each at the
+    * start of a match, always kind 0, so their silver, gold and costume bullets never showed; Bullet asks here for the
+    * kind each shot carries. Keyed by character * 1000 + kind.
+    */
+   private final java.util.HashMap<Integer, Object> kindPictures = new java.util.HashMap<Integer, Object>();
+   /** Rocketer's WorldWar (server WorldWarFlare): its flare and its nuclear bombs, and the next bomb to drop. */
+   public static final byte WORLDWAR_FLARE = 60, WORLDWAR_BOMB = 61;
+   private int worldWarBomb;
+   private final java.util.HashSet<Integer> kindsCutting = new java.util.HashSet<Integer>();
+
+   /** The character whose bullet sheet these bullet types use, or -1. */
+   private static int kindGlass(int type) {
+      return type == 9 ? 3 : type == 17 || type == 18 ? 8 : type == 19 ? 6 : type == 21 ? 7 : -1;
+   }
+
+   /**
+    * Picture of this kind for bullet type 9 (King Kong), 17/18 (Apache), 19 (Chicky) or 21 (Tarzan): a FrameImage, an
+    * mImage for Chicky. Null for kind 0 (onInitSpecialBullet's pictures are that one) and until the picture is cut,
+    * which takes a frame like every cut picture here.
+    */
+   public Object kindPicture(int type, int kind) {
+      final int glass = kindGlass(type);
+      if (glass < 0 || kind <= 0) return null;
+      mImage sheet = PlayerEquip.bullets[glass];
+      if (sheet == null || sheet.image == null) return null;
+      int size = sheet.image.getWidth();
+      if (size <= 0 || (kind + 1) * size > sheet.image.getHeight()) return null;
+      final Integer key = glass * 1000 + kind;
+      Object picture = this.kindPictures.get(key);
+      if (picture == null && this.kindsCutting.add(key)) {
+         CCanvas.cutImage(sheet, kind, new IAction2() {
+            public void perform(Object object) {
+               Image image = (Image) object;
+               BM.this.kindPictures.put(key, glass == 6 ? new mImage(image) : new FrameImage(image, glass == 8 ? 8 : 4));
+               BM.this.kindsCutting.remove(key);
+            }
+         });
+      }
+      return picture;
+   }
+
+   /** Cuts the kinds the players of this match throw, so that their first shots already show them. */
+   public void prepareKinds() {
+      if (PM.p == null) return;
+      for (CPlayer p : PM.p) {
+         if (p == null) continue;
+         int type = p.gun == 3 ? 9 : p.gun == 8 ? 17 : p.gun == 6 ? 19 : p.gun == 7 ? 21 : -1;
+         if (type >= 0) this.kindPicture(type, p.bulletKind());
+      }
+   }
+
    public void onInitSpecialBullet() {
       CCanvas.cutImage(PlayerEquip.bullets[7], 0, new IAction2() {
          public void perform(Object object) {
@@ -610,7 +671,17 @@ public class BM {
 
          if (isActiveAirFly) {
             airPlaneX += airPlaneStartVx;
-            if (!isActiveBomBay && airPlaneX >= this.x - 165) {
+            if (this.type == WORLDWAR_FLARE) {
+               // The bomber drops each nuclear bomb as it passes over where the server starts it (25 px behind,
+               // as the B52 drops its bomb), and all that are left once it is past the map.
+               while (this.worldWarBomb < this.xPaint.length
+                       && (airPlaneX >= this.xPaint[this.worldWarBomb][0] - 25 || airPlaneX >= MM.mapWidth)) {
+                  Bullet bomb = new Bullet(WORLDWAR_BOMB, this.xPaint[this.worldWarBomb], this.yPaint[this.worldWarBomb], this.whoShot);
+                  this.bullets.addElement(bomb);
+                  GameScr.cam.setBulletMode(bomb);
+                  ++this.worldWarBomb;
+               }
+            } else if (!isActiveBomBay && airPlaneX >= this.x - 165) {
                this.createBullet((byte)3);
                GameScr.cam.setBulletMode((Bullet)this.bullets.elementAt(0));
                isActiveBomBay = true;
@@ -716,7 +787,6 @@ public class BM {
    private static final com.badlogic.gdx.graphics.Color POISON_TINT = new com.badlogic.gdx.graphics.Color(0.78f, 0.35f, 1f, 1f);
 
    public void paint(mGraphics g) {
-      this.thorImpacts.paint(g, GameScr.curGRAPHIC_LEVEL == 2);
       int i;
       // LAN item 38 "Cơn mưa độc": the Sao băng rain of that shot is painted purple.
       if (map.CMap.poisonRain) g.tint = POISON_TINT;
@@ -753,7 +823,6 @@ public class BM {
    }
 
    public void removeBullet(Bullet b, boolean isExplode, int x, int y, int x_Last, int y_Last, byte whoShot) {
-      if (isExplode) b.addThorImpact(this.thorImpacts, x, y);
       this.bullets.removeElement(b);
       if (b.type == 45) {
          this.endShoot();

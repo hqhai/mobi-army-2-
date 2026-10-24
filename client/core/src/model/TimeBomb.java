@@ -6,6 +6,8 @@ import coreLG.CCanvas;
 import effect.Camera;
 import effect.Explosion;
 import item.Bullet;
+import player.CPlayer;
+import player.PM;
 import screen.GameScr;
 
 public class TimeBomb {
@@ -16,6 +18,12 @@ public class TimeBomb {
    public boolean isFall;
    public boolean falling;
    int dy;
+   /** Whose Chicky's Easter egg this is (index in PM.p), -1 when the server does not say. */
+   public int owner = -1;
+   /** Frames until the hatching egg goes off (GameScr.hatchEgg), 0 while it is not hatching. */
+   public int hatchIn;
+   /** Time the camera takes to reach the egg before it goes off. */
+   public static final int HATCH_FRAMES = 10;
 
    public TimeBomb(int id, int x, int y) {
       this.id = id;
@@ -24,34 +32,67 @@ public class TimeBomb {
       new Explosion(x, y, (byte)1);
    }
 
-   /** Chicky's Easter egg (server ids 100 and up) instead of a time bomb. */
-   static mImage egg;
+   /**
+    * Chicky's Easter eggs (server ids 100 and up) instead of a time bomb: one EGG_W x EGG_H picture per kind of her
+    * bullets, top to bottom (art/chicky-eggs), so the egg wears the colours of her skin.
+    */
+   static mImage eggs;
+   static final int EGG_W = 32, EGG_H = 40;
+   /** How far aside the egg is drawn while a player stands on it, so the player does not hide it. */
+   static final int EGG_ASIDE = 18;
 
    public boolean isEgg() {
       return this.id >= 100;
    }
 
+   /** Row of eggs.png: the kind of bullet the owner's chicken is (her skin), the classic egg when unknown. */
+   int eggKind() {
+      CPlayer p = PM.p != null && this.owner >= 0 && this.owner < PM.p.length ? PM.p[this.owner] : null;
+      int kind = p != null ? p.bulletKind() : 0;
+      return kind > 0 && (kind + 1) * EGG_H <= eggs.image.getHeight() ? kind : 0;
+   }
+
    public void paint(mGraphics g) {
       if (this.isEgg()) {
-         if (egg == null) egg = mImage.createImage("/gui/egg.png");
-         int bob = CCanvas.gameTick % 10 < 5 ? 0 : 1;
-         g.drawImage(egg, this.x, this.y - bob, mGraphics.HCENTER | mGraphics.BOTTOM, false);
+         if (eggs == null) eggs = mImage.createImage("/gui/eggs.png");
+         int bob = CCanvas.gameTick % 10 < 5 ? 0 : 2;
+         int drawX = this.x + (this.underPlayer() ? EGG_ASIDE : 0);
+         g.drawRegion(eggs, 0, this.eggKind() * EGG_H, EGG_W, EGG_H, 0, drawX, this.y - bob, mGraphics.HCENTER | mGraphics.BOTTOM, false);
          return;
       }
       int frame = CCanvas.gameTick % 3 == 0 ? 0 : 1;
       g.drawRegion(Explosion.timeBomb, 0, frame * 15, 28, 15, 0, this.x, this.y, mGraphics.HCENTER | mGraphics.BOTTOM, false);
    }
 
+   /** A living, visible player stands on this spot (an invisible one does not move the egg, which would give him away). */
+   boolean underPlayer() {
+      if (PM.p == null) return false;
+      for (CPlayer p : PM.p) {
+         if (p != null && p.hp > 0 && !p.isInvisible && Math.abs(p.x - this.x) < 16 && Math.abs(p.y - this.y) < 24) return true;
+      }
+      return false;
+   }
+
+   /** The giant mushroom of fire (as T-Rex's big rocket and the time bomb go off). */
+   void mushroom() {
+      int[][] array = GameScr.getPointAround(this.x, this.y, 7);
+
+      for(int i = 0; i < 7; ++i) {
+         new Explosion(array[0][i], array[1][i], (byte)7);
+      }
+   }
+
    public void update() {
       int y1;
+      if (this.hatchIn > 0 && --this.hatchIn == 0) {
+         this.mushroom();
+         GameScr.timeBombs.removeElement(this);
+         return;
+      }
+
       if (this.isExplore) {
          Camera.shaking = 2;
-         int[][] array = GameScr.getPointAround(this.x, this.y, 7);
-
-         for(y1 = 0; y1 < 7; ++y1) {
-            new Explosion(array[0][y1], array[1][y1], (byte)7);
-         }
-
+         this.mushroom();
          GameScr.timeBombs.removeElement(this);
       }
 

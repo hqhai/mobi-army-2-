@@ -106,7 +106,6 @@ public class Bullet {
     public static mImage superShoot;
     public boolean isSuper;
     private boolean heroPow;
-    private player.ThorProjectiles.Profile thorProfile;
     private boolean photonVisual;
     int sFrame = 0;
     int ts = 0;
@@ -399,7 +398,6 @@ public class Bullet {
         this.type = type;
         this.whoShot = whoShot;
         this.heroPow = GameScr.bm != null && GameScr.bm.heroPowShot;
-        this.thorProfile = player.ThorProjectiles.forShot(whoShot, type);
         this.photonVisual = type == 49 && effect.HeroEffects.photon(whoShot);
         this.xPaint = X;
         this.yPaint = Y;
@@ -451,7 +449,9 @@ public class Bullet {
         }
 
         this.checkBackBody();
-        if (GameScr.bm.critical == 1) {
+        if (this.type == BM.WORLDWAR_BOMB) {
+            // Dropped by the bomber high above: no muzzle blast.
+        } else if (GameScr.bm.critical == 1) {
             if (this.type != 11 && this.type != 18) {
                 new Explosion(this.xPaint[0], this.yPaint[0], (byte) 0);
             }
@@ -492,13 +492,7 @@ public class Bullet {
             }
         }
 
-        if (this.thorProfile != null && this.thorProfile.beam) {
-            int phase = effect.HeroEffects.phase();
-            player.ThorProjectiles.beam(g, this.thorProfile, this.heroPow, GameScr.curGRAPHIC_LEVEL == 2,
-                    this.xPaint[0], this.yPaint[0], this.xPaint[0]+this.xLaser1, this.yPaint[0]+this.yLaser1, phase);
-            if (this.isMirror) player.ThorProjectiles.beam(g, this.thorProfile, this.heroPow, GameScr.curGRAPHIC_LEVEL == 2,
-                    this.xLG, this.yLG, this.xLG+this.xLaser2, this.yLG-this.yLaser2, phase);
-        } else if (this.photonVisual) {
+        if (this.photonVisual) {
             int phase = effect.HeroEffects.phase();
             effect.HeroEffects.beam(g, this.xPaint[0], this.yPaint[0],
                     this.xPaint[0]+this.xLaser1, this.yPaint[0]+this.yLaser1,
@@ -619,12 +613,14 @@ public class Bullet {
                 }
                 break;
             case 3:
+            case BM.WORLDWAR_BOMB:
                 this.frmImg = new FrameImage(bomb.image, 24, 24);
                 this.changeFrame = true;
                 this.blackSmoke = true;
                 break;
             case 4:
             case 16:
+            case BM.WORLDWAR_FLARE:
                 this.frmImg = new FrameImage(bomb_flag.image, 32, 32);
                 this.smoke = true;
                 this.changeFrame = true;
@@ -655,7 +651,8 @@ public class Bullet {
                 break;
             case 9:
                 if (critical == 0) {
-                    this.frmImg = GameScr.bm.frameBulletSpecial[9][0];
+                    Object kind = GameScr.bm.kindPicture(9, this.idBullet);
+                    this.frmImg = kind != null ? (FrameImage) kind : GameScr.bm.frameBulletSpecial[9][0];
                 }
 
                 if (critical == 1) {
@@ -719,7 +716,9 @@ public class Bullet {
                 break;
             case 17:
             case 18:
-                this.frmImg = player.ThorSkin.projectile(GameScr.bm.frameBulletSpecial[17][0], this.whoShot, this.heroPow);
+                Object hammer = GameScr.bm.kindPicture(17, this.idBullet);
+                this.frmImg = player.ThorSkin.projectile(hammer != null ? (FrameImage) hammer : GameScr.bm.frameBulletSpecial[17][0],
+                        this.whoShot, this.heroPow);
                 if (critical == 1) {
                     this.fireSmoke = true;
                 }
@@ -729,7 +728,8 @@ public class Bullet {
                 break;
             case 19:
                 if (critical == 0) {
-                    this.dan = GameScr.bm.bulletChicken;
+                    Object kind = GameScr.bm.kindPicture(19, this.idBullet);
+                    this.dan = kind != null ? (mImage) kind : GameScr.bm.bulletChicken;
                 }
 
                 if (critical == 1) {
@@ -755,7 +755,8 @@ public class Bullet {
                 break;
             case 21:
                 if (critical == 0) {
-                    this.frmImg = GameScr.bm.frameBulletSpecial[21][0];
+                    Object kind = GameScr.bm.kindPicture(21, this.idBullet);
+                    this.frmImg = kind != null ? (FrameImage) kind : GameScr.bm.frameBulletSpecial[21][0];
                     this.changeFrame = true;
                 }
 
@@ -1395,7 +1396,7 @@ public class Bullet {
 
         if (this.type == 34) {
             new Explosion(this.x, this.y, (byte) 1);
-        } else if (this.type == 4) {
+        } else if (this.type == 4 || this.type == BM.WORLDWAR_FLARE) {
             GameScr.bm.activeAirplane(this.x, this.y);
         } else if (this.type == 14) {
             CRes.err("===> type == BULL_LAZER_FLAG ACTIVE Lazer ");
@@ -1499,6 +1500,13 @@ public class Bullet {
                                 GameScr.whiteEffect = true;
                                 GameScr.xNuke = this.x;
                                 GameScr.yNuke = this.y;
+                            } else if (this.type == BM.WORLDWAR_BOMB) {
+                                // Rocketer's WorldWar: each nuclear bomb goes off in T-Rex's mushroom of fire.
+                                int[][] mushroom = GameScr.getPointAround(this.x, this.y, 7);
+                                for (int m = 0; m < 7; ++m) {
+                                    new Explosion(mushroom[0][m], mushroom[1][m], (byte) 7);
+                                }
+                                Camera.shaking = 2;
                             } else if (this.type == 40) {
                                 GameScr.electricEffect = true;
                                 GameScr.xElectric = this.x;
@@ -1630,7 +1638,7 @@ public class Bullet {
     }
 
     public static boolean isFlagBull(int type) {
-        return type == 4 || type == 14 || type == 16 || type == 23 || type == 28;
+        return type == 4 || type == 14 || type == 16 || type == 23 || type == 28 || type == BM.WORLDWAR_FLARE;
     }
 
     public static boolean isDoubleBull(int type) {
@@ -1713,21 +1721,9 @@ public class Bullet {
 
     }
 
-    public void addThorImpact(player.ThorProjectiles.Impacts impacts, int x, int y) {
-        impacts.add(this.thorProfile, this.heroPow, x, y);
-    }
-
     public void paint(mGraphics g) {
         if (!this.notPaint) {
             if (this.type != 31) {
-                if (this.thorProfile != null && this.thorProfile.beam) {
-                    if (this.isPaintLazer) this.paintLazerGirl(g);
-                    else effect.HeroEffects.ring(g, this.x, this.y, this.heroPow ? 6 : 3, this.thorProfile.color, 0);
-                    return;
-                }
-                if (player.ThorProjectiles.projectile(g, this.thorProfile, this.heroPow,
-                        GameScr.curGRAPHIC_LEVEL == 2, this.x, this.y, this.x_Last, this.y_Last,
-                        effect.HeroEffects.phase())) return;
                 if (this.isSuper) {
                     ++this.sFrame;
                     if (this.sFrame == 5) {
@@ -1743,6 +1739,7 @@ public class Bullet {
                     if (this.type != 2 && this.type != 11) {
                         // Gunner's set passive: his POW is a giant cannonball, as much bigger as the hole it digs.
                         if (this.type == 0 && map.CMap.holeScaleBullet == 0 && map.CMap.holeScale > 100) g.drawScale = map.CMap.holeScale / 100f;
+                        if (this.type == BM.WORLDWAR_BOMB) g.drawScale = 1.5f; // the nuclear bombs are big ones
                         this.frmImg.drawFrame(this.curFrame, this.x, this.y, this.trans, 3, g, false);
                         g.drawScale = 1f;
                     } else if (this.type == 2) {

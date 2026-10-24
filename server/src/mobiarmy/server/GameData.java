@@ -130,6 +130,7 @@ public class GameData {
             case 48 -> 3;
             case 52 -> 3;
             case 57 -> 7;
+            case 61 -> 9; // WorldWar's nuclear bombs dig as the B52's bomb
             default -> 0;
         };
     }
@@ -181,6 +182,7 @@ public class GameData {
             case 56 -> 20;
             case 57 -> 28;
             case 59 -> 16;
+            case 61 -> mobiarmy.war.SetPassive.WORLDWAR_RADIUS; // Rocketer's WorldWar nuclear bombs
             default -> 0;
         };
     }

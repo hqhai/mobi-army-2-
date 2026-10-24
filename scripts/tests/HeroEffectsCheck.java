@@ -74,16 +74,6 @@ public final class HeroEffectsCheck extends MainGame {
             HeroEffects.beam(g,20,120,140,85,true,false,frames);
             HeroEffects.beam(g,140,85,290,130,true,false,frames);
             thor.paint(g,2,0,45,193);
-            for(int i=0;i<3;i++){
-                int x=130+i*65,y=173+(i-1)*9;
-                HeroEffects.hammer(g,x,y,x-10,y+2,frames);
-                // The same rotating hammer atlas used by live Thor bullets.
-                java.lang.reflect.Method load=ThorSkin.class.getDeclaredMethod("load");
-                load.setAccessible(true);load.invoke(null);
-                java.lang.reflect.Field hammer=ThorSkin.class.getDeclaredField("powHammer");
-                hammer.setAccessible(true);
-                ((model.FrameImage)hammer.get(null)).drawFrame(i*2,x,y,0,3,g);
-            }
             g.end();
             if(++frames==16){
                 Pixmap pix=Pixmap.createFromFrameBuffer(0,0,960,600);

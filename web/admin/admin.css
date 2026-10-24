@@ -478,6 +478,28 @@ input.stat::-webkit-outer-spin-button {
     flex: 1 1 120px;
 }
 
+.panel .row label {
+    align-self: center;
+    margin: 0;
+    font-weight: normal;
+}
+
+/* A checkbox and its text on one line (.panel label is for field titles). */
+.panel label.check {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin: 6px 0;
+    font-weight: normal;
+}
+
+.panel label.check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+}
+
 .panel .hint {
     margin: 3px 0 0;
     color: var(--muted);

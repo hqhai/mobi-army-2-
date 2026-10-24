@@ -91,15 +91,16 @@ public class SetPassiveCheck {
         SetPassive.afterShot(gunner);
         check(gunner.hp == gunner.hpMax, "no kill, no recoil");
 
-        // Rocketer +25%; Granos digs instead and deals plain damage.
+        // Rocketer's shots are plain (his passive is the WorldWar POW, below); Granos digs instead, plain damage too.
         Player rocketer = player(map, 2, 100, SetPassive.ROCKETER, 6);
         Player granos = player(map, 3, 100, 5, 6);
-        check(hit(map, rocketer, target, false) == plain * 125 / 100, "Rocketer +25%");
+        check(hit(map, rocketer, target, false) == plain, "Rocketer: plain shots");
         check(hit(map, granos, target, false) == plain, "Granos: no extra damage");
 
-        // Chicky "Trứng Phục sinh": hit by the chicken and its egg, the opponent gets an egg that hatches for 2% of
-        // max HP as true damage; Chicky's team in reach heals 2% and keeps its ground.
-        MapData map3 = map();
+        // Chicky "Trứng Phục sinh": hit by the chicken and its egg, the opponent gets an Easter egg that keeps the
+        // damage of that shot. It hatches without digging: Chicky and her team heal a quarter of it wherever they
+        // stand, and opponents in reach lose half.
+        DigCount map3 = map(DigCount.class);
         Player chicky = player(map3, 0, 100, SetPassive.CHICKY, 6);
         Player foe = player(map3, 1, 300, 5, 0);
         SetPassive.beforeShot(chicky);
@@ -107,27 +108,52 @@ public class SetPassiveCheck {
         SetPassive.afterShot(chicky);
         check(map3.pendingEggs.isEmpty(), "the chicken alone lays no egg");
         SetPassive.beforeShot(chicky);
-        apply(map3, chicky, foe, 19);
-        apply(map3, chicky, foe, 20);
+        int shot = apply(map3, chicky, foe, 19);
+        shot += apply(map3, chicky, foe, 20);
         SetPassive.afterShot(chicky);
         check(map3.pendingEggs.size() == 1, "chicken and egg: an egg at the opponent's feet");
         TimeBomb egg = map3.pendingEggs.get(0);
         check(egg.egg && egg.id >= 100 && egg.x == foe.x && egg.count > 0, "the egg waits its rounds");
-        foe.hp = foe.hpMax;
+        check(shot > 0 && egg.att == shot, "the egg keeps the damage its chicken and egg dealt: " + egg.att + " of " + shot);
+        map3.pendingEggs.clear();
         map3.timeBombs.add(egg);
-        int eggHole = mobiarmy.server.GameData.getHoleType(57);
-        java.awt.image.BufferedImage savedHole = mobiarmy.server.GameData.holeIMask[eggHole];
-        mobiarmy.server.GameData.holeIMask[eggHole] = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-        map3.hatchEgg(egg);
-        mobiarmy.server.GameData.holeIMask[eggHole] = savedHole;
-        check(foe.hpMax - foe.hp == foe.hpMax * 2 / 100, "hatching: 2% of max HP, got " + (foe.hpMax - foe.hp));
-        Player mate = player(map3, 2, 310, 5, 0);
+        Player mate = player(map3, 2, 2000, 5, 0);
         mate.team = chicky.team;
+        Player farFoe = player(map3, 3, 2600, 5, 0);
+        farFoe.team = foe.team;
+        chicky.hp = chicky.hpMax / 2;
         mate.hp = mate.hpMax / 2;
         foe.hp = foe.hpMax;
         map3.hatchEgg(egg);
-        check(mate.hp == mate.hpMax / 2 + mate.hpMax * 2 / 100, "a teammate in reach heals 2%");
-        check(foe.hpMax - foe.hp == foe.hpMax * 2 / 100, "the opponent is still hurt");
+        check(!map3.timeBombs.contains(egg), "the egg is gone once hatched");
+        check(foe.hpMax - foe.hp == shot / 2, "the opponent in reach loses half of it: " + (foe.hpMax - foe.hp));
+        check(farFoe.hp == farFoe.hpMax, "an opponent out of reach is safe");
+        check(chicky.hp == chicky.hpMax / 2 + shot / 4, "Chicky heals a quarter");
+        check(mate.hp == mate.hpMax / 2 + shot / 4, "and so does her team, wherever they stand");
+        check(map3.holes == 0, "the egg digs no ground");
+
+        // Every 5th of her eggs to hit an opponent in a match lays one too, where it landed; set 1 is half as strong.
+        MapData map4 = map();
+        Player hen = player(map4, 0, 100, SetPassive.CHICKY, 6);
+        Player target4 = player(map4, 1, 300, 5, 0);
+        for (int i = 0; i < SetPassive.CHICKY_EGG_HITS - 1; i++) {
+            SetPassive.beforeShot(hen);
+            apply(map4, hen, target4, 20);
+            SetPassive.afterShot(hen);
+        }
+        check(map4.pendingEggs.isEmpty(), "4 eggs that hit: no Easter egg yet");
+        SetPassive.beforeShot(hen);
+        int fifth = apply(map4, hen, target4, 20);
+        SetPassive.afterShot(hen);
+        check(map4.pendingEggs.size() == 1 && map4.pendingEggs.get(0).x == target4.x && map4.pendingEggs.get(0).att == fifth,
+                "the 5th egg to hit lays one, keeping the damage of its shot");
+        check(hen.eggHits == 0, "and the count starts over");
+        Player weak = player(map4, 2, 100, SetPassive.CHICKY, 1);
+        SetPassive.beforeShot(weak);
+        int weakShot = apply(map4, weak, target4, 19) + apply(map4, weak, target4, 20);
+        SetPassive.afterShot(weak);
+        check(map4.pendingEggs.size() == 2 && SetPassive.eggShare(weak, weakShot, SetPassive.CHICKY_EGG_HEAL) == weakShot * 12 / 100
+                && SetPassive.eggShare(weak, weakShot, SetPassive.CHICKY_EGG_DAMAGE) == weakShot / 4, "set 1: heals 12%, hurts 25% of the damage");
 
         // Electrician: an opponent hit by 3 bolts in one shot loses his next turn.
         Player elec = player(map3, 4, 100, SetPassive.ELECTRICIAN, 6);
@@ -161,7 +187,9 @@ public class SetPassiveCheck {
 
         // Tarzan takes 12% less; King Kong 10% less per round stood still, up to 20%.
         Player tarzan = player(map, 7, 100, SetPassive.TARZAN, 6);
-        check(hit(map, rocketer, tarzan, false) == plain * 125 / 100 * 88 / 100, "Tarzan takes 12% less");
+        check(hit(map, rocketer, tarzan, false) == plain * 88 / 100, "Tarzan takes 12% less");
+        pact();
+        worldWar();
         MapData map2 = map();
         Player shooter = player(map2, 0, 100, 5, 0);
         Player kong = player(map2, 1, 300, SetPassive.KINGKONG, 6);
@@ -293,6 +321,112 @@ public class SetPassiveCheck {
         return lost;
     }
 
+    /**
+     * Tarzan "Khế Ước Rừng Xanh": a King Kong across the battle and he deal each other half, whatever the set; one on
+     * his side and he deal 20% more and take 10% less while both stand. His boomerang ignores the wind and blows up
+     * half as wide again; he walks 120 steps a turn.
+     */
+    static void pact() throws Exception {
+        MapData foes = map();
+        Player tarzan = player(foes, 0, 100, SetPassive.TARZAN, 6);
+        Player kong = player(foes, 1, 300, SetPassive.KINGKONG, 0);
+        Player other = player(foes, 2, 500, 5, 0);
+        check(hit(foes, tarzan, kong, false) == 500, "pact: Tarzan deals half to a King Kong across the battle");
+        check(hit(foes, kong, tarzan, false) == 500 * 88 / 100, "and takes half from him (then his own 12% less)");
+        check(hit(foes, other, kong, false) == 1000, "others hit King Kong as usual");
+        tarzan.setTier = 0;
+        check(hit(foes, tarzan, kong, false) == 1000, "no set, no pact");
+        tarzan.setTier = 6;
+
+        MapData allies = map();
+        Player friend = player(allies, 0, 100, SetPassive.TARZAN, 6);
+        Player foe = player(allies, 1, 300, 5, 0);
+        Player ape = player(allies, 2, 500, SetPassive.KINGKONG, 0);
+        check(hit(allies, friend, foe, false) == 1200, "with King Kong on his side Tarzan deals 20% more");
+        check(hit(allies, ape, foe, false) == 1200, "and so does King Kong");
+        check(hit(allies, foe, ape, false) == 900, "King Kong takes 10% less");
+        check(hit(allies, foe, friend, false) == 900 * 88 / 100, "Tarzan 10% less, then his own 12%");
+        friend.setTier = 1;
+        check(hit(allies, ape, foe, false) == 1100, "set 1 Tarzan: half the pact's boost");
+        friend.setTier = 6;
+        ape.isDie = true;
+        check(hit(allies, friend, foe, false) == 1000, "the pact holds while both stand");
+        ape.isDie = false;
+
+        Player plainTarzan = player(allies, 3, 700, SetPassive.TARZAN, 0);
+        check(SetPassive.steps(friend) == 120 && SetPassive.steps(plainTarzan) == 60 && SetPassive.steps(foe) == 60, "Tarzan walks 120 steps a turn");
+        check(SetPassive.boomerangWind(friend, 50) == 0 && SetPassive.boomerangWind(plainTarzan, 50) == 5, "his boomerang ignores the wind");
+        Gun pactGun = new Gun(allies, friend.index, false), usualGun = new Gun(allies, plainTarzan.index, false);
+        pactGun.radius = usualGun.radius = -1; // as shootBullet sets it: the bullet's own radius
+        int wide = new mobiarmy.war.Boss.bullet.TarzanBullet(pactGun, 1000, 100, 900, 5, -5).radius;
+        int usual = new mobiarmy.war.Boss.bullet.TarzanBullet(usualGun, 1000, 700, 900, 5, -5).radius;
+        check(wide == usual * SetPassive.TARZAN_RADIUS / 100 && wide > usual, "and blows up half as wide again: " + wide + " vs " + usual);
+    }
+
+    /** Flat ground at y 1200 that counts the holes it would dig. */
+    static class Ground extends DigCount {
+        Ground() throws java.io.IOException {
+            super();
+        }
+
+        @Override
+        public boolean isCollisionMap(int x, int y) {
+            return y >= 1200;
+        }
+    }
+
+    /**
+     * Rocketer "WorldWar": his POW fires a wind-free flare; a bomber drops the nuclear bombs in a tight row across
+     * where it lands, and radiation spreads from the spot, up to 20% of his attack and fading to nothing with distance
+     * (it spares Rocketer himself unless he stood right on top of it).
+     */
+    static void worldWar() throws Exception {
+        Ground ground = map(Ground.class);
+        ground.windX = 50;
+        Player rocketer = player(ground, 0, 200, SetPassive.ROCKETER, 6);
+        Player far = player(ground, 1, 2800, 5, 0);
+        rocketer.y = 1200;
+        rocketer.isPow = true;
+        Gun gun = new Gun(ground, rocketer.index, true);
+        gun.shootBullet(10, rocketer.x, rocketer.y, 24, 24, 45, 20, 0, 1, 1000, -1);
+        gun.fillXY();
+        check(gun.bulletId == mobiarmy.war.Boss.bullet.WorldWarFlare.ID && gun.bullets.size() == 1 + SetPassive.WORLDWAR_BOMBS,
+                "WorldWar: the flare and " + SetPassive.WORLDWAR_BOMBS + " bombs, got " + gun.bullets.size());
+        Bullet flare = gun.bullets.get(0);
+        check(flare.bulletId == 60 && flare.ax100 == 0 && flare.ay100 == 0, "the flare feels no wind");
+        int lastX = Integer.MIN_VALUE;
+        boolean apart = true;
+        for (int i = 1; i < gun.bullets.size(); i++) {
+            Bullet bomb = gun.bullets.get(i);
+            Bullet.Frame end = bomb.frames.get(bomb.frames.size() - 1);
+            if (bomb.bulletId != 61 || end.fY != 1200 || (lastX != Integer.MIN_VALUE && end.fX - lastX != SetPassive.WORLDWAR_SPACING)) apart = false;
+            lastX = end.fX;
+        }
+        check(apart, "the bombs land on the ground " + SetPassive.WORLDWAR_SPACING + " apart, left to right");
+        check(ground.holes == SetPassive.WORLDWAR_BOMBS, "each bomb digs: " + ground.holes);
+        check(gun.worldWarShock == 200, "the radiation starts at a fifth of his attack at the heart: " + gun.worldWarShock);
+        check(SetPassive.radiation(200, 0) == 200 && SetPassive.radiation(200, SetPassive.RADIATION_FAR) == 0
+                        && SetPassive.radiation(200, SetPassive.RADIATION_FAR + 100) == 0
+                        && SetPassive.radiation(200, 100) > SetPassive.radiation(200, 300),
+                "radiation is full at the heart, fades with distance, and is gone past RADIATION_FAR");
+        int farDist = (int) Math.hypot(far.x - gun.worldWarX, far.y - gun.worldWarY);
+        check(far.attAffect == SetPassive.radiation(gun.worldWarShock, farDist),
+                "the far opponent takes only the faded radiation for his distance (" + farDist + "): " + far.attAffect);
+        int selfDist = (int) Math.hypot(rocketer.x - gun.worldWarX, rocketer.y - gun.worldWarY);
+        check(rocketer.attAffect == (selfDist <= SetPassive.RADIATION_NEAR ? SetPassive.radiation(gun.worldWarShock, selfDist) : 0),
+                "Rocketer is caught only when within RADIATION_NEAR (he is " + selfDist + " away): " + rocketer.attAffect);
+
+        Gun plainShot = new Gun(ground, rocketer.index, false);
+        rocketer.isPow = false;
+        plainShot.shootBullet(10, rocketer.x, rocketer.y, 24, 24, 45, 20, 0, 1, 1000, -1);
+        check(plainShot.bulletId == 10 && plainShot.bullets.size() == 3, "without POW: his three rockets");
+        rocketer.setTier = 0;
+        rocketer.isPow = true;
+        Gun noSet = new Gun(ground, rocketer.index, true);
+        noSet.shootBullet(10, rocketer.x, rocketer.y, 24, 24, 45, 20, 0, 1, 1000, -1);
+        check(noSet.bulletId == 10 && noSet.bullets.size() == 3, "no set: the usual POW rockets");
+    }
+
     static int apply(MapData map, Player shooter, Player target) {
         return apply(map, shooter, target, 0);
     }
@@ -308,8 +442,26 @@ public class SetPassiveCheck {
         return target.hpMax - target.hp;
     }
 
+    /** A map that counts the holes it would dig. */
+    static class DigCount extends MapData {
+        int holes;
+
+        DigCount() throws java.io.IOException {
+            super(null, (byte) 0);
+        }
+
+        @Override
+        public void makeHole(int x, int y, int bulletType, int scale) {
+            this.holes++;
+        }
+    }
+
     static MapData map() throws Exception {
-        MapData map = (MapData) unsafe().allocateInstance(MapData.class);
+        return map(MapData.class);
+    }
+
+    static <T extends MapData> T map(Class<T> type) throws Exception {
+        T map = type.cast(unsafe().allocateInstance(type));
         map.width = 3000;
         map.height = 2000;
         map.players = new Player[8];

@@ -26,6 +26,7 @@ public final class Training {
             player.team = i + 1; // the dummy is an opponent (set passives such as Chicky's egg aim at opponents)
             // The player's full +14 set works in practice too (wider holes, sure egg, Gunner's stacks).
             if (i == 0) player.setTier = mobiarmy.war.SetPassive.tier(session.user, session.user.glass().id);
+            player.theluc = mobiarmy.war.SetPassive.steps(player);
             player.x = point.x;
             player.y = point.y;
             map.players[i] = player;
@@ -55,6 +56,7 @@ public final class Training {
             }
         }
         session.sendMessage(message);
+        session.sessionHandler.status(map.players); // the set passive the client shows (aim guide, walk, POW aim)
     }
 
     /** Bullets the practice accepts from the client besides the character's own: the items' (MapData.useItem). */
@@ -91,7 +93,9 @@ public final class Training {
         player.hiddenAtt = mobiarmy.war.SetPassive.hiddenAtt(session.user, session.user.glass().id);
         if (tier != player.setTier) {
             player.setTier = tier;
+            player.theluc = mobiarmy.war.SetPassive.steps(player);
             mobiarmy.war.SetPassive.resetCounters(player);
+            session.sessionHandler.status(map.players);
         }
         int own = player.bulletIdByGlassID();
         int bullet = requested == own || ITEM_BULLETS.contains((int) requested) ? requested : own;

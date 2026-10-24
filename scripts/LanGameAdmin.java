@@ -24,6 +24,8 @@ import mobiarmy.server.User;
 import mobiarmy.war.RoomInfo;
 import mobiarmy.war.RoomRules;
 import mobiarmy.war.RoomWait;
+import mobiarmy.server.ThorSkin;
+import mobiarmy.war.SetPassive;
 
 /**
  * Admin operations on players and catalogs. The server keeps players in memory and periodically overwrites the
@@ -31,6 +33,10 @@ import mobiarmy.war.RoomWait;
  */
 public final class LanGameAdmin {
     static final String[] EQUIP_TYPES = {"Súng", "Nón", "Áo", "Kính", "Balo"};
+    /** Items cap at 99 in the bag, like the shop; a super-admin gift never exceeds it. */
+    static final int ITEM_MAX = 99;
+    /** Largest hidden damage bonus (percent) a super-admin may attach to a gifted rare set. */
+    static final int MAX_HIDDEN_ATT = 100;
     private static final Gson GSON = new Gson();
 
     private final LanWeb.Database database;
@@ -627,5 +633,155 @@ public final class LanGameAdmin {
     private static void setPrice(LinhTinh item, int xu, int luong) {
         item.xu = xu;
         item.luong = luong;
+    }
+
+    // --- Super-admin gifts (LanAdmin.superOnly restricts the routes; the role is re-checked per request) ---
+
+    Map<String, Object> giftSet(int userId, int glassId, int tier, boolean wear, int hiddenAtt) throws Exception {
+        if (tier < 1 || tier > SetPassive.SETS.length) throw new LanApi.BadRequest("Bộ đồ không hợp lệ.");
+        if (hiddenAtt < 0 || hiddenAtt > MAX_HIDDEN_ATT) throw new LanApi.BadRequest("Sát thương ẩn từ 0 đến " + MAX_HIDDEN_ATT + "%.");
+        String username = username(userId);
+        return game.call(() -> {
+            User user = SessionManager.findUserById(userId);
+            boolean loaded = user != null;
+            if (!loaded) user = new User(userId, username);
+            if (glassId < 0 || glassId >= user.glass.length) throw new LanApi.BadRequest("Nhân vật không hợp lệ.");
+            Glass glass = user.glass[glassId];
+            if (!glass.isOpen) throw new LanApi.BadRequest(username + " chưa mở nhân vật " + glass.name + ".");
+            // The game itself blocks gear changes in a room or a match.
+            if (user.roomWait != null) {
+                throw new LanApi.ApiError(409, username + " đang ở trong phòng chờ hoặc trận đấu. Đợi người chơi rời phòng rồi tặng lại.");
+            }
+            String set = "bộ " + SetPassive.SETS[tier - 1] + " +" + SetPassive.SET_PLUS;
+            Equip[] entries = new Equip[EQUIP_TYPES.length];
+            for (Equip entry : ShopEquipment.generate((byte) glassId)) {
+                if (setPiece(entry) && SetPassive.setOf(entry) == tier - 1) entries[entry.type] = entry;
+            }
+            for (int type = 0; type < entries.length; type++) {
+                if (entries[type] == null) {
+                    throw new LanApi.BadRequest("Cửa hàng của " + glass.name + " không có " + EQUIP_TYPES[type].toLowerCase(Locale.ROOT) + " của " + set + ".");
+                }
+            }
+            if (user.equips.size() + entries.length > LanPlayerGame.BAG_LIMIT) {
+                throw new LanApi.BadRequest("Rương đồ của " + username + " không đủ chỗ cho " + entries.length + " món (tối đa " + LanPlayerGame.BAG_LIMIT + ").");
+            }
+            if (!loaded) SessionManager.addUser(user);
+            List<Equip> pieces = new ArrayList<>();
+            int need = 0;
+            for (Equip entry : entries) {
+                Equip piece = LanPlayerGame.upgradedCopy(entry, SetPassive.SET_PLUS);
+                user.addEquip(piece);
+                pieces.add(piece);
+                need = Math.max(need, piece.level);
+            }
+            try {
+                saveHiddenAtt(userId, pieces, hiddenAtt);
+            } catch (SQLException | RuntimeException e) {
+                user.equips.removeAll(pieces);
+                LanPlayerGame.syncGame(user);
+                throw e;
+            }
+            boolean worn = wear && glass.level >= need;
+            if (worn) {
+                // Same as wearing them in the game: the set replaces the character's normal gear, a costume stays on.
+                for (Equip equip : user.equips) {
+                    if (equip.glassID == glassId && equip.vip == 0) equip.isUse = pieces.contains(equip);
+                }
+                glass.updateAll();
+            }
+            Server.requestSave();
+            LanPlayerGame.syncGame(user);
+            LanPlayerGame.notifyGame(user, "Bạn được tặng " + set + " cho " + glass.name + (worn ? ", đã mặc sẵn." : ". Vào Rương đồ để mặc."));
+            System.out.printf("Admin: gave %s %s for %s%s%s%n", username, set, glass.name, worn ? ", worn" : "",
+                    hiddenAtt > 0 ? ", hidden damage +" + hiddenAtt + "%" : "");
+            String message = "Đã tặng " + username + " " + set + " cho " + glass.name
+                    + (worn ? ", đã mặc sẵn (nội tại " + SetPassive.STRENGTH[tier] + "%)."
+                    : wear ? " vào rương đồ. Chưa mặc được: " + glass.name + " cần cấp " + need + ", đang cấp " + glass.level + "."
+                    : " vào rương đồ.")
+                    + (hiddenAtt > 0 ? " Sát thương ẩn +" + hiddenAtt + "% khi mặc đủ 5 món." : "");
+            Map<String, Object> result = view(user, username, true);
+            result.put("message", message);
+            result.put("worn", worn);
+            return result;
+        });
+    }
+
+    Map<String, Object> giftItems(int userId, int itemId, int amount) throws Exception {
+        if (itemId != -1 && Item.get(itemId) == null) throw new LanApi.BadRequest("Không có vật phẩm này.");
+        if (itemId != -1 && (amount < 1 || amount > ITEM_MAX)) throw new LanApi.BadRequest("Số lượng từ 1 đến " + ITEM_MAX + ".");
+        String username = username(userId);
+        return game.call(() -> {
+            User user = loadedOrCreated(userId, username);
+            if (user.roomWait != null && user.roomWait.started) {
+                throw new LanApi.ApiError(409, username + " đang trong trận. Đợi trận kết thúc rồi tặng lại.");
+            }
+            List<Item> changed = new ArrayList<>();
+            int given = 0;
+            for (Item entry : Item.entrys) {
+                if (itemId != -1 && entry.id != itemId) continue;
+                Item owned = user.getItem(entry.id);
+                int before = owned == null ? 0 : owned.num;
+                user.addItem(entry.id, itemId == -1 ? ITEM_MAX - before : amount);
+                Item after = user.getItem(entry.id);
+                if (after != null && after.num > ITEM_MAX) after.num = ITEM_MAX;
+                if (after != null && after.num != before) {
+                    changed.add(after);
+                    given += after.num - before;
+                }
+            }
+            if (user.session != null) {
+                for (Item item : changed) user.session.sessionHandler.updateItem(item, (int) user.xu, (int) user.luong);
+            }
+            Server.requestSave();
+            String what = itemId == -1 ? "đầy đủ vật phẩm" : given + " " + Item.get(itemId).name;
+            System.out.printf("Super-admin: gave %s %s%n", username, itemId == -1 ? "every item up to " + ITEM_MAX : given + " of item " + itemId);
+            if (given > 0) LanPlayerGame.notifyGame(user, "Bạn được tặng " + what + ".");
+            Map<String, Object> result = view(user, username, true);
+            result.put("message", given == 0 ? username + " đã có đủ " + (itemId == -1 ? "mọi vật phẩm" : Item.get(itemId).name) + " (tối đa " + ITEM_MAX + ")."
+                    : "Đã tặng " + username + " " + what + ".");
+            return result;
+        });
+    }
+
+    List<Map<String, Object>> sets() throws Exception {
+        return game.call(() -> {
+            List<Map<String, Object>> sets = new ArrayList<>();
+            for (int i = 0; i < SetPassive.SETS.length; i++) {
+                int level = 0;
+                for (Equip entry : ShopEquipment.entrys) {
+                    if (setPiece(entry) && SetPassive.setOf(entry) == i) level = Math.max(level, entry.level);
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("tier", i + 1);
+                row.put("name", "Bộ " + SetPassive.SETS[i]);
+                row.put("level", level);
+                row.put("strength", SetPassive.STRENGTH[i + 1]);
+                sets.add(row);
+            }
+            return sets;
+        });
+    }
+
+    private static boolean setPiece(Equip entry) {
+        return entry != null && entry.vip == 0 && !ThorSkin.is(entry) && entry.type >= 0 && entry.type < EQUIP_TYPES.length;
+    }
+
+    private void saveHiddenAtt(int userId, List<Equip> pieces, int percent) throws SQLException {
+        write(conn -> {
+            try (PreparedStatement clear = conn.prepareStatement("DELETE FROM lan_hidden_bonus WHERE user_id = ? AND db_key = ?");
+                 PreparedStatement insert = conn.prepareStatement("INSERT INTO lan_hidden_bonus (user_id, db_key, att_percent) VALUES (?, ?, ?)")) {
+                for (Equip piece : pieces) {
+                    clear.setInt(1, userId);
+                    clear.setInt(2, piece.dbKey);
+                    clear.executeUpdate();
+                    if (percent <= 0) continue;
+                    insert.setInt(1, userId);
+                    insert.setInt(2, piece.dbKey);
+                    insert.setInt(3, percent);
+                    insert.executeUpdate();
+                }
+            }
+            return pieces.size();
+        });
     }
 }

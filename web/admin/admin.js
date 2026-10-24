@@ -3,7 +3,12 @@
 
     var STATS = 'Máu/SM/PT/MM/ĐĐ';
     var number = new Intl.NumberFormat('vi-VN');
-    var state = {tab: 'players', players: [], selectedId: null, levels: [], data: {}};
+    var state = {tab: 'players', role: 'admin', players: [], selectedId: null, levels: [], sets: [], items: [], data: {}};
+
+    /** Gifting gear and items is for super-admins only (the server refuses everyone else as well). */
+    function canGift() {
+        return state.role === 'super';
+    }
 
     function $(id) {
         return document.getElementById(id);
@@ -65,7 +70,8 @@
     function showApp(me) {
         $('login-view').hidden = true;
         $('app').hidden = false;
-        $('who').textContent = me.username;
+        state.role = me.role || 'admin';
+        $('who').textContent = me.username + (canGift() ? ' · super-admin' : '');
         $('default-warning').hidden = !me.defaultPassword;
         selectTab(state.tab);
     }
@@ -171,9 +177,14 @@
     // --- players -----------------------------------------------------------------------------
 
     async function loadPlayers() {
-        var results = await Promise.all([api('GET', 'players'), state.levels.length ? state.levels : api('GET', 'levels')]);
+        var gifts = canGift();
+        var results = await Promise.all([api('GET', 'players'), state.levels.length ? state.levels : api('GET', 'levels'),
+            !gifts ? [] : state.sets.length ? state.sets : api('GET', 'sets'),
+            !gifts ? [] : state.items.length ? state.items : api('GET', 'items')]);
         state.players = results[0];
         state.levels = results[1];
+        state.sets = results[2];
+        state.items = results[3];
         renderPlayers();
         renderPanel();
     }
@@ -274,7 +285,9 @@
         var player = selectedPlayer();
         panel.replaceChildren();
         if (!player) {
-            panel.append(el('p', {className: 'muted', text: 'Chọn một người chơi trong bảng để cộng xu, lượng hoặc tăng cấp.'}));
+            panel.append(el('p', {className: 'muted', text: canGift()
+                ? 'Chọn một người chơi trong bảng để cộng xu, lượng, tăng cấp hoặc tặng đồ, vật phẩm.'
+                : 'Chọn một người chơi trong bảng để cộng xu, lượng hoặc tăng cấp.'}));
             return;
         }
         [
@@ -285,6 +298,8 @@
             moneyForm(player, 'xu', 'Cộng xu'),
             moneyForm(player, 'luong', 'Cộng lượng'),
             levelForm(player),
+            canGift() ? setForm(player) : null,
+            canGift() ? itemForm(player) : null,
             passwordForm(player),
             renameForm(player),
             el('ul', {className: 'glasses', 'aria-label': 'Nhân vật của người chơi'}, player.glasses.map(function (glass) {
@@ -368,6 +383,94 @@
             } catch (error) {
                 renderPanel({kind: 'error', text: error.message});
             }
+        });
+        return form;
+    }
+
+    function setForm(player) {
+        var open = player.glasses.filter(function (glass) { return glass.open; });
+        var glassSelect = el('select', {id: 'set-glass', 'aria-label': 'Nhân vật nhận bộ đồ'});
+        open.forEach(function (glass) {
+            glassSelect.append(el('option', {value: glass.id, text: glass.name + ' (cấp ' + glass.level + ')'}));
+        });
+        if (open.some(function (glass) { return glass.id === player.selectedGlass; })) glassSelect.value = String(player.selectedGlass);
+        var setSelect = el('select', {id: 'set-tier', 'aria-label': 'Bộ đồ'});
+        state.sets.forEach(function (set) {
+            setSelect.append(el('option', {value: set.tier, text: set.name + ' · cấp ' + set.level + ' · nội tại ' + set.strength + '%'}));
+        });
+        if (state.sets.length) setSelect.value = String(state.sets[state.sets.length - 1].tier); // the gold set, the usual gift
+        var wear = el('input', {id: 'set-wear', type: 'checkbox', checked: true});
+        var hidden = el('input', {id: 'set-hidden', className: 'cell', type: 'number', min: 0, max: 100, step: 1, inputmode: 'numeric', value: 0});
+        var button = el('button', {type: 'submit', className: 'btn primary', text: 'Tặng', disabled: !open.length || !state.sets.length});
+        var form = el('form', {novalidate: true}, [
+            el('label', {for: 'set-glass', text: 'Tặng bộ +14'}),
+            el('div', {className: 'row'}, [glassSelect, setSelect]),
+            el('label', {className: 'check', for: 'set-wear'}, [wear, 'Mặc luôn nếu đủ cấp']),
+            el('div', {className: 'row'}, [el('label', {for: 'set-hidden', text: 'Sát thương ẩn (%)'}), hidden, button]),
+            el('p', {className: 'hint', text: !open.length ? 'Người chơi chưa mở nhân vật nào.'
+                : 'Súng, nón, áo, kính, balo cùng bộ, đã cường hóa +14: mặc đủ 5 món thì có nội tại. Hạn dùng như đồ mua ở cửa hàng. '
+                + 'Sát thương ẩn chỉ tính khi mặc đủ 5 món này và người chơi không thấy; để 0 nếu không cần.'})
+        ]);
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            if (button.disabled) return;
+            var percent = hidden.value.trim() === '' ? 0 : Number(hidden.value);
+            if (!Number.isInteger(percent) || percent < 0) {
+                renderPanel({kind: 'error', text: 'Sát thương ẩn là số nguyên, để 0 nếu không cần.'});
+                return;
+            }
+            button.disabled = true;
+            try {
+                var result = await api('POST', 'players/' + player.id + '/set', {
+                    glassId: Number(glassSelect.value), tier: Number(setSelect.value), wear: wear.checked ? 1 : 0, hiddenAtt: percent
+                });
+                updatePlayer(result);
+                renderPanel({kind: 'ok', text: result.message});
+            } catch (error) {
+                renderPanel({kind: 'error', text: error.message});
+            }
+        });
+        return form;
+    }
+
+    function itemForm(player) {
+        var select = el('select', {id: 'item-id', 'aria-label': 'Vật phẩm'});
+        state.items.forEach(function (item) {
+            select.append(el('option', {value: item.id, text: item.name}));
+        });
+        var amount = el('input', {id: 'item-amount', className: 'cell', type: 'number', min: 1, max: 99, step: 1, inputmode: 'numeric', value: 99,
+            'aria-label': 'Số lượng'});
+        var give = el('button', {type: 'submit', className: 'btn primary', text: 'Tặng', disabled: !state.items.length});
+        var full = el('button', {type: 'button', className: 'btn', text: 'Đầy đủ vật phẩm', disabled: !state.items.length});
+        var form = el('form', {novalidate: true}, [
+            el('label', {for: 'item-id', text: 'Tặng vật phẩm'}),
+            el('div', {className: 'row'}, [select, amount, give]),
+            el('div', {className: 'row'}, [full]),
+            el('p', {className: 'hint', text: 'Mỗi vật phẩm giữ tối đa 99, như khi mua ở cửa hàng; "Đầy đủ vật phẩm" nâng mọi vật phẩm lên 99. '
+                + 'Không tặng được khi người chơi đang trong trận.'})
+        ]);
+        async function send(itemId, count, button) {
+            button.disabled = true;
+            try {
+                var result = await api('POST', 'players/' + player.id + '/items', {itemId: itemId, amount: count});
+                updatePlayer(result);
+                renderPanel({kind: 'ok', text: result.message});
+            } catch (error) {
+                renderPanel({kind: 'error', text: error.message});
+            }
+        }
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            if (give.disabled) return;
+            var count = Number(amount.value);
+            if (!Number.isInteger(count) || count < 1 || count > 99) {
+                renderPanel({kind: 'error', text: 'Số lượng từ 1 đến 99.'});
+                return;
+            }
+            send(Number(select.value), count, give);
+        });
+        full.addEventListener('click', function () {
+            if (!full.disabled) send(-1, 99, full);
         });
         return form;
     }

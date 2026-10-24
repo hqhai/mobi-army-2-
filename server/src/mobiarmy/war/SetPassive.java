@@ -3,6 +3,7 @@ package mobiarmy.war;
 import mobiarmy.server.Equip;
 import mobiarmy.server.ThorSkin;
 import mobiarmy.server.User;
+import mobiarmy.war.Boss.bullet.Bullet;
 
 /**
  * Character passives unlocked by wearing a full +14 set (gun, hat, armour, glasses, backpack of the same set).
@@ -16,9 +17,9 @@ public final class SetPassive {
     /** The upgrade level every piece of the set needs. */
     public static final int SET_PLUS = 14;
     /** Set names as the last word of the gear's name, weakest first; index + 1 is the set tier. */
-    static final String[] SETS = {"1", "2", "3", "4", "bạc", "vàng"};
+    public static final String[] SETS = {"1", "2", "3", "4", "bạc", "vàng"};
     /** Passive strength in percent for set tiers 1..6. */
-    static final int[] STRENGTH = {0, 50, 60, 70, 80, 90, 100};
+    public static final int[] STRENGTH = {0, 50, 60, 70, 80, 90, 100};
 
     static final int GUNNER = 0, MISS6 = 1, KINGKONG = 3, ROCKETER = 4, CHICKY = 6, TARZAN = 7, MAGENTA = 9;
 
@@ -31,15 +32,37 @@ public final class SetPassive {
     static final int GUNNER_POW_DAMAGE = 150, GUNNER_CANNON_HOLE = 200, GUNNER_RAGE = 120, GUNNER_RECOIL = 20;
     /** Miss 6: every third hit ignores all defense and crits for this multiplier (percent, full strength). */
     static final int MISS6_EVERY = 3, MISS6_CRIT = 150;
-    static final int ROCKETER_DAMAGE = 25;
+    /**
+     * Rocketer "WorldWar": his POW fires no rockets but a flare the wind does not move (at any angle: the client lifts
+     * his aim limit for it). Where it lands a bomber flies over and drops WORLDWAR_BOMBS nuclear bombs WORLDWAR_SPACING
+     * apart across a tight area, each hitting with his whole attack within WORLDWAR_RADIUS (T-Rex's mushroom of fire).
+     * Radiation then spreads from the blast for up to WORLDWAR_SHOCK percent of his attack (at the set's strength),
+     * fading to nothing by RADIATION_FAR away; it spares Rocketer himself unless he stood within RADIATION_NEAR of it.
+     * His other shots are plain.
+     */
+    public static final int WORLDWAR_BOMBS = 3, WORLDWAR_SPACING = 30, WORLDWAR_RADIUS = 70, WORLDWAR_SHOCK = 20;
+    /** How far the WorldWar radiation reaches (it fades to nothing here), and how close it still catches Rocketer. */
+    public static final int RADIATION_FAR = 450, RADIATION_NEAR = 90;
     /**
      * Chicky "Trứng Phục sinh": an opponent hit by both the chicken (bullet 19) and its egg (20) in one shot gets an
-     * egg at his feet. It hatches after CHICKY_EGG_ROUNDS rounds: opponents within CHICKY_EGG_RADIUS take
-     * CHICKY_EGG_PERCENT of their max HP as true damage and the egg digs a CHICKY_EGG_HOLE percent hole; Chicky's
-     * team within reach heals that much instead, and then no hole is dug.
+     * Easter egg at his feet, and so does the one hit by every CHICKY_EGG_HITS-th egg of hers in a match. The egg
+     * keeps the damage her chicken and eggs dealt to opponents with the shot that laid it. It hatches after
+     * CHICKY_EGG_ROUNDS rounds without digging: Chicky and her whole team heal CHICKY_EGG_HEAL percent of that, and
+     * opponents within CHICKY_EGG_RADIUS lose CHICKY_EGG_DAMAGE percent as true damage (full strength).
      */
-    static final int CHICKY_EGG_ROUNDS = 2, CHICKY_EGG_RADIUS = 50, CHICKY_EGG_PERCENT = 2, CHICKY_EGG_HOLE = 200;
-    static final int TARZAN_LESS = 12;
+    static final int CHICKY_EGG_ROUNDS = 2, CHICKY_EGG_RADIUS = 50, CHICKY_EGG_HITS = 5;
+    static final int CHICKY_EGG_HEAL = 25, CHICKY_EGG_DAMAGE = 50;
+    /**
+     * Tarzan "Khế Ước Rừng Xanh": he takes TARZAN_LESS percent less damage; his boomerang ignores the wind, blows up
+     * TARZAN_RADIUS percent as wide and hits TARZAN_RETURN percent harder on its way back; he walks TARZAN_STEPS a turn
+     * instead of 60 (and the client shows him the whole aim guide). His pact with King Kong: a King Kong across the
+     * battle and he deal each other only half their damage, whatever the set; a King Kong on his side and he deal
+     * PACT_DAMAGE percent more and take PACT_LESS percent less while both stand.
+     */
+    public static final int TARZAN_LESS = 12, TARZAN_RADIUS = 150, TARZAN_RETURN = 25, TARZAN_STEPS = 120;
+    static final int PACT_DAMAGE = 20, PACT_LESS = 10;
+    /** Steps a turn without Tarzan's passive (Player.theluc). */
+    static final int STEPS = 60;
     /** King Kong: each round he stands still takes this much off damage he takes, up to KINGKONG_MAX. */
     static final int KINGKONG_STEP = 10, KINGKONG_MAX = 20;
     /**
@@ -53,6 +76,12 @@ public final class SetPassive {
     /** Granos digs three times as wide holes with its own bullets (percent, full strength). */
     static final int GRANOS_HOLE = 300;
     static final int ELECTRICIAN = 2, GRANOS = 5;
+    /**
+     * Apache "Thợ săn ẩn nấp": after APACHE_HIDE_ROUNDS rounds in a row without losing HP he is hidden from opponents
+     * (as with the invisibility item) until he loses HP again; each hammer of his POW that hits an opponent heals him
+     * APACHE_HEAL_PERCENT of his max HP (full strength).
+     */
+    static final int APACHE = 8, APACHE_HIDE_ROUNDS = 2, APACHE_HEAL_PERCENT = 10;
     /** King Kong: after this many rounds stood still the ground under him cannot be dug until he moves. */
     static final int KINGKONG_ROCK_ROUNDS = 2;
 
@@ -79,7 +108,7 @@ public final class SetPassive {
     }
 
     /** Index in SETS of the set this piece belongs to, or -1 (from the catalog name, e.g. "nón bạc"). */
-    static int setOf(Equip equip) {
+    public static int setOf(Equip equip) {
         Equip catalog = Equip.entrys == null ? null : Equip.get((byte) equip.glassID, equip.id, equip.type);
         String name = catalog != null && catalog.name != null ? catalog.name : equip.name;
         if (name == null) return -1;
@@ -108,6 +137,10 @@ public final class SetPassive {
             p.hitBolts = 0;
         }
         shooter.cannonRecoil = 0;
+        shooter.huntHammers.clear();
+        shooter.eggsLanded.clear();
+        shooter.lastEggTarget = null;
+        shooter.dealtBeforeShot = shooter.statDealt;
         if (shooter.setTier == 0) return;
         shooter.passiveShots++;
         shooter.passiveHit = false;
@@ -148,16 +181,58 @@ public final class SetPassive {
         if (shooter.headGuideShots > 0) shooter.headGuideShots--;
         if (shooter.setTier == 0) return;
         MapData map = shooter.mapData;
+        int dealt = shooter.statDealt - shooter.dealtBeforeShot; // her own shot: what the chicken and its eggs dealt
+        java.util.Set<Player> laid = new java.util.HashSet<>();
         for (Player target : map.players) {
             if (target == null || target.isDie || !enemies(shooter, target)) continue;
-            if (shooter.glassID == CHICKY && target.hitChicken && target.hitEgg) map.layEgg(shooter, target);
+            if (shooter.glassID == CHICKY && target.hitChicken && target.hitEgg && laid.add(target)) map.layEgg(shooter, target, dealt);
             if (shooter.glassID == ELECTRICIAN && target.hitBolts >= ELECTRICIAN_STUN_BOLTS) target.stunTurns = 1;
         }
+        if (shooter.glassID == CHICKY && !shooter.eggsLanded.isEmpty()) {
+            // Every CHICKY_EGG_HITS-th of her eggs to hit an opponent in the match lays one too, where it landed.
+            // (Not on an opponent who already got one this shot: the count then waits for the next shot.)
+            shooter.eggHits += shooter.eggsLanded.size();
+            if (shooter.eggHits >= CHICKY_EGG_HITS && laid.add(shooter.lastEggTarget)) {
+                shooter.eggHits -= CHICKY_EGG_HITS;
+                map.layEgg(shooter, shooter.lastEggTarget, dealt);
+            }
+        }
+        shooter.eggsLanded.clear();
         if (shooter.cannonRecoil > 0 && !shooter.isDie) {
             shooter.updateHP(-shooter.cannonRecoil);
             map.updateHP(shooter.index, shooter.hp, shooter.pixel);
         }
         shooter.cannonRecoil = 0;
+        if (!shooter.huntHammers.isEmpty() && !shooter.isDie) {
+            shooter.updateHP(shooter.hpMax * scaled(shooter, APACHE_HEAL_PERCENT) / 100 * shooter.huntHammers.size());
+            map.updateHP(shooter.index, shooter.hp, shooter.pixel);
+        }
+        shooter.huntHammers.clear();
+    }
+
+    /** One of Chicky's eggs (bullet 20) hurt an opponent: each egg counts once toward her CHICKY_EGG_HITS. */
+    static void eggHit(Player shooter, Player target, Bullet bullet) {
+        if (shooter == null || shooter.setTier == 0 || shooter.glassID != CHICKY || bullet.bulletId != 20 || !enemies(shooter, target)) return;
+        shooter.eggsLanded.add(bullet);
+        shooter.lastEggTarget = target;
+    }
+
+    /** A hammer (17, or one of the 18s it splits into) of Apache's POW hurt an opponent: counted once per hammer. */
+    static void hammerHit(Player shooter, Player target, Bullet bullet) {
+        if (shooter == null || shooter.setTier == 0 || shooter.glassID != APACHE || !shooter.isPow || !enemies(shooter, target)) return;
+        if (bullet.bulletId == 17 || bullet.bulletId == 18) shooter.huntHammers.add(bullet);
+    }
+
+    /**
+     * The player just lost HP: Apache's count of rounds without losing HP starts over and he shows himself again,
+     * unless the invisibility item still hides him (Player.updateTurn shows him when it runs out).
+     */
+    static void hurt(Player player) {
+        player.huntHurt = true;
+        player.huntSafe = 0;
+        if (!player.huntHidden) return;
+        player.huntHidden = false;
+        if (player.countInvisible == 0 && player.countInvisible2 == 0) player.mapData.cancelInvisible(player.index);
     }
 
     /** After a hit: counts it. */
@@ -176,9 +251,9 @@ public final class SetPassive {
         return p != null && !p.isDie && Math.hypot(p.x - x, p.y - y) <= CHICKY_EGG_RADIUS;
     }
 
-    /** Egg damage or heal for p: CHICKY_EGG_PERCENT of max HP at the owner's strength, at least 1. */
-    static int eggAmount(Player owner, Player p) {
-        return Math.max(1, p.hpMax * scaled(owner, CHICKY_EGG_PERCENT * 100) / 10000);
+    /** Part of the damage an egg kept (CHICKY_EGG_HEAL or CHICKY_EGG_DAMAGE percent) at the owner's strength, at least 1. */
+    static int eggShare(Player owner, int dealt, int percent) {
+        return Math.max(1, dealt * scaled(owner, percent) / 100);
     }
 
     /** Rounds King Kong has had rock ground for this turn, 0 when he has none. */
@@ -218,14 +293,68 @@ public final class SetPassive {
     /** Damage of one explosion on target after the shooter's passive. */
     static int dealt(Player shooter, Player target, int att) {
         if (shooter != null && shooter.hiddenAtt > 0 && att > 0) att += att * shooter.hiddenAtt / 100;
-        if (shooter == null || shooter.setTier == 0 || att <= 0) return att;
+        if (shooter == null || att <= 0) return att;
+        if (pactFoes(shooter, target)) att /= 2;
+        Player pact = pactAlly(shooter);
+        if (pact != null && enemies(shooter, target)) att += att * scaled(pact, PACT_DAMAGE) / 100;
+        if (shooter.setTier == 0) return att;
         int bonus = switch (shooter.glassID) {
             case GUNNER -> shooter.isPow ? GUNNER_POW_DAMAGE - 100 : 0;
-            case ROCKETER -> ROCKETER_DAMAGE;
             case KINGKONG -> rockRounds(shooter) > 0 ? -KINGKONG_ROCK_DAMAGE : 0;
             default -> 0;
         };
         return att + att * scaled(shooter, bonus) / 100;
+    }
+
+    /** Tarzan with his set passive, the one whose pact with King Kong counts. */
+    public static boolean pactTarzan(Player p) {
+        return p != null && p.setTier != 0 && p.glassID == TARZAN;
+    }
+
+    /** A pact Tarzan and a King Kong on opposite sides: they deal each other half. */
+    static boolean pactFoes(Player a, Player b) {
+        if (a == null || b == null || !enemies(a, b)) return false;
+        return (pactTarzan(a) && b.glassID == KINGKONG) || (pactTarzan(b) && a.glassID == KINGKONG);
+    }
+
+    /**
+     * The pact Tarzan whose pact strengthens p: p himself with a King Kong standing on his side, or the pact Tarzan
+     * standing on the side of King Kong p; null when there is none.
+     */
+    static Player pactAlly(Player p) {
+        if (p == null || p.mapData == null || p.mapData.players == null || (p.glassID != TARZAN && p.glassID != KINGKONG)) return null;
+        for (Player q : p.mapData.players) {
+            if (q == null || q == p || q.isDie || enemies(p, q)) continue;
+            if (pactTarzan(p) && q.glassID == KINGKONG) return p;
+            if (p.glassID == KINGKONG && pactTarzan(q)) return q;
+        }
+        return null;
+    }
+
+    /** Steps the player may walk a turn (Player.theluc). */
+    public static int steps(Player p) {
+        return pactTarzan(p) ? TARZAN_STEPS : STEPS;
+    }
+
+    /** Share of the wind Tarzan's boomerang feels (usual: 10 percent), none with his passive. */
+    public static int boomerangWind(Player shooter, int wind) {
+        return pactTarzan(shooter) ? 0 : wind * 10 / 100;
+    }
+
+    /** Rocketer's POW with his set passive: the WorldWar flare and its bombers instead of his rockets. */
+    public static boolean worldWar(Player shooter, boolean pow) {
+        return pow && shooter != null && shooter.setTier != 0 && shooter.glassID == ROCKETER;
+    }
+
+    /** What the WorldWar radiation takes at the heart of the blast. */
+    public static int worldWarShock(Player shooter, int att) {
+        return Math.max(1, att * scaled(shooter, WORLDWAR_SHOCK) / 100);
+    }
+
+    /** The WorldWar radiation dist px from the blast: shock fading to 0 at RADIATION_FAR, at least 1 short of it. */
+    public static int radiation(int shock, int dist) {
+        if (dist >= RADIATION_FAR) return 0;
+        return Math.max(1, shock * (RADIATION_FAR - dist) / RADIATION_FAR);
     }
 
 
@@ -246,7 +375,10 @@ public final class SetPassive {
 
     /** Damage the target takes after its own passive. */
     static int taken(Player target, int damage) {
-        if (target.setTier == 0 || damage <= 0) return damage;
+        if (damage <= 0) return damage;
+        Player pact = pactAlly(target);
+        if (pact != null) damage -= damage * scaled(pact, PACT_LESS) / 100;
+        if (target.setTier == 0) return damage;
         int less = switch (target.glassID) {
             case TARZAN -> TARZAN_LESS;
             case KINGKONG -> Math.min(KINGKONG_MAX, KINGKONG_STEP * target.passiveStill);
@@ -263,7 +395,9 @@ public final class SetPassive {
 
     /**
      * At the start of the player's own turn: King Kong counts the rounds he is still where he was at the start of
-     * his last turn. Walking, teleporting or being knocked away all reset it.
+     * his last turn. Walking, teleporting or being knocked away all reset it. Apache counts the rounds he lost no HP
+     * (his first turn only starts the count) and hides once he has APACHE_HIDE_ROUNDS of them; MapData sends the
+     * status (SessionHandler.status) right after this.
      */
     static void newTurn(Player player) {
         if (player.setTier == 0) return;
@@ -271,6 +405,12 @@ public final class SetPassive {
         player.passiveStill = still ? player.passiveStill + 1 : 0;
         player.passiveX = player.x;
         player.passiveY = player.y;
+        if (player.glassID == APACHE) {
+            if (player.huntStarted) player.huntSafe = player.huntHurt ? 0 : player.huntSafe + 1;
+            player.huntStarted = true;
+            player.huntHurt = false;
+            if (player.huntSafe >= APACHE_HIDE_ROUNDS && !player.isDie) player.huntHidden = true;
+        }
     }
 
     /**

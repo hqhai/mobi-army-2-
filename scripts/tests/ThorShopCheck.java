@@ -15,7 +15,7 @@ public class ThorShopCheck {
  public static void main(String[] args)throws Exception{
   int id=-1;String name="thorcheck_"+Long.toHexString(System.nanoTime());
   try {
-   Glass.loadGlass();ThorSkin.ensureCatalog();ThorSkin.ensureCatalog();Equip.loadEquip();ShopEquipment.loadShopEquipment();Item.loadItem();Mission.loadMession();Exp.loadExp();
+   Glass.loadGlass();ThorSkin.ensureCatalog();ThorSkin.ensureCatalog();ThorCostume.ensureCatalog();CostumeBullets.ensureCatalog();Equip.loadEquip();ShopEquipment.loadShopEquipment();Item.loadItem();LinhTinh.loadLinhTinh();Mission.loadMession();Exp.loadExp();
    try(Connection c=Server.dbManager.openConnection();PreparedStatement p=c.prepareStatement("INSERT INTO user(username,password) VALUES (?,?)",Statement.RETURN_GENERATED_KEYS)) {p.setString(1,name);p.setString(2,"disabled-test-account");p.executeUpdate();try(ResultSet r=p.getGeneratedKeys()){r.next();id=r.getInt(1);}}
    User u=new User(id,name);u.selectGlass=8;u.glass().isOpen=true;u.luong=999;u.xu=999999;
    java.lang.reflect.Field f=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");f.setAccessible(true);sun.misc.Unsafe unsafe=(sun.misc.Unsafe)f.get(null);

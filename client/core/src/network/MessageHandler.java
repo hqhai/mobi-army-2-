@@ -787,6 +787,24 @@ public class MessageHandler implements IMessageHandler {
                                 PM.p[who].stunned = stunned;
                             }
                         }
+                        // Server for build 5: who Apache's set passive hides (message 80 shows them again).
+                        if (msg.reader().available() > 0) {
+                            int hidden = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < hidden; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].hide();
+                            }
+                        }
+                        // Then who has a set passive and at which tier (Tarzan's aim guide and walk, Rocketer's POW aim).
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.setTier = 0; // only those listed have one
+                            int tiers = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < tiers; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                int tier = msg.reader().readUnsignedByte();
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].setTier = tier;
+                            }
+                        }
                         break;
                     }
                     case 83: {
@@ -1636,6 +1654,8 @@ public class MessageHandler implements IMessageHandler {
                             int yBomb = msg.reader().readInt();
                             CRes.out("bomb x= " + xBomb + " bomb y= " + yBomb);
                             TimeBomb bomb = new TimeBomb(bombId, xBomb, yBomb);
+                            // LAN: whose Chicky's Easter egg it is, so it takes the colours of her chicken.
+                            if (msg.reader().available() > 0) bomb.owner = msg.reader().readByte();
                             CCanvas.gameScr.addTimeBomb(bomb);
                         }
                         if (typeBomb == 1) {
@@ -1643,7 +1663,7 @@ public class MessageHandler implements IMessageHandler {
                             CCanvas.gameScr.explodeTimeBomb(bombId);
                         }
                         if (typeBomb == 2) {
-                            CCanvas.gameScr.hatchEggNoHole(bombId);
+                            CCanvas.gameScr.hatchEgg(bombId);
                         }
                         break;
                     }

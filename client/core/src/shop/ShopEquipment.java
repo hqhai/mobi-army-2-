@@ -286,9 +286,10 @@ public class ShopEquipment extends TabScreen {
       if (player.ThorSkin.is(this.eSelect)) {
          g.setColor(2378093);
          g.fillRoundRect(X, Y + 54, 170, 52, 6, 6, false);
-         String[] bonuses = {"HP +10000", "Sức mạnh +1000", "May mắn +10000"};
-         for (int i = 0; i < bonuses.length; i++)
-            Font.normalYFont.drawString(g, bonuses[i], X + 6, Y + 55 + i * 17, 0);
+         // The catalog's own description (Equip.getStrShopDetail); the old flat bonus is gone.
+         if (this.eSelect.shopDetailNunStrs == null) this.eSelect.getStrShopDetail();
+         for (int i = 0; i < this.eSelect.shopDetailNunStrs.size() && i < 3; i++)
+            Font.normalYFont.drawString(g, (String) this.eSelect.shopDetailNunStrs.elementAt(i), X + 6, Y + 55 + i * 17, 0);
          return;
       }
       if (this.eSelect != null || this.eSelect.shopDetailNunStrs != null) {
