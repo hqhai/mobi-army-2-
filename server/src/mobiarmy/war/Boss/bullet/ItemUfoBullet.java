@@ -20,7 +20,8 @@ public class ItemUfoBullet extends Bullet {
     @Override
     public void nextXY() {
         super.collect = true;
-//        super.frames.add(new Bullet.Frame(super.frame, super.bX, super.bY, super.bX - super.xOld, super.bY - super.yOld));
+        // LAN: one frame, where the UFO appears; the client reads the first frame of every shot (with none it threw).
+        super.frames.add(new Bullet.Frame(super.frame, super.bX, super.bY, 0, 0));
 //        if(this.isCanCollision) {
 //            this.collision();
 //        }

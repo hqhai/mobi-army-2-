@@ -20,11 +20,19 @@ public class UfoLaserBullet extends Bullet {
     
     public boolean isCollisionPlayer(int x, int y) {
         for (Player player : super.gun.mapData.players) {
-            if (player != null &&player.isCollision && player.isCollision(x, y) && player.countInvisible2 == 0 && player.typePlayer == 0) {
+            if (player != null &&player.isCollision && player.isCollision(x, y) && player.countInvisible2 == 0 && player.typePlayer == 0 && this.hurts(player)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** A summoned UFO (item 27, Magenta's) only hits its caller's opponents; the bosses' UFOs hit everyone below them. */
+    @Override
+    protected boolean hurts(Player player) {
+        Player ufo = super.gun.shooter();
+        Player caller = ufo == null ? null : ufo.caller();
+        return caller == null || mobiarmy.war.SetPassive.enemies(caller, player);
     }
 
     @Override

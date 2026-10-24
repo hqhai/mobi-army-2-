@@ -3,14 +3,18 @@ package mobiarmy.war;
 import mobiarmy.server.Equip;
 import mobiarmy.server.ThorSkin;
 import mobiarmy.server.User;
+import mobiarmy.war.Boss.AlienUfo;
+import mobiarmy.war.Boss.bullet.ApacheBullet;
 import mobiarmy.war.Boss.bullet.Bullet;
 
 /**
  * Character passives unlocked by wearing a full +14 set (gun, hat, armour, glasses, backpack of the same set).
  * The set picks the strength: set 1 gives half, gold the full passive. A costume worn on top does not matter.
  *
- * <p>The numbers come from a duel simulation (both sides in full gold +14): without passives the low-attack
- * characters won 25-33% and Apache/King Kong 74-83%; with them every character lands around 44-60%.
+ * <p>The numbers come from duel simulations (scripts/sim/DuelSim.java): free rules, level 254, both sides in full
+ * gold +14, bots from perfect to sloppy aim. The 10/2026 pass took Granos (holes) and Chicky down from 66-68% on
+ * average and Rocketer and King Kong up from 30-35%; with Magenta's UFO and Apache's new hunt every character now
+ * averages 44-54% (perfect aim still favours Apache, sloppy aim Granos and King Kong).
  * Passives are off in "Sát thương gốc" rooms, where gear does not count either.
  */
 public final class SetPassive {
@@ -29,37 +33,39 @@ public final class SetPassive {
      * GUNNER_RAGE percent as fast; and each opponent the cannonball kills hits him back for GUNNER_RECOIL percent
      * of the damage it dealt (all at full strength).
      */
-    static final int GUNNER_POW_DAMAGE = 150, GUNNER_CANNON_HOLE = 200, GUNNER_RAGE = 120, GUNNER_RECOIL = 20;
+    static final int GUNNER_POW_DAMAGE = 150, GUNNER_CANNON_HOLE = 200, GUNNER_RAGE = 150, GUNNER_RECOIL = 20;
     /** Miss 6: every third hit ignores all defense and crits for this multiplier (percent, full strength). */
     static final int MISS6_EVERY = 3, MISS6_CRIT = 150;
     /**
      * Rocketer "WorldWar": his POW fires no rockets but a flare the wind does not move (at any angle: the client lifts
      * his aim limit for it). Where it lands a bomber flies over and drops WORLDWAR_BOMBS nuclear bombs WORLDWAR_SPACING
-     * apart across a tight area, each hitting with his whole attack within WORLDWAR_RADIUS (T-Rex's mushroom of fire).
-     * Radiation then spreads from the blast for up to WORLDWAR_SHOCK percent of his attack (at the set's strength),
-     * fading to nothing by RADIATION_FAR away; it spares Rocketer himself unless he stood within RADIATION_NEAR of it.
-     * His other shots are plain.
+     * apart across a tight area, each hitting within WORLDWAR_RADIUS (T-Rex's mushroom of fire) with twice his attack
+     * like every POW. Radiation then spreads from the blast for up to WORLDWAR_SHOCK percent of that doubled attack,
+     * fading to nothing by RADIATION_FAR away; it spares Rocketer himself unless he stood within RADIATION_NEAR of it,
+     * and the bombs always spare him. He gains rage WORLDWAR_RAGE percent as fast; his other shots are plain.
      */
-    public static final int WORLDWAR_BOMBS = 3, WORLDWAR_SPACING = 30, WORLDWAR_RADIUS = 70, WORLDWAR_SHOCK = 20;
+    public static final int WORLDWAR_BOMBS = 3, WORLDWAR_SPACING = 30, WORLDWAR_RADIUS = 70, WORLDWAR_SHOCK = 10;
+    static final int WORLDWAR_RAGE = 140;
     /** How far the WorldWar radiation reaches (it fades to nothing here), and how close it still catches Rocketer. */
     public static final int RADIATION_FAR = 450, RADIATION_NEAR = 90;
     /**
      * Chicky "Trứng Phục sinh": an opponent hit by both the chicken (bullet 19) and its egg (20) in one shot gets an
-     * Easter egg at his feet, and so does the one hit by every CHICKY_EGG_HITS-th egg of hers in a match. The egg
-     * keeps the damage her chicken and eggs dealt to opponents with the shot that laid it. It hatches after
-     * CHICKY_EGG_ROUNDS rounds without digging: Chicky and her whole team heal CHICKY_EGG_HEAL percent of that, and
-     * opponents within CHICKY_EGG_RADIUS lose CHICKY_EGG_DAMAGE percent as true damage (full strength).
+     * Easter egg at his feet, and so does the one hit by every CHICKY_EGG_HITS-th egg of hers in a match; she has one
+     * Easter egg waiting at a time (MapData.eggWaiting). The egg keeps the damage her chicken and eggs dealt to
+     * opponents with the shot that laid it. It hatches after CHICKY_EGG_ROUNDS rounds without digging: Chicky and her
+     * whole team heal CHICKY_EGG_HEAL percent of that, and opponents within CHICKY_EGG_RADIUS lose CHICKY_EGG_DAMAGE
+     * percent as true damage (full strength).
      */
     static final int CHICKY_EGG_ROUNDS = 2, CHICKY_EGG_RADIUS = 50, CHICKY_EGG_HITS = 5;
-    static final int CHICKY_EGG_HEAL = 25, CHICKY_EGG_DAMAGE = 50;
+    static final int CHICKY_EGG_HEAL = 10, CHICKY_EGG_DAMAGE = 25;
     /**
      * Tarzan "Khế Ước Rừng Xanh": he takes TARZAN_LESS percent less damage; his boomerang ignores the wind, blows up
      * TARZAN_RADIUS percent as wide and hits TARZAN_RETURN percent harder on its way back; he walks TARZAN_STEPS a turn
-     * instead of 60 (and the client shows him the whole aim guide). His pact with King Kong: a King Kong across the
+     * instead of 60 (his aim guide is exact, his boomerang feeling no wind). His pact with King Kong: a King Kong across the
      * battle and he deal each other only half their damage, whatever the set; a King Kong on his side and he deal
      * PACT_DAMAGE percent more and take PACT_LESS percent less while both stand.
      */
-    public static final int TARZAN_LESS = 12, TARZAN_RADIUS = 150, TARZAN_RETURN = 25, TARZAN_STEPS = 120;
+    public static final int TARZAN_LESS = 8, TARZAN_RADIUS = 150, TARZAN_RETURN = 20, TARZAN_STEPS = 120;
     static final int PACT_DAMAGE = 20, PACT_LESS = 10;
     /** Steps a turn without Tarzan's passive (Player.theluc). */
     static final int STEPS = 60;
@@ -70,23 +76,31 @@ public final class SetPassive {
      * value from then on), and it hits KINGKONG_ROCK_DAMAGE percent softer (full strength).
      */
     static final int[] KINGKONG_ROCK_SHRINK = {10, 15, 30};
-    static final int KINGKONG_ROCK_DAMAGE = 30;
+    static final int KINGKONG_ROCK_DAMAGE = 10;
     /** Electrician: an opponent hit by ELECTRICIAN_STUN_BOLTS of his bolts in one shot loses his next turn. */
     static final int ELECTRICIAN_STUN_BOLTS = 3;
-    /** Granos digs three times as wide holes with its own bullets (percent, full strength). */
-    static final int GRANOS_HOLE = 300;
+    /** Granos digs wider holes with its own bullets (percent, full strength; was 300, which dropped too many). */
+    static final int GRANOS_HOLE = 200;
     static final int ELECTRICIAN = 2, GRANOS = 5;
     /**
-     * Apache "Thợ săn ẩn nấp": after APACHE_HIDE_ROUNDS rounds in a row without losing HP he is hidden from opponents
-     * (as with the invisibility item) until he loses HP again; each hammer of his POW that hits an opponent heals him
-     * APACHE_HEAL_PERCENT of his max HP (full strength).
+     * Apache "Thợ săn ẩn nấp": every APACHE_HIDE_HAMMERS of his hammers that hurt an opponent (counted while he is
+     * seen) hide him from opponents (as with the invisibility item) and let him walk twice as far, until he loses HP
+     * again; each hammer of his POW that hits an opponent heals him APACHE_HEAL_PERCENT of his max HP (full strength).
      */
-    static final int APACHE = 8, APACHE_HIDE_ROUNDS = 2, APACHE_HEAL_PERCENT = 10;
+    static final int APACHE = 8, APACHE_HIDE_HAMMERS = 4, APACHE_HEAL_PERCENT = 10;
     /** King Kong: after this many rounds stood still the ground under him cannot be dug until he moves. */
     static final int KINGKONG_ROCK_ROUNDS = 2;
 
-    /** Magenta: how much of the wind her laser no longer feels, in percent (full strength: none at all). */
-    static final int MAGENTA_WIND_IGNORED = 100;
+    /**
+     * Magenta "Người Ngoài Hành Tinh": when her POW's laser hits an opponent, a UFO on her side (Boss.AlienUfo) is
+     * called over him, unless one of hers still flies. It has ALIEN_HP percent of her max HP and its laser hits with
+     * ALIEN_LASER percent of her attack; it fires on its first turn, then takes turns flying over the nearest opponent
+     * and firing, until shot down. Whoever of her opponents shoots it heals ALIEN_SHOT_HEAL percent of the damage dealt
+     * to it (the heal does not depend on the set).
+     */
+    static final int ALIEN_HP = 15, ALIEN_LASER = 50, ALIEN_SHOT_HEAL = 5;
+    /** How high over its target the UFO hovers. */
+    static final int ALIEN_ALTITUDE = 200;
 
     private SetPassive() {
     }
@@ -135,6 +149,7 @@ public final class SetPassive {
             p.hitChicken = false;
             p.hitEgg = false;
             p.hitBolts = 0;
+            p.hitLaser = false;
         }
         shooter.cannonRecoil = 0;
         shooter.huntHammers.clear();
@@ -157,18 +172,24 @@ public final class SetPassive {
         return shooter != null && shooter.setTier != 0 && shooter.glassID == GUNNER && shooter.isPow;
     }
 
-    /** Rage gained, after Gunner's faster rage. */
+    /** Rage gained, after Gunner's and Rocketer's faster rage. */
     static int rage(Player player, int add) {
-        if (add <= 0 || player.setTier == 0 || player.glassID != GUNNER) return add;
-        return add * (100 + scaled(player, GUNNER_RAGE - 100)) / 100;
+        if (add <= 0 || player.setTier == 0) return add;
+        int pace = switch (player.glassID) {
+            case GUNNER -> GUNNER_RAGE;
+            case ROCKETER -> WORLDWAR_RAGE;
+            default -> 100;
+        };
+        return add * (100 + scaled(player, pace - 100)) / 100;
     }
 
-    /** One bullet of this shot hurt target: what Chicky's egg and Electrician's stun count. */
+    /** One bullet of this shot hurt target: what Chicky's egg, Electrician's stun and Magenta's UFO count. */
     static void bulletHit(Player shooter, Player target, int bulletId) {
         if (shooter == null || !enemies(shooter, target)) return;
         if (bulletId == 19) target.hitChicken = true;
         if (bulletId == 20) target.hitEgg = true;
         if (bulletId == 2) target.hitBolts++;
+        if (bulletId == 49) target.hitLaser = true;
     }
 
     /**
@@ -185,27 +206,54 @@ public final class SetPassive {
         java.util.Set<Player> laid = new java.util.HashSet<>();
         for (Player target : map.players) {
             if (target == null || target.isDie || !enemies(shooter, target)) continue;
-            if (shooter.glassID == CHICKY && target.hitChicken && target.hitEgg && laid.add(target)) map.layEgg(shooter, target, dealt);
+            if (shooter.glassID == CHICKY && target.hitChicken && target.hitEgg && !map.eggWaiting(shooter) && laid.add(target)) {
+                map.layEgg(shooter, target, dealt);
+            }
             if (shooter.glassID == ELECTRICIAN && target.hitBolts >= ELECTRICIAN_STUN_BOLTS) target.stunTurns = 1;
         }
         if (shooter.glassID == CHICKY && !shooter.eggsLanded.isEmpty()) {
             // Every CHICKY_EGG_HITS-th of her eggs to hit an opponent in the match lays one too, where it landed.
-            // (Not on an opponent who already got one this shot: the count then waits for the next shot.)
+            // (Not on an opponent who already got one this shot, nor while one of hers waits: the count then waits.)
             shooter.eggHits += shooter.eggsLanded.size();
-            if (shooter.eggHits >= CHICKY_EGG_HITS && laid.add(shooter.lastEggTarget)) {
+            if (shooter.eggHits >= CHICKY_EGG_HITS && !map.eggWaiting(shooter) && laid.add(shooter.lastEggTarget)) {
                 shooter.eggHits -= CHICKY_EGG_HITS;
                 map.layEgg(shooter, shooter.lastEggTarget, dealt);
             }
         }
         shooter.eggsLanded.clear();
+        // In a match only (practice has no turns for it), while the map has room for one more entity.
+        if (shooter.glassID == MAGENTA && shooter.isPow && !shooter.isDie && map.isWar && map.indexBoss < map.players.length
+                && !alienFlying(map, shooter)) {
+            for (Player target : map.players) {
+                if (target == null || target.isDie || !target.hitLaser || target.typePlayer != 0 || !enemies(shooter, target)) continue;
+                int[] spot = alienSpot(map, target);
+                AlienUfo ufo = new AlienUfo(shooter, Math.max(1, shooter.hpMax * scaled(shooter, ALIEN_HP) / 100),
+                        shooter.att * scaled(shooter, ALIEN_LASER) / 100, spot[0], Math.max(0, spot[1] - 150));
+                map.addBoss(ufo);
+                // It flies down over him: the clients then show its beam on the spot it will fire at.
+                ufo.changeLocationFly(spot[0], spot[1]);
+                break;
+            }
+        }
         if (shooter.cannonRecoil > 0 && !shooter.isDie) {
             shooter.updateHP(-shooter.cannonRecoil);
             map.updateHP(shooter.index, shooter.hp, shooter.pixel);
         }
         shooter.cannonRecoil = 0;
         if (!shooter.huntHammers.isEmpty() && !shooter.isDie) {
-            shooter.updateHP(shooter.hpMax * scaled(shooter, APACHE_HEAL_PERCENT) / 100 * shooter.huntHammers.size());
-            map.updateHP(shooter.index, shooter.hp, shooter.pixel);
+            if (shooter.isPow) {
+                shooter.updateHP(shooter.hpMax * scaled(shooter, APACHE_HEAL_PERCENT) / 100 * shooter.huntHammers.size());
+                map.updateHP(shooter.index, shooter.hp, shooter.pixel);
+            }
+            if (!shooter.huntHidden) {
+                shooter.huntCount += shooter.huntHammers.size();
+                if (shooter.huntCount >= APACHE_HIDE_HAMMERS) {
+                    // Hidden and running: the status sent right after this shot tells the clients.
+                    shooter.huntCount = 0;
+                    shooter.huntHidden = true;
+                    shooter.huntRun = true;
+                }
+            }
         }
         shooter.huntHammers.clear();
     }
@@ -217,19 +265,21 @@ public final class SetPassive {
         shooter.lastEggTarget = target;
     }
 
-    /** A hammer (17, or one of the 18s it splits into) of Apache's POW hurt an opponent: counted once per hammer. */
+    /**
+     * A hammer of Apache's (17, or one of the 18s it splits into, not the puff of the split) hurt an opponent: counted
+     * once per hammer.
+     */
     static void hammerHit(Player shooter, Player target, Bullet bullet) {
-        if (shooter == null || shooter.setTier == 0 || shooter.glassID != APACHE || !shooter.isPow || !enemies(shooter, target)) return;
-        if (bullet.bulletId == 17 || bullet.bulletId == 18) shooter.huntHammers.add(bullet);
+        if (shooter == null || shooter.setTier == 0 || shooter.glassID != APACHE || !enemies(shooter, target)) return;
+        if (bullet.bulletId == 18 || (bullet.bulletId == 17 && bullet.att > ApacheBullet.SPLIT_ATT)) shooter.huntHammers.add(bullet);
     }
 
     /**
-     * The player just lost HP: Apache's count of rounds without losing HP starts over and he shows himself again,
-     * unless the invisibility item still hides him (Player.updateTurn shows him when it runs out).
+     * The player just lost HP: a hidden Apache shows himself again and walks as usual, unless the invisibility item
+     * still hides him (Player.updateTurn shows him when it runs out).
      */
     static void hurt(Player player) {
-        player.huntHurt = true;
-        player.huntSafe = 0;
+        player.huntRun = false;
         if (!player.huntHidden) return;
         player.huntHidden = false;
         if (player.countInvisible == 0 && player.countInvisible2 == 0) player.mapData.cancelInvisible(player.index);
@@ -364,7 +414,7 @@ public final class SetPassive {
     }
 
     /** Opponents: different teams, or anyone else in a free-for-all room (everyone is team 3 there). */
-    static boolean enemies(Player a, Player b) {
+    public static boolean enemies(Player a, Player b) {
         return a != b && (a.team != b.team || a.team == 3);
     }
 
@@ -387,17 +437,34 @@ public final class SetPassive {
         return damage - damage * scaled(target, less) / 100;
     }
 
-    /** Share of the wind (percent) the shooter's shots feel, out of usual (100 = the whole wind). */
-    public static int windShare(Player shooter, int usual) {
-        if (shooter == null || shooter.setTier == 0 || shooter.glassID != MAGENTA) return usual;
-        return usual * (100 - scaled(shooter, MAGENTA_WIND_IGNORED)) / 100;
+    /** One of Magenta's UFOs still flies (she calls a new one only after it is down). */
+    static boolean alienFlying(MapData map, Player owner) {
+        for (Player p : map.players) {
+            if (p instanceof AlienUfo ufo && !ufo.isDie && ufo.leadIndex == owner.index) return true;
+        }
+        return false;
+    }
+
+    /** Where Magenta's UFO hovers over target: ALIEN_ALTITUDE above him, out of the ground, on the map. */
+    public static int[] alienSpot(MapData map, Player target) {
+        int x = Math.max(12, Math.min(map.width - 12, target.x));
+        int y = Math.max(30, target.y - ALIEN_ALTITUDE);
+        if (y > target.y - 40) y = target.y - 40;
+        while (y > 0 && map.isCollisionMap(x, y)) y--;
+        return new int[] {x, y};
+    }
+
+    /** A shot of shooter took lost HP off Magenta's UFO: her opponents heal ALIEN_SHOT_HEAL percent of it. */
+    static void alienShot(AlienUfo ufo, Player shooter, int lost) {
+        if (lost <= 0 || shooter == null || shooter.isDie || shooter.typePlayer != 0 || !ufo.hurts(shooter)) return;
+        shooter.updateHP(Math.max(1, lost * ALIEN_SHOT_HEAL / 100));
+        shooter.mapData.updateHP(shooter.index, shooter.hp, shooter.pixel);
+        shooter.mapData.updateAngry(shooter.index, shooter.angry);
     }
 
     /**
      * At the start of the player's own turn: King Kong counts the rounds he is still where he was at the start of
-     * his last turn. Walking, teleporting or being knocked away all reset it. Apache counts the rounds he lost no HP
-     * (his first turn only starts the count) and hides once he has APACHE_HIDE_ROUNDS of them; MapData sends the
-     * status (SessionHandler.status) right after this.
+     * his last turn. Walking, teleporting or being knocked away all reset it.
      */
     static void newTurn(Player player) {
         if (player.setTier == 0) return;
@@ -405,12 +472,6 @@ public final class SetPassive {
         player.passiveStill = still ? player.passiveStill + 1 : 0;
         player.passiveX = player.x;
         player.passiveY = player.y;
-        if (player.glassID == APACHE) {
-            if (player.huntStarted) player.huntSafe = player.huntHurt ? 0 : player.huntSafe + 1;
-            player.huntStarted = true;
-            player.huntHurt = false;
-            if (player.huntSafe >= APACHE_HIDE_ROUNDS && !player.isDie) player.huntHidden = true;
-        }
     }
 
     /**

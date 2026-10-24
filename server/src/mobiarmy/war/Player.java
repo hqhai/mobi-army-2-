@@ -96,14 +96,15 @@ public class Player {
     /** Gunner's cannonball: recoil he takes after this shot. */
     int cannonRecoil;
     /**
-     * Apache's hunt (SetPassive): own turns in a row he lost no HP, whether he lost HP since his last turn, whether
-     * that count has started, and whether he is hidden from opponents now.
+     * Apache's hunt (SetPassive): hammers that hurt an opponent since he was last seen, whether he is hidden from
+     * opponents now, and whether he walks twice as far while hidden.
      */
-    int huntSafe;
-    boolean huntHurt, huntStarted;
-    public boolean huntHidden;
-    /** Apache's hunt: hammers (bullets) of this POW shot that hit an opponent, each counted once. */
+    int huntCount;
+    public boolean huntHidden, huntRun;
+    /** Apache's hunt: hammers (bullets) of this shot that hit an opponent, each counted once. */
     final java.util.Set<Object> huntHammers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    /** Magenta's POW laser hit this player in this shot (SetPassive: her UFO is called over him). */
+    boolean hitLaser;
     /**
      * Chicky's Easter eggs (SetPassive): her eggs that hit an opponent this shot (each counted once) and the last
      * opponent one hit, how many hit in the match toward the next Easter egg, and her damage dealt before this shot.
@@ -112,7 +113,7 @@ public class Player {
     Player lastEggTarget;
     int eggHits;
     int dealtBeforeShot;
-    /** LAN item 36 "Chỉ kẻ đầu": shots left with the full aim guide. */
+    /** LAN item 36 "Chỉ kẻ đầu": shots left with the aim guide that follows the wind. */
     public int headGuideShots;
     /** Stunned (Electrician): turns to skip. */
     public int stunTurns;
@@ -181,6 +182,12 @@ public class Player {
         this.trajectory = null;
     }
     
+    /** Whoever called this summon (the UFOs keep him in leadIndex), or null for players and bosses. */
+    public Player caller() {
+        Player[] players = this.mapData == null ? null : this.mapData.players;
+        return this.typePlayer != 0 && players != null && this.leadIndex >= 0 && this.leadIndex < players.length ? players[this.leadIndex] : null;
+    }
+
     public byte bulletIdByGlassID() {
         if (this.glassID == 0) {
             return 0;
@@ -253,6 +260,7 @@ public class Player {
         this.countInvisible = 0;
         this.countInvisible2 = 0;
         this.huntHidden = false;
+        this.huntRun = false;
         this.isRunSpeed = false;
     }
     
@@ -374,10 +382,13 @@ public class Player {
         if (player.countSuck > 0) {
             player.suckHP += ((hpOld - this.hp) / 2);
         }
-        if (SetPassive.enemies(player, this) && hpOld > this.hp) {
-            player.statDealt += hpOld - this.hp;
+        if (this instanceof mobiarmy.war.Boss.AlienUfo ufo) SetPassive.alienShot(ufo, player, hpOld - this.hp);
+        // A summon's damage (the UFOs) counts for whoever called it; damage to a summon counts for nobody.
+        Player credit = player.caller() != null ? player.caller() : player;
+        if (credit != null && this.typePlayer == 0 && SetPassive.enemies(credit, this) && hpOld > this.hp) {
+            credit.statDealt += hpOld - this.hp;
             if (this.isDie) {
-                player.statKills++;
+                credit.statKills++;
                 SetPassive.killed(player, hpOld - this.hp);
             }
         }
@@ -442,7 +453,7 @@ public class Player {
         if (this.countFreeze > 0) {
             return;
         }
-        byte step = (byte) (this.isRunSpeed ? 2 : 1);
+        byte step = (byte) (this.isRunSpeed || this.huntRun ? 2 : 1);
         if(this.buocdi > this.theluc) {
             return;
         }

@@ -65,6 +65,11 @@ public class MirrorBullet extends Bullet {
             int ang = GameData.getArg(super.lastX - super.frames.get(0).fX, super.frames.get(0).fY - super.lastY);
             int vx0 = super.vx = (gun.force * GameData.cos(ang) >> 10);
             int vy0 = super.vy = (gun.force * GameData.sin(ang) >> 10);
+            if (super.vx == 0 && super.vy == 0) {
+                // Force 0 or 1 leaves the laser no direction and the loop below would never end: aim it as force 15.
+                vx0 = super.vx = 15 * GameData.cos(ang) >> 10;
+                vy0 = super.vy = 15 * GameData.sin(ang) >> 10;
+            }
             if (super.vx != 0) {
                 while (Math.abs(super.vx) < 15) {
                     super.vx += super.vx;

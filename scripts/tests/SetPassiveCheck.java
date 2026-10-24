@@ -20,6 +20,7 @@ public class SetPassiveCheck {
         damage();
         ground();
         items();
+        ufoItem();
         System.out.println("SET PASSIVE PASSED: " + checks + " checks; set detection, Gunner, Miss 6, Rocketer, Chicky, Electrician, Tarzan, King Kong, Magenta");
     }
 
@@ -74,7 +75,7 @@ public class SetPassiveCheck {
         map.disableLuck = false;
         gunner.angry = 0;
         gunner.updateAngry(10);
-        check(gunner.angry == 12, "Gunner's rage grows 20% faster, got " + gunner.angry);
+        check(gunner.angry == 15, "Gunner's rage grows 50% faster, got " + gunner.angry);
         target.hpMax = 50;
         gunner.hp = gunner.hpMax;
         SetPassive.beforeShot(gunner);
@@ -95,6 +96,8 @@ public class SetPassiveCheck {
         Player rocketer = player(map, 2, 100, SetPassive.ROCKETER, 6);
         Player granos = player(map, 3, 100, 5, 6);
         check(hit(map, rocketer, target, false) == plain, "Rocketer: plain shots");
+        rocketer.updateAngry(10);
+        check(rocketer.angry == 14, "Rocketer's rage grows 40% faster, got " + rocketer.angry);
         check(hit(map, granos, target, false) == plain, "Granos: no extra damage");
 
         // Chicky "Trứng Phục sinh": hit by the chicken and its egg, the opponent gets an Easter egg that keeps the
@@ -126,10 +129,10 @@ public class SetPassiveCheck {
         foe.hp = foe.hpMax;
         map3.hatchEgg(egg);
         check(!map3.timeBombs.contains(egg), "the egg is gone once hatched");
-        check(foe.hpMax - foe.hp == shot / 2, "the opponent in reach loses half of it: " + (foe.hpMax - foe.hp));
+        check(foe.hpMax - foe.hp == shot / 4, "the opponent in reach loses a quarter of it: " + (foe.hpMax - foe.hp));
         check(farFoe.hp == farFoe.hpMax, "an opponent out of reach is safe");
-        check(chicky.hp == chicky.hpMax / 2 + shot / 4, "Chicky heals a quarter");
-        check(mate.hp == mate.hpMax / 2 + shot / 4, "and so does her team, wherever they stand");
+        check(chicky.hp == chicky.hpMax / 2 + shot / 10, "Chicky heals a tenth");
+        check(mate.hp == mate.hpMax / 2 + shot / 10, "and so does her team, wherever they stand");
         check(map3.holes == 0, "the egg digs no ground");
 
         // Every 5th of her eggs to hit an opponent in a match lays one too, where it landed; set 1 is half as strong.
@@ -148,12 +151,24 @@ public class SetPassiveCheck {
         check(map4.pendingEggs.size() == 1 && map4.pendingEggs.get(0).x == target4.x && map4.pendingEggs.get(0).att == fifth,
                 "the 5th egg to hit lays one, keeping the damage of its shot");
         check(hen.eggHits == 0, "and the count starts over");
+        SetPassive.beforeShot(hen);
+        apply(map4, hen, target4, 19);
+        apply(map4, hen, target4, 20);
+        SetPassive.afterShot(hen);
+        check(map4.pendingEggs.size() == 1, "one Easter egg of hers at a time: none while the first waits");
         Player weak = player(map4, 2, 100, SetPassive.CHICKY, 1);
         SetPassive.beforeShot(weak);
         int weakShot = apply(map4, weak, target4, 19) + apply(map4, weak, target4, 20);
         SetPassive.afterShot(weak);
-        check(map4.pendingEggs.size() == 2 && SetPassive.eggShare(weak, weakShot, SetPassive.CHICKY_EGG_HEAL) == weakShot * 12 / 100
-                && SetPassive.eggShare(weak, weakShot, SetPassive.CHICKY_EGG_DAMAGE) == weakShot / 4, "set 1: heals 12%, hurts 25% of the damage");
+        check(map4.pendingEggs.size() == 2 && SetPassive.eggShare(weak, weakShot, SetPassive.CHICKY_EGG_HEAL) == weakShot * 5 / 100
+                && SetPassive.eggShare(weak, weakShot, SetPassive.CHICKY_EGG_DAMAGE) == weakShot * 12 / 100, "set 1: heals 5%, hurts 12% of the damage");
+        MapData coop = map();
+        Player layer = player(coop, 0, 100, SetPassive.CHICKY, 0);
+        Gun drop = new Gun(coop, layer.index, false);
+        drop.shootBullet(19, layer.x, layer.y, 24, 24, 45, 20, 5, 1, 1000, -1);
+        for (int i = 0; i < 5; i++) drop.bullets.get(0).nextXY();
+        check(drop.bullets.size() == 2 && drop.bullets.get(0).att == 550 && drop.bullets.get(1).att == 300,
+                "the chicken carries 55% of Chicky's attack, the egg it drops 30%");
 
         // Electrician: an opponent hit by 3 bolts in one shot loses his next turn.
         Player elec = player(map3, 4, 100, SetPassive.ELECTRICIAN, 6);
@@ -185,9 +200,9 @@ public class SetPassiveCheck {
         SetPassive.beforeShot(miss);
         check(apply(map, miss, ally) < plain * 50 / 100, "no true damage on a teammate");
 
-        // Tarzan takes 12% less; King Kong 10% less per round stood still, up to 20%.
+        // Tarzan takes 8% less; King Kong 10% less per round stood still, up to 20%.
         Player tarzan = player(map, 7, 100, SetPassive.TARZAN, 6);
-        check(hit(map, rocketer, tarzan, false) == plain * 88 / 100, "Tarzan takes 12% less");
+        check(hit(map, rocketer, tarzan, false) == plain * 92 / 100, "Tarzan takes 8% less");
         pact();
         worldWar();
         MapData map2 = map();
@@ -204,20 +219,90 @@ public class SetPassiveCheck {
         SetPassive.newTurn(kong);
         check(hit(map2, shooter, kong, false) == full, "moving resets King Kong");
 
-        // Magenta: her shots feel no wind (half the wind with set 1); everyone else feels all of it.
-        MapData windy = map();
-        windy.windX = 60;
-        windy.windY = 0;
-        Player magenta = player(windy, 0, 100, SetPassive.MAGENTA, 6);
-        Player other = player(windy, 1, 300, 5, 6);
-        check(new Gun(windy, magenta.index, false).windX == 0, "full gold Magenta: no wind");
-        check(new Gun(windy, other.index, false).windX == 60, "others feel the whole wind");
-        magenta.setTier = 1;
-        check(new Gun(windy, magenta.index, false).windX == 30, "set 1 Magenta: half the wind");
-        magenta.setTier = 0;
-        check(new Gun(windy, magenta.index, false).windX == 60, "no set, no passive");
+        alien();
     }
 
+    /**
+     * Magenta "Người Ngoài Hành Tinh": when her POW's laser hits an opponent, a UFO on her side is called over him. It
+     * fires on its first turn, then flies over the nearest opponent and fires there, until shot down. Its laser only
+     * hurts her opponents and its damage counts for her; whoever of them shoots it heals 5% of what he took off it.
+     */
+    static void alien() throws Exception {
+        MapData sky = map();
+        sky.players = new Player[16];
+        sky.indexBoss = (byte) Room.INDEX_START;
+        sky.isWar = true;
+        Player magenta = player(sky, 0, 400, SetPassive.MAGENTA, 6);
+        Player foe = player(sky, 1, 900, 5, 0);
+        magenta.hpMax = 4000;
+        magenta.att = 1000;
+        laserShot(sky, magenta, foe, false);
+        check(sky.players[8] == null, "a plain shot calls no UFO");
+        SetPassive.beforeShot(magenta);
+        magenta.isPow = true;
+        SetPassive.afterShot(magenta);
+        check(sky.players[8] == null, "a POW that hits nobody calls none");
+        laserShot(sky, magenta, foe, true);
+        check(sky.players[8] instanceof mobiarmy.war.Boss.AlienUfo, "her POW on the foe calls a UFO");
+        mobiarmy.war.Boss.AlienUfo ufo = (mobiarmy.war.Boss.AlienUfo) sky.players[8];
+        check(ufo.team == magenta.team && ufo.leadIndex == magenta.index && !ufo.isFaction && ufo.isTurn && !ufo.isBoss,
+                "on her side, with turns of its own, and no fighter (it does not keep her team in the match)");
+        check(ufo.x == foe.x && ufo.y == foe.y - SetPassive.ALIEN_ALTITUDE, "it hovers over him: " + ufo.x + "," + ufo.y);
+        check(ufo.hpMax == 600 && ufo.att == 500, "15% of her HP, a laser of half her attack: " + ufo.hpMax + " / " + ufo.att);
+        check(ufo.hurts(foe) && !ufo.hurts(magenta), "its laser hurts her opponents only");
+        laserShot(sky, magenta, foe, true);
+        check(sky.players[9] == null, "one UFO of hers at a time");
+
+        // Shooting it: the foe heals 5% of the HP he takes off it, which counts as nobody's damage.
+        foe.hp = 1000;
+        Bullet shot = new Bullet(new Gun(sky, foe.index, false), 0, 300, ufo.x, ufo.y - 12, 0, 0, 0, 0, 0);
+        shot.radius = 16;
+        int dealt = foe.statDealt;
+        ufo.attBullet(shot);
+        ufo.updateAllAffect(foe);
+        check(ufo.hp == 300 && foe.hp == 1000 + 15, "shooting it (300) heals the foe 5% (15): ufo " + ufo.hp + ", foe " + foe.hp);
+        check(foe.statDealt == dealt, "hitting a UFO is no damage dealt");
+
+        // Its laser's damage counts for Magenta.
+        foe.hp = 100_000;
+        int before = magenta.statDealt;
+        Bullet beam = new Bullet(new Gun(sky, ufo.index, false), 42, 500, foe.x, foe.y - 12, 0, 0, 0, 0, 0);
+        beam.radius = 80;
+        foe.attBullet(beam);
+        foe.updateAllAffect(ufo);
+        check(magenta.statDealt - before == 100_000 - foe.hp && foe.hp < 100_000, "the UFO's damage counts for her: " + (magenta.statDealt - before));
+
+        ufo.updateHP(-ufo.hp);
+        laserShot(sky, magenta, foe, true);
+        check(sky.players[9] instanceof mobiarmy.war.Boss.AlienUfo, "once it is down she calls another");
+
+        MapData practice = map();
+        Player alone = player(practice, 0, 400, SetPassive.MAGENTA, 6);
+        Player dummy = player(practice, 1, 900, 5, 0);
+        practice.indexBoss = (byte) Room.INDEX_START;
+        laserShot(practice, alone, dummy, true);
+        check(practice.players[0] == alone && practice.players[1] == dummy && !practice.isWar, "practice (no match running) calls no UFO");
+        MapData plainSky = map();
+        plainSky.players = new Player[16];
+        plainSky.indexBoss = (byte) Room.INDEX_START;
+        plainSky.isWar = true;
+        Player plain = player(plainSky, 0, 400, SetPassive.MAGENTA, 0);
+        laserShot(plainSky, plain, player(plainSky, 1, 900, 5, 0), true);
+        check(plainSky.players[8] == null, "no set, no UFO");
+    }
+
+    /** Magenta's laser (bullet 49) hits target in one of her shots, a POW or not. */
+    static void laserShot(MapData map, Player magenta, Player target, boolean pow) {
+        magenta.isPow = pow;
+        SetPassive.beforeShot(magenta);
+        Bullet laser = new Bullet(new Gun(map, magenta.index, pow), 49, 1000, target.x, target.y - 12, 0, 0, 0, 0, 0);
+        laser.radius = 16;
+        target.attBullet(laser);
+        target.attAffect = 0;
+        target.attDirect = 0;
+        SetPassive.afterShot(magenta);
+        magenta.isPow = false;
+    }
     /** Wider holes (Granos, Gunner's cannonball), King Kong's rock: ground he protects, smaller and softer banana. */
     static void ground() throws Exception {
         MapData map = map();
@@ -225,9 +310,9 @@ public class SetPassiveCheck {
         Player granos = player(map, 1, 300, SetPassive.GRANOS, 6);
         check(SetPassive.holeScale(elec, 2) == 100, "Electrician digs as usual now");
         check(SetPassive.holeScale(granos, 7) == 100, "items dig as usual");
-        check(SetPassive.holeScale(granos, 11) == 300, "Granos digs three times as wide");
+        check(SetPassive.holeScale(granos, 11) == 200, "Granos digs twice as wide");
         granos.setTier = 1;
-        check(SetPassive.holeScale(granos, 11) == 200, "set 1 Granos: twice as wide");
+        check(SetPassive.holeScale(granos, 11) == 150, "set 1 Granos: half as wide again");
         check(SetPassive.holeScale(null, 2) == 100, "no shooter, usual hole");
 
         Player kk = player(map, 2, 600, SetPassive.KINGKONG, 6);
@@ -242,7 +327,7 @@ public class SetPassiveCheck {
         kk.passiveStill = 1;
         check(hit(map, kk, foe, false) == normal, "no rock yet: full damage");
         kk.passiveStill = 2;
-        check(hit(map, kk, foe, false) == normal * 70 / 100, "on rock: banana 30% softer");
+        check(hit(map, kk, foe, false) == normal * 90 / 100, "on rock: banana 10% softer");
 
         // Nearest-pixel scaling, the same formula as the client's CMap.scaledMask.
         int[] mask = {1, 2, 3, 4};
@@ -280,6 +365,52 @@ public class SetPassiveCheck {
         }
     }
 
+    /**
+     * LAN item 27 "UFO": a UFO on the user's side that flies over his nearest opponent and fires its laser there, with
+     * his attack, every other turn; after 3 shots it leaves. It hits only his opponents and its damage counts for him.
+     */
+    static void ufoItem() throws Exception {
+        for (boolean freeForAll : new boolean[] {false, true}) {
+            Ground sky = map(Ground.class);
+            sky.players = new Player[16];
+            sky.indexBoss = (byte) Room.INDEX_START;
+            sky.isWar = true;
+            Player user = player(sky, 0, 400, 5, 0);
+            Player foe = player(sky, 1, 900, 5, 0);
+            Player mate = player(sky, 2, 905, 5, 0);
+            for (Player p : new Player[] {user, foe, mate}) {
+                p.y = 1200; // on the ground
+                p.hp = p.hpMax = 100_000;
+            }
+            mate.team = user.team;
+            if (freeForAll) user.team = foe.team = mate.team = 3;
+            user.att = 1000;
+            sky.shootBullet(user.index, false, 53, user.x, user.y, 24, 24, 0, 0, 0, 1, user.att, -1); // MapData.useItem(27)
+            check(sky.players[8] instanceof mobiarmy.war.Boss.bullet.ItemUfo, "item 27 calls a UFO");
+            Player ufo = sky.players[8];
+            check(ufo.att == 1000 && ufo.caller() == user && !ufo.isFaction, "with the user's attack, on his side, no fighter");
+            int shots = 0, lost = 0, turns = 0;
+            for (; turns < 10 && !ufo.isDie; turns++) {
+                // Its turn, as MapData.update gives it.
+                sky.isTurnPlayer = true;
+                sky.indexTurnPlayer = ufo.index;
+                sky.timeUntilAction2 = 0;
+                ufo.isShoot = false;
+                int before = foe.hp, mateBefore = mate.hp;
+                ufo.update();
+                if (freeForAll) lost += mateBefore - mate.hp; // no sides in a free-for-all room: he is a foe too
+                if (foe.hp < before) {
+                    shots++;
+                    lost += before - foe.hp;
+                    check(before - foe.hp <= 1000, "a laser hits with at most the user's attack: " + (before - foe.hp));
+                }
+            }
+            String room = freeForAll ? " (free-for-all room)" : "";
+            check(shots == 3 && ufo.isDie && turns == 6, "it flies over the foe, fires, and after 3 shots it leaves" + room + ": " + shots + " shots in " + turns + " turns");
+            check(user.hp == user.hpMax && (freeForAll || mate.hp == mate.hpMax), "its laser spares the user's side" + room);
+            check(user.statDealt == lost, "its damage counts for the user" + room + ": " + user.statDealt + " of " + lost);
+        }
+    }
     /** LAN items 37 "Bê tông cốt thép" and 38 "Cơn mưa độc". */
     static void items() throws Exception {
         MapData map = map();
@@ -332,7 +463,7 @@ public class SetPassiveCheck {
         Player kong = player(foes, 1, 300, SetPassive.KINGKONG, 0);
         Player other = player(foes, 2, 500, 5, 0);
         check(hit(foes, tarzan, kong, false) == 500, "pact: Tarzan deals half to a King Kong across the battle");
-        check(hit(foes, kong, tarzan, false) == 500 * 88 / 100, "and takes half from him (then his own 12% less)");
+        check(hit(foes, kong, tarzan, false) == 500 * 92 / 100, "and takes half from him (then his own 8% less)");
         check(hit(foes, other, kong, false) == 1000, "others hit King Kong as usual");
         tarzan.setTier = 0;
         check(hit(foes, tarzan, kong, false) == 1000, "no set, no pact");
@@ -345,7 +476,7 @@ public class SetPassiveCheck {
         check(hit(allies, friend, foe, false) == 1200, "with King Kong on his side Tarzan deals 20% more");
         check(hit(allies, ape, foe, false) == 1200, "and so does King Kong");
         check(hit(allies, foe, ape, false) == 900, "King Kong takes 10% less");
-        check(hit(allies, foe, friend, false) == 900 * 88 / 100, "Tarzan 10% less, then his own 12%");
+        check(hit(allies, foe, friend, false) == 900 * 92 / 100, "Tarzan 10% less, then his own 8%");
         friend.setTier = 1;
         check(hit(allies, ape, foe, false) == 1100, "set 1 Tarzan: half the pact's boost");
         friend.setTier = 6;
@@ -404,6 +535,7 @@ public class SetPassiveCheck {
         }
         check(apart, "the bombs land on the ground " + SetPassive.WORLDWAR_SPACING + " apart, left to right");
         check(ground.holes == SetPassive.WORLDWAR_BOMBS, "each bomb digs: " + ground.holes);
+        check(gun.bullets.get(1).att == 2000, "each bomb hits with twice his attack, like every POW: " + gun.bullets.get(1).att);
         check(gun.worldWarShock == 200, "the radiation starts at a fifth of his attack at the heart: " + gun.worldWarShock);
         check(SetPassive.radiation(200, 0) == 200 && SetPassive.radiation(200, SetPassive.RADIATION_FAR) == 0
                         && SetPassive.radiation(200, SetPassive.RADIATION_FAR + 100) == 0
@@ -415,6 +547,18 @@ public class SetPassiveCheck {
         int selfDist = (int) Math.hypot(rocketer.x - gun.worldWarX, rocketer.y - gun.worldWarY);
         check(rocketer.attAffect == (selfDist <= SetPassive.RADIATION_NEAR ? SetPassive.radiation(gun.worldWarShock, selfDist) : 0),
                 "Rocketer is caught only when within RADIATION_NEAR (he is " + selfDist + " away): " + rocketer.attAffect);
+
+        // Called down on his own head: the bombs spare him, only the radiation catches him.
+        Ground home = map(Ground.class);
+        Player caller = player(home, 0, 600, SetPassive.ROCKETER, 6);
+        caller.y = 1200;
+        caller.isPow = true;
+        Gun own = new Gun(home, caller.index, true);
+        own.shootBullet(10, caller.x, caller.y, 24, 24, 90, 5, 0, 1, 1000, -1);
+        own.fillXY();
+        int ownDist = (int) Math.hypot(caller.x - own.worldWarX, caller.y - own.worldWarY);
+        check(own.bullets.size() == 1 + SetPassive.WORLDWAR_BOMBS && ownDist <= SetPassive.RADIATION_NEAR, "the bombs fall around him");
+        check(caller.attAffect == SetPassive.radiation(own.worldWarShock, ownDist), "his own bombs spare him: " + caller.attAffect);
 
         Gun plainShot = new Gun(ground, rocketer.index, false);
         rocketer.isPow = false;

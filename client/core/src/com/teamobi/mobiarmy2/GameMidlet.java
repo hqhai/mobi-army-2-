@@ -35,7 +35,7 @@ public class GameMidlet extends MIDlet implements IActionListener {
      * LAN build, sent at login; the server turns away builds below the one it requires (mobiarmy.server.ClientVersion).
      * Raise both together when every player must have this client, then publish the client update.
      */
-    public static final int LAN_BUILD = 5;
+    public static final int LAN_BUILD = 6;
     public static short versionByte = 241;
     public static byte versioncode = 11;
     public static byte server = -2;

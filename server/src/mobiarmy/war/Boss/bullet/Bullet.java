@@ -91,7 +91,7 @@ public class Bullet {
         if (this.gun.dryRun) {
             // Trial shot (SetPassive, Chicky): only note who it would hit.
             for (Player player : this.gun.mapData.players) {
-                if (player != null && !player.isDie && player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0) {
+                if (player != null && !player.isDie && player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0 && this.hurts(player)) {
                     this.gun.dryHits.add(player);
                 }
             }
@@ -100,12 +100,17 @@ public class Bullet {
         this.gun.mapData.makeHole(this.bX, this.bY, this.bulletId, mobiarmy.war.SetPassive.holeScale(this.gun.shooter(), this.bulletId));
         for (Player player : this.gun.mapData.players) {
             if (player != null && !player.isDie) {
-                if (player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0) {
+                if (player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0 && this.hurts(player)) {
                     this.gun.setEff.add(player);
                     player.attBullet(this);
                 }
             }
         }
+    }
+
+    /** Whether this bullet's blast hurts the player; WorldWar's bombs spare the Rocketer who called them. */
+    protected boolean hurts(Player player) {
+        return true;
     }
 
     public void nextXY() {

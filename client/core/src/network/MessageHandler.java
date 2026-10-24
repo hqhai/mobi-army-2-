@@ -621,7 +621,7 @@ public class MessageHandler implements IMessageHandler {
                         PM.p[whoMove].yToNow = y;
                         if (PM.p[whoMove].x != x || PM.p[whoMove].y != y) {
                             GameScr.pm.movePlayer(whoMove, x, y);
-                            if (whoMove != GameScr.myIndex && !PM.p[whoMove].isRunSpeed) {
+                            if (whoMove != GameScr.myIndex && !PM.p[whoMove].isRunSpeed && !PM.p[whoMove].huntRun) {
                                 Session_ME.receiveSynchronized = 1;
                             }
                         }
@@ -803,6 +803,15 @@ public class MessageHandler implements IMessageHandler {
                                 int who = msg.reader().readUnsignedByte();
                                 int tier = msg.reader().readUnsignedByte();
                                 if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].setTier = tier;
+                            }
+                        }
+                        // Server build 6: who walks twice as far while Apache's hunt hides him (as the server steps him).
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.huntRun = false;
+                            int running = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < running; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].huntRun = true;
                             }
                         }
                         break;

@@ -362,7 +362,7 @@
     var PASSIVES = {
         0: {name: 'Súng Thần Công', detail: function (s) {
             return 'Khi Gunner bắn, không ai gặp may mắn, kể cả Gunner. Đòn POW bắn ra một viên thần công khổng lồ: sát thương +' + scaledText(50, s)
-                + '%, hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN') + ' lần. Thanh nộ tích nhanh hơn ' + scaledText(20, s)
+                + '%, hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN') + ' lần. Thanh nộ tích nhanh hơn ' + scaledText(50, s)
                 + '%. Phản chấn: mỗi đối thủ bị viên thần công hạ gục, Gunner mất máu bằng ' + scaledText(20, s) + '% lượng máu đối thủ đó vừa mất.';
         }},
         1: {name: 'Mũi tên thứ ba', detail: function (s) {
@@ -374,42 +374,45 @@
         }},
         3: {name: 'Bàn thạch', detail: function (s) {
             return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(10, s) + '% sát thương nhận vào, tối đa ' + scaledText(20, s)
-                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Cái giá: khi đã có bàn thạch, chuối gây ít hơn ' + scaledText(30, s)
+                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Cái giá: khi đã có bàn thạch, chuối gây ít hơn ' + scaledText(10, s)
                 + '% sát thương và đục hố nhỏ dần (−' + scaledText(10, s) + '%, −' + scaledText(15, s) + '%, rồi −' + scaledText(30, s)
                 + '% từ vòng thứ 3). Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
         }},
         4: {name: 'WorldWar', detail: function (s) {
             return 'POW không bắn tên lửa nữa mà bắn pháo hiệu gọi máy bay: pháo hiệu không bị gió ảnh hưởng và được ngắm mọi góc. '
-                + 'Pháo hiệu rơi ở đâu, máy bay bay ngang bản đồ thả 5 quả bom hạt nhân cách nhau 50 quanh chỗ đó, mỗi quả nổ thành nấm lửa '
-                + 'như bom tên lửa của T-Rex với toàn bộ sức tấn công của Rocketer và đào hố lớn. Sóng nổ lan khắp bản đồ: mọi đối thủ '
-                + 'mất thêm ' + scaledText(20, s) + '% sức tấn công. Các phát bắn thường không còn được cộng sát thương.';
+                + 'Pháo hiệu rơi ở đâu, máy bay thả 3 quả bom hạt nhân cách nhau 30 quanh chỗ đó, mỗi quả nổ thành nấm lửa như bom tên lửa '
+                + 'của T-Rex với sát thương POW (gấp đôi sức tấn công của Rocketer) và đào hố lớn; bom không làm Rocketer mất máu. '
+                + 'Phóng xạ lan ra từ chỗ nổ: đối thủ mất tới ' + scaledText(20, s) + '% sức tấn công của Rocketer, càng xa càng nhẹ; '
+                + 'Rocketer chỉ bị khi đứng quá gần. Thanh nộ tích nhanh hơn ' + scaledText(40, s) + '%. Các phát bắn thường như cũ.';
         }},
         5: {name: 'Bom phá đất', detail: function (s) {
-            return 'Đạn của Granos đục hố rộng gấp ' + (1 + scaledText(200, s) / 100).toLocaleString('vi-VN')
+            return 'Đạn của Granos đục hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN')
                 + ' lần, chuyên đào hố cho đối thủ rơi. Sát thương giữ như thường; vật phẩm vẫn đục như thường.';
         }},
         6: {name: 'Trứng Phục sinh', detail: function (s) {
             return 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn, hoặc trúng quả trứng gà thứ 5 của Chicky trong trận, sẽ bị đẻ một quả trứng Phục sinh '
-                + 'dưới chân, mang màu skin của gà. Sau 2 vòng trứng nổ thành cột nấm khổng lồ (như bom tên lửa của T-Rex) mà không làm hỏng địa hình: '
-                + 'Chicky và cả đội được hồi ' + scaledText(25, s) + '% sát thương mà gà và trứng đã gây ra trong lượt đẻ trứng, dù đứng ở đâu; '
-                + 'đối thủ trong tầm trứng mất ' + scaledText(50, s) + '% lượng đó (sát thương chuẩn, bỏ qua phòng thủ).';
+                + 'dưới chân, mang màu skin của gà (mỗi lúc Chicky chỉ có một quả trứng Phục sinh chờ nở). Sau 2 vòng trứng nổ thành cột nấm khổng lồ (như bom tên lửa của T-Rex) mà không làm hỏng địa hình: '
+                + 'Chicky và cả đội được hồi ' + scaledText(10, s) + '% sát thương mà gà và trứng đã gây ra trong lượt đẻ trứng, dù đứng ở đâu; '
+                + 'đối thủ trong tầm trứng mất ' + scaledText(25, s) + '% lượng đó (sát thương chuẩn, bỏ qua phòng thủ).';
         }},
         7: {name: 'Khế Ước Rừng Xanh', detail: function (s) {
             return 'Khế ước với King Kong: Tarzan và King Kong ở hai phe chỉ gây cho nhau một nửa sát thương (luôn luôn, bộ nào cũng vậy); '
                 + 'cùng phe thì cả hai gây thêm ' + scaledText(20, s) + '% và nhận ít hơn ' + scaledText(10, s) + '% sát thương khi cả hai còn sống. '
-                + 'Boomerang không bị gió ảnh hưởng, luôn hiện đủ đường ngắm, nổ rộng gấp rưỡi và gây thêm 25% khi trúng lúc bay về. '
-                + 'Đi được 120 bước mỗi lượt (thường 60). Vẫn giảm ' + scaledText(12, s) + '% mọi sát thương nhận vào.';
+                + 'Boomerang không bị gió ảnh hưởng (nên đường ngắm luôn chỉ đúng đường bay), nổ rộng gấp rưỡi và gây thêm 20% khi trúng lúc bay về. '
+                + 'Đi được 120 bước mỗi lượt (thường 60). Vẫn giảm ' + scaledText(8, s) + '% mọi sát thương nhận vào.';
         }},
         8: {name: 'Thợ săn ẩn nấp', detail: function (s) {
-            return 'Sau 2 vòng liền không bị mất máu, Apache tàng hình như khi dùng Tàng hình: đối thủ không nhìn thấy Apache. '
-                + 'Bị mất máu thì hiện hình và đếm lại 2 vòng từ đầu. Khi bắn POW, mỗi búa trúng đối thủ hồi cho Apache '
-                + scaledText(10, s) + '% máu tối đa.';
+            return 'Cứ mỗi 4 búa trúng đối thủ (búa thường hay búa POW đều tính, tiếng nổ lúc búa tách không tính), Apache tàng hình như khi dùng Tàng hình '
+                + 'và đi xa gấp đôi (mỗi bước 2 ô) cho tới khi bị mất máu: đối thủ không nhìn thấy Apache. Bị mất máu thì hiện hình, đi như thường '
+                + 'và đếm lại 4 búa từ đầu. Khi bắn POW, mỗi búa trúng đối thủ còn hồi cho Apache ' + scaledText(10, s) + '% máu tối đa.';
         }},
-        9: {name: 'Miễn gió', detail: function (s) {
-            return 'Mọi phát bắn chỉ chịu ' + (100 - scaledText(100, s)) + '% sức gió' + (s >= 100 ? ' (hoàn toàn không bị gió ảnh hưởng)' : '')
-                + ', cả tia laser lẫn vật phẩm. Trong lượt của bạn, chỉ số gió hiện trên màn hình cũng đã giảm theo, nên đường ngắm khớp đường bay thật.';
-        }}
-    };
+        9: {name: 'Người Ngoài Hành Tinh', detail: function (s) {
+            return 'Khi tia laser POW của Magenta trúng đối thủ, một UFO phe Magenta được gọi tới lơ lửng trên đầu đối thủ đó (mỗi lúc chỉ một chiếc; '
+                + 'bị bắn hạ thì lần POW sau gọi chiếc mới). Tới lượt của mình, UFO bắn laser thẳng xuống chỗ nó đang lơ lửng, '
+                + 'lượt sau bay tới trên đầu đối thủ gần nhất rồi lại bắn, cứ thế cho tới khi bị bắn hạ hoặc Magenta gục. '
+                + 'UFO có ' + scaledText(15, s) + '% máu tối đa của Magenta, laser gây ' + scaledText(50, s) + '% sức tấn công của Magenta và chỉ trúng phe đối thủ. '
+                + 'Đối thủ nào bắn trúng UFO được hồi 5% lượng máu vừa bắn mất của UFO.';
+        }}    };
 
     /** Set tier 1..6 of a full +14 set among the worn gear, or 0, with what is still missing. */
     function setStatus(worn) {

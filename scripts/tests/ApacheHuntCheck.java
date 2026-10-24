@@ -9,13 +9,14 @@ import java.util.List;
 import mobiarmy.io.Message;
 import mobiarmy.server.Session;
 import mobiarmy.server.SessionHandler;
+import mobiarmy.war.Boss.bullet.ApacheBullet;
 import mobiarmy.war.Boss.bullet.Bullet;
 import sun.misc.Unsafe;
 
 /**
- * Apache's set passive "Thợ săn ẩn nấp": hidden from opponents after 2 rounds without losing HP until he loses HP,
- * and each hammer of his POW that hits an opponent heals him. Real Player, Bullet and SessionHandler code on an
- * empty map with no database (the SetPassiveCheck fixture).
+ * Apache's set passive "Thợ săn ẩn nấp": every 4 of his hammers that hurt an opponent hide him from opponents and let
+ * him walk twice as far until he loses HP, and each hammer of his POW that hits an opponent heals him. Real Player,
+ * Bullet and SessionHandler code on an empty map with no database (the SetPassiveCheck fixture).
  */
 public class ApacheHuntCheck {
     static int checks;
@@ -54,51 +55,68 @@ public class ApacheHuntCheck {
         hiding();
         status();
         hammers();
-        System.out.println("APACHE HUNT PASSED: " + checks + " checks; hiding, showing again, invisibility item, status 114, POW hammer heals");
+        System.out.println("APACHE HUNT PASSED: " + checks + " checks; 4 hammers hide and run, showing again, invisibility item, status 114, POW hammer heals");
     }
 
     static void hiding() throws Exception {
         RecordingMap map = map();
         Player apache = player(map, 0, 1000, SetPassive.APACHE, 6);
         Player foe = player(map, 1, 1100, 5, 0);
-        SetPassive.newTurn(apache);
-        check(!apache.huntHidden, "his first turn only starts the count");
-        SetPassive.newTurn(apache);
-        check(!apache.huntHidden, "one round without losing HP: still seen");
-        SetPassive.newTurn(apache);
-        check(apache.huntHidden, "two rounds without losing HP: hidden");
-        check(map.shown.isEmpty(), "hiding itself sends nothing (the status after the turn start does)");
+        Player mate = player(map, 2, 1300, 5, 0);
+        for (int turn = 0; turn < 5; turn++) SetPassive.newTurn(apache);
+        check(!apache.huntHidden, "rounds without losing HP no longer hide him");
+        shot(map, apache, foe, 18, 18, 18);
+        check(!apache.huntHidden && apache.huntCount == 3, "3 hammers hit: not hidden yet");
+        shot(map, apache, foe, 17);
+        check(apache.huntHidden && apache.huntRun && apache.huntCount == 0, "the 4th hammer (a whole one, no split) hides him and he runs");
+        check(map.shown.isEmpty(), "hiding itself sends nothing (the status after the shot does)");
+        shot(map, apache, foe, 18, 18);
+        check(apache.huntCount == 0, "hammers while hidden do not count");
+        int x = apache.x;
+        apache.buocdi = 0;
+        apache.updateXY(x + 20, apache.y);
+        check(apache.x == x + 20 && apache.buocdi == 10, "running, he walks 2 px a step: " + apache.buocdi + " steps");
         check(apply(map, foe, apache) > 0, "a foe's shot hurts him");
-        check(!apache.huntHidden && map.shown.equals(List.of(0)), "losing HP shows him to everyone: " + map.shown);
-        SetPassive.newTurn(apache);
-        SetPassive.newTurn(apache);
-        check(!apache.huntHidden, "the round he was hit does not count");
-        SetPassive.newTurn(apache);
-        check(apache.huntHidden, "two more rounds without losing HP: hidden again");
+        check(!apache.huntHidden && !apache.huntRun && map.shown.equals(List.of(0)),
+                "losing HP shows him to everyone and he walks as usual: " + map.shown);
+        x = apache.x;
+        apache.buocdi = 0;
+        apache.updateXY(x + 20, apache.y);
+        check(apache.x == x + 20 && apache.buocdi == 20, "seen, 1 px a step again");
+
+        // What counts: his own hammers that hurt an opponent, not the puff where a hammer splits, not bullet 0.
+        SetPassive.beforeShot(apache);
+        foe.attBullet(hammer(map, apache, 17, foe, ApacheBullet.SPLIT_ATT));
+        mate.attBullet(hammer(map, apache, 18, mate, 1000));
+        foe.attBullet(hammer(map, apache, 0, foe, 1000));
+        SetPassive.afterShot(apache);
+        check(apache.huntCount == 0, "the split's puff, a hammer on a mate and a plain bullet do not count");
+        shot(map, apache, foe, 18, 18, 18, 18);
+        check(apache.huntHidden && apache.huntRun, "the count started over: 4 more hammers hide him again");
 
         // The invisibility item (4) keeps hiding him when he is hit; it shows him when it runs out, not before.
         map.shown.clear();
         apache.countInvisible = 2;
         apply(map, foe, apache);
-        check(!apache.huntHidden && map.shown.isEmpty(), "with the item still on, losing HP does not show him");
+        check(!apache.huntHidden && !apache.huntRun && map.shown.isEmpty(), "with the item still on, losing HP does not show him");
         apache.updateTurn();
         check(map.shown.isEmpty() && apache.countInvisible == 1, "item turn 1 of 2: still hidden");
         apache.updateTurn();
         check(map.shown.equals(List.of(0)), "the item runs out and he is shown: " + map.shown);
         map.shown.clear();
+        shot(map, apache, foe, 18, 18, 18, 18);
         apache.countInvisible = 1;
         apache.updateTurn();
         check(apache.huntHidden && map.shown.isEmpty(), "the item running out does not show him while the passive hides him");
         apache.die();
-        check(!apache.huntHidden, "a dead hunter is not hidden");
+        check(!apache.huntHidden && !apache.huntRun, "a dead hunter is not hidden and does not run");
 
         RecordingMap other = map();
         Player plain = player(other, 0, 1000, SetPassive.APACHE, 0);
         Player gunner = player(other, 2, 1200, SetPassive.GUNNER, 6);
-        for (int turn = 0; turn < 5; turn++) {
-            SetPassive.newTurn(plain);
-            SetPassive.newTurn(gunner);
-        }
+        Player target = player(other, 1, 1100, 5, 0);
+        shot(other, plain, target, 18, 18, 18, 18, 18);
+        shot(other, gunner, target, 18, 18, 18, 18, 18);
         check(!plain.huntHidden, "Apache without a full +14 set never hides");
         check(!gunner.huntHidden, "only Apache hides");
     }
@@ -109,6 +127,7 @@ public class ApacheHuntCheck {
         Player foe = player(map, 3, 1100, 5, 0);
         foe.antiHealTurns = 2;
         apache.huntHidden = true;
+        apache.huntRun = true;
         Capture session = session();
         session.sessionHandler.status(map.players);
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(session.sent.get(0)));
@@ -117,13 +136,15 @@ public class ApacheHuntCheck {
         check(in.readUnsignedByte() == 0 && !in.readBoolean() && !in.readBoolean(), "Apache: not poisoned, not stunned");
         check(in.readUnsignedByte() == 3 && in.readBoolean() && !in.readBoolean(), "the foe: poisoned");
         check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0, "then the hidden list: Apache only");
-        check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0 && in.readUnsignedByte() == 6 && in.available() == 0,
+        check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0 && in.readUnsignedByte() == 6,
                 "then who has a set passive: Apache at tier 6");
+        check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0 && in.available() == 0, "then who runs twice as far: Apache");
         apache.huntHidden = false;
+        apache.huntRun = false;
         session.sessionHandler.status(map.players);
         in = new DataInputStream(new ByteArrayInputStream(session.sent.get(1)));
         in.skipBytes(1 + 2 * 3);
-        check(in.readUnsignedByte() == 0 && in.available() == 3, "nobody hidden: an empty list (the set tiers follow)");
+        check(in.readUnsignedByte() == 0 && in.available() == 4, "nobody hidden: an empty list (the set tiers and an empty run list follow)");
     }
 
     static void hammers() throws Exception {
@@ -178,9 +199,22 @@ public class ApacheHuntCheck {
         check(apache.hp == 100, "no set, no heal");
     }
 
+    /** One shot of shooter whose bullets (ids) all explode on target. */
+    static void shot(MapData map, Player shooter, Player target, int... bulletIds) {
+        SetPassive.beforeShot(shooter);
+        for (int id : bulletIds) target.attBullet(hammer(map, shooter, id, target, 1000));
+        SetPassive.afterShot(shooter);
+        target.attAffect = 0;
+        target.attDirect = 0;
+    }
+
     /** One of shooter's bullets exploding where `at` stands. */
     static Bullet hammer(MapData map, Player shooter, int bulletId, Player at) {
-        Bullet bullet = new Bullet(new Gun(map, shooter.index, false), bulletId, 1000, at.x, at.y - 12, 0, 0, 0, 0, 0);
+        return hammer(map, shooter, bulletId, at, 1000);
+    }
+
+    static Bullet hammer(MapData map, Player shooter, int bulletId, Player at, int att) {
+        Bullet bullet = new Bullet(new Gun(map, shooter.index, false), bulletId, att, at.x, at.y - 12, 0, 0, 0, 0, 0);
         bullet.radius = 16;
         return bullet;
     }

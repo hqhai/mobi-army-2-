@@ -1299,7 +1299,7 @@ public class SessionHandler {
             for (mobiarmy.war.Player player : players) if (player != null && player.huntHidden) hidden++;
             message.writer().writeByte(hidden);
             for (mobiarmy.war.Player player : players) if (player != null && player.huntHidden) message.writer().writeByte(player.index);
-            // Then who has a set passive and at which tier: the client shows Tarzan's whole aim guide and longer walk,
+            // Then who has a set passive and at which tier: the client gives Tarzan the exact aim guide and longer walk,
             // and lifts Rocketer's aim limit for his WorldWar POW.
             int tiers = 0;
             for (mobiarmy.war.Player player : players) if (player != null && player.setTier > 0) tiers++;
@@ -1309,6 +1309,11 @@ public class SessionHandler {
                 message.writer().writeByte(player.index);
                 message.writer().writeByte(player.setTier);
             }
+            // Client build 6: who walks twice as far while Apache's hunt hides him (both sides must step the same).
+            int running = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && player.huntRun) running++;
+            message.writer().writeByte(running);
+            for (mobiarmy.war.Player player : players) if (player != null && player.huntRun) message.writer().writeByte(player.index);
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }

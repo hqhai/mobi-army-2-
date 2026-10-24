@@ -243,6 +243,16 @@ public class KeyboardControlsCheck extends MainGame {
              out.writeByte(0); out.writeByte(1); out.writeByte(0); out.writeByte(6);
              network.MessageHandler.gI().onMessage(new network.Message((byte)114,bytes.toByteArray()));}
             check(player.setTier==6 && foe.setTier==0,"message 114 tells each player's set passive tier");
+            // Server build 6: then who walks twice as far while Apache's hunt hides him (the client must step the same).
+            for (int running : new int[]{1, -1}) {
+                java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+                out.writeByte(2); out.writeByte(0); out.writeBoolean(false); out.writeBoolean(false); out.writeByte(1); out.writeBoolean(false); out.writeBoolean(false);
+                out.writeByte(0); out.writeByte(1); out.writeByte(0); out.writeByte(6); // nobody hidden; the player keeps tier 6
+                if (running >= 0) { out.writeByte(1); out.writeByte(running); } else out.writeByte(0);
+                network.MessageHandler.gI().onMessage(new network.Message((byte)114,bytes.toByteArray()));
+                if (running >= 0) check(foe.huntRun && !player.huntRun,"message 114 names who runs twice as far (Apache's hunt)");
+                else check(!foe.huntRun,"and he walks as usual once he is no longer listed");
+            }
             // Tarzan's set passive: 120 steps a turn instead of 60.
             byte gunBefore=player.gun;
             player.gun=7;

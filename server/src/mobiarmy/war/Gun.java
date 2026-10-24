@@ -54,10 +54,8 @@ public class Gun {
         this.isSuper = 0;
         this.setEff = new HashSet();
         this.isPow = isPow ? 1 : 0;
-        // Magenta's set passive: her shots feel less (at full strength no) wind; MapData.setWind shows her the same.
-        int share = SetPassive.windShare(this.shooter(), 100);
-        this.windX = mapData.windX * share / 100;
-        this.windY = mapData.windY * share / 100;
+        this.windX = mapData.windX;
+        this.windY = mapData.windY;
         this.test = false;
     }
     
@@ -140,9 +138,10 @@ public class Gun {
                 case 10 -> {
                     // Rocketer
                     if (num == 0 && SetPassive.worldWar(this.shooter(), this.isPow == 1)) {
-                        // His set passive's POW: the WorldWar flare; the clients play it as its own bullet.
+                        // His set passive's POW: the WorldWar flare; the clients play it as its own bullet. Its bombs
+                        // hit twice as hard like every POW.
                         this.bulletId = WorldWarFlare.ID;
-                        this.bullets.add(new WorldWarFlare(this, att, bx, by, vx, vy));
+                        this.bullets.add(new WorldWarFlare(this, att * 2, bx, by, vx, vy));
                     } else if (this.bulletId != WorldWarFlare.ID) {
                         for (int i = 0; i < 3; i++) {
                             this.bullets.add(new Bullet(this, 10, att / 3 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 50 / 100, this.windY * 50 / 100, 80));
@@ -173,7 +172,7 @@ public class Gun {
                     this.bullets.add(new ApacheBullet(this, att / 4 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, x, y));
 
                 case 19 -> // Chicky
-                    this.bullets.add(new ChickyBullet(this, 19, att / 2 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy));
+                    this.bullets.add(new ChickyBullet(this, 19, att * ChickyBullet.CHICKEN / 100 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy));
 
                 case 21 -> // Tarzan
                     this.bullets.add(new TarzanBullet(this, att * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy));

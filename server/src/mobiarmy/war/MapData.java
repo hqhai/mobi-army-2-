@@ -595,6 +595,13 @@ public class MapData {
     ArrayList<TimeBomb> pendingEggs = new ArrayList<>();
     private int countEgg;
 
+    /** One of this Chicky's Easter eggs is still waiting to hatch: she lays the next only after it has. */
+    boolean eggWaiting(Player owner) {
+        for (TimeBomb egg : this.pendingEggs) if (egg.leadIndex == owner.index) return true;
+        for (TimeBomb egg : this.timeBombs) if (egg.egg && egg.leadIndex == owner.index) return true;
+        return false;
+    }
+
     /**
      * Chicky's "Trứng Phục sinh": an egg at the target's feet that hatches after SetPassive.CHICKY_EGG_ROUNDS rounds;
      * it keeps (in att) the damage her shot that laid it dealt.
@@ -710,13 +717,9 @@ public class MapData {
     }
 
     public void setWind(int x, int y) {
-        int turn = this.getTurn();
         for (Player player : this.players) {
             if (player != null && player.user != null && player.user.session != null) {
-                // Magenta's set passive: on her own turn she is shown the wind her laser feels, so her aim guide
-                // matches the real path; everyone else sees the real wind.
-                int share = player.index == turn ? SetPassive.windShare(player, 100) : 100;
-                player.user.session.sessionHandler.setWind(x * share / 100, y * share / 100);
+                player.user.session.sessionHandler.setWind(x, y);
             }
         }
     }
@@ -1083,7 +1086,7 @@ public class MapData {
             if (item.itemId == 21) {
                 player.bulletId = 23;
             }
-            // LAN item 36 "Chỉ kẻ đầu": the client shows the whole aim guide; Gunner's set passive turns it into a finisher.
+            // LAN item 36 "Chỉ kẻ đầu": the client's aim guide follows the wind for 2 shots (CPlayer.exactGuide).
             if (item.itemId == 36) {
                 player.headGuideShots = 2;
             }
@@ -1120,7 +1123,8 @@ public class MapData {
             }
             //Ufo
             if (item.itemId == 27) {
-                this.shootBullet(player.index, false, 53, player.x, player.y, player.width, player.height, 0, 0, 0, 1, 0, -1);
+                // LAN: the UFO's laser hits with the user's attack (it used to get 0 and dealt nothing); 3 shots.
+                this.shootBullet(player.index, false, 53, player.x, player.y, player.width, player.height, 0, 0, 0, 1, player.att, -1);
                 this.updateAffect(index);
                 this.isTurn = true;
             }

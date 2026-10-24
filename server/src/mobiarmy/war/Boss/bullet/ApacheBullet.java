@@ -8,7 +8,10 @@ import mobiarmy.war.Gun;
  * @author Văn Tú
  */
 public class ApacheBullet extends Bullet {
-    
+
+    /** Attack of the puff where the hammer splits in three (not a hammer hit for Apache's hunt). */
+    public static final int SPLIT_ATT = 10;
+
     private int x00;
     private int y00;
     
@@ -24,7 +27,7 @@ public class ApacheBullet extends Bullet {
         if (super.frame == super.gun.force2) {
             
             int att2 = super.att;
-            super.att = 10;
+            super.att = SPLIT_ATT;
             if (!super.collect) {
                 super.frames.add(new Bullet.Frame(super.frame, super.bX, super.bY, super.bX - super.xOld, super.bY - super.yOld));
                 super.collect = true;

@@ -172,7 +172,7 @@ public class CPlayer {
     /** LAN: tier of this player's set passive (message 114), 0 without one. */
     public int setTier;
 
-    /** Tarzan with his set passive "Khế Ước Rừng Xanh" (server SetPassive): whole aim guide, no wind, longer walk. */
+    /** Tarzan with his set passive "Khế Ước Rừng Xanh" (server SetPassive): no wind, so his aim guide is exact; longer walk. */
     public boolean pactTarzan() {
         return this.gun == 7 && this.setTier > 0;
     }
@@ -206,6 +206,8 @@ public class CPlayer {
     public boolean isInvisible;
     public boolean isVampire;
     public boolean isRunSpeed;
+    /** Apache's set passive: hidden by his hunt, he walks twice as far (status message 114, server build 6). */
+    public boolean huntRun;
     public boolean isStopWind;
     public boolean isPoison;
     public boolean poisonEff;
@@ -1601,6 +1603,7 @@ public class CPlayer {
             this.isInvisible = false;
         }
 
+        this.huntRun = false;
         if (this.isRunSpeed) {
             this.isRunSpeed = false;
         }
@@ -1691,7 +1694,7 @@ public class CPlayer {
                 }
 
                 byte runRange = this.runSpeed;
-                if (this.isRunSpeed) {
+                if (this.isRunSpeed || this.huntRun) {
                     runRange = 2;
                 }
 
@@ -1776,7 +1779,7 @@ public class CPlayer {
                 }
 
                 byte runRange = this.runSpeed;
-                if (this.isRunSpeed) {
+                if (this.isRunSpeed || this.huntRun) {
                     runRange = 2;
                 }
 
@@ -2246,90 +2249,90 @@ public class CPlayer {
         int y = this.y -(h / 2) - ((h - 4) * sin(this.angle) >> 10);
         int vx = this.maxforce * cos(this.angle) >> 10;
         int vy = -(this.maxforce * sin(this.angle) >> 10);
-        g.setColor(0x0000ff);
+        this.guideColor = (0x0000ff);
         switch (this.itemUsed) {
             case 1:
-                g.setColor(0x00ff00);
+                this.guideColor = (0x00ff00);
                 drawBullet(g, 5, x, y, vx, vy, 0, 0, 80);
                 break;
             case 6:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 6, x, y, vx, vy, GameScr.windx * 70 / 100, GameScr.windy * 70 / 100, 90);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 6, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 90);
                 break;
             case 7:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 7, x, y, vx, vy, GameScr.windx * 70 / 100, GameScr.windy * 70 / 100, 80);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 7, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 80);
                 break;
             case 8:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 4, x, y, vx, vy, 0, 0, 80);
                 break;
             case 9:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 8, x, y, vx, vy, GameScr.windx * 70 / 100, GameScr.windy * 70 / 100, 70);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 8, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 70);
                 break;
             case 11:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 16, x, y, vx, vy, 0, 0, 100);
                 break;
             case 16:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 14, x, y, vx, vy, GameScr.windx * 10 / 100, GameScr.windy * 10 / 100, 50);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 14, x, y, vx, vy, this.guideWindX(10), this.guideWindY(10), 50);
                 break;
             case 17:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 13, x, y, vx, vy, GameScr.windx * 50 / 100, GameScr.windy * 50 / 100, 120);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 13, x, y, vx, vy, this.guideWindX(50), this.guideWindY(50), 120);
                 break;
             case 18:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 //drawBullet(g, 22, x, y, vx, vy, 0, 0, 0);
                 break;
             case 19:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 26, x, y, vx, vy, GameScr.windx * 30 / 100, GameScr.windy * 30 / 100, 60);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 26, x, y, vx, vy, this.guideWindX(30), this.guideWindY(30), 60);
                 break;
             case 20:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 25, x, y, vx, vy, 0, 0, -50);
                 break;
             case 21:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 23, x, y, vx, vy, GameScr.windx * 20 / 100, GameScr.windy * 20 / 100, 100);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 23, x, y, vx, vy, this.guideWindX(20), this.guideWindY(20), 100);
                 break;
             case 22:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 28, x, y, vx, vy, 0, 0, 20);
                 break;
             case 23:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 30, x, y, 0, 2, 0, 0, 0);
                 break;
             case 24:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 //drawBullet(g, 50, x, y, 0, 0, 0, 0, 0);
                 break;
             case 25:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 51, x, y, vx, vy, GameScr.windx * 5 / 100, GameScr.windy * 5 / 100, 60);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 51, x, y, vx, vy, this.guideWindX(5), this.guideWindY(5), 60);
                 break;
             case 26:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 52, x, y, vx, vy, GameScr.windx * 10 / 100, GameScr.windy * 10 / 100, 100);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 52, x, y, vx, vy, this.guideWindX(10), this.guideWindY(10), 100);
                 break;
             case 27:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 //drawBullet(g, 53, x, y, 0, 0, 0, 0, 0);
                 break;
             case 28:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 54, x, y, vx, vy, 0, 0, 80);
                 break;
             case 29:
-                g.setColor(0xeee8aaa);
-                drawBullet(g, 55, x, y, vx, vy, GameScr.windx * 6 / 100, GameScr.windy * 6 / 100, 60);
+                this.guideColor = (0xee8aaa);
+                drawBullet(g, 55, x, y, vx, vy, this.guideWindX(6), this.guideWindY(6), 60);
                 break;
             case 30:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 lent = 3; 
                 int step = 5;
                 for (int j = 0; j < lent; j++) {
@@ -2338,21 +2341,21 @@ public class CPlayer {
                     y = this.y - (h / 2) - ((h - 4) * sin(i) >> 10);
                     vx = maxforce * cos(i) >> 10;
                     vy = -(maxforce * sin(i) >> 10);
-                    drawBullet(g, 56, x, y, vx, vy, GameScr.windx * 70 / 100, GameScr.windy * 70 / 100, 70);
+                    drawBullet(g, 56, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 70);
                 }
                 break;
             case 31:
-                g.setColor(0xeee8aaa);
+                this.guideColor = (0xee8aaa);
                 drawBullet(g, 57, x, y, vx, vy, 0, 0, 120);
                 break;
 
             default:
                 switch (this.gun) {
                     case 0:
-                        drawBullet(g, 0, x, y, vx, vy, GameScr.windx * 80 / 100 , GameScr.windy * 80 / 100, 100);
+                        drawBullet(g, 0, x, y, vx, vy, this.guideWindX(80) , this.guideWindY(80), 100);
                         break;
                     case 1:
-                        drawBullet(g, 1, x, y, vx, vy, GameScr.windx * 50 / 100 , GameScr.windy * 50 / 100, 50);
+                        drawBullet(g, 1, x, y, vx, vy, this.guideWindX(50) , this.guideWindY(50), 50);
                         break;
                     case 2:
                         lent = this.itemUsed == 100 ? 6 : 3;
@@ -2363,7 +2366,7 @@ public class CPlayer {
                             y = this.y -(h / 2) - ((h - 4) * sin(currentAngle) >> 10);
                             vx = this.maxforce * cos(currentAngle) >> 10;
                             vy = -(this.maxforce * sin(currentAngle) >> 10);
-                            drawBullet(g, 2, x, y, vx, vy, GameScr.windx * 80 / 100, GameScr.windy * 80 / 100, 60);
+                            drawBullet(g, 2, x, y, vx, vy, this.guideWindX(80), this.guideWindY(80), 60);
                         }
                         break;
                     case 3:
@@ -2372,34 +2375,34 @@ public class CPlayer {
                             y = this.y -(h / 2) - ((h - 4) * sin(i) >> 10);
                             vx = this.maxforce * cos(i) >> 10;
                             vy = -(this.maxforce * sin(i) >> 10);
-                            drawBullet(g, 9, x, y, vx, vy, GameScr.windx * 40 / 100, GameScr.windy * 40 / 100, 90);
+                            drawBullet(g, 9, x, y, vx, vy, this.guideWindX(40), this.guideWindY(40), 90);
                         }
                         break;
                     case 4:
                         if (this.worldWarPow()) {
                             drawBullet(g, 4, x, y, vx, vy, 0, 0, 80); // the WorldWar flare: no wind, like the B52's
                         } else {
-                            drawBullet(g, 10, x, y, vx, vy, GameScr.windx * 50 / 100 , GameScr.windy * 50 / 100, 80);
+                            drawBullet(g, 10, x, y, vx, vy, this.guideWindX(50) , this.guideWindY(50), 80);
                         }
                         break;
                     case 5:
-                        drawBullet(g, 11, x, y, vx, vy, GameScr.windx * 30 / 100 , GameScr.windy * 30 / 100, 90);
+                        drawBullet(g, 11, x, y, vx, vy, this.guideWindX(30) , this.guideWindY(30), 90);
                         break;
                     case 6:
-                        drawBullet(g, 19, x, y, vx, vy, GameScr.windx * 20 / 100 , GameScr.windy * 20 / 100, 50);
+                        drawBullet(g, 19, x, y, vx, vy, this.guideWindX(20) , this.guideWindY(20), 50);
                         break;
                     case 7:
                         // Tarzan's set passive: the wind no longer moves his boomerang.
                         int boomerangWind = this.pactTarzan() ? 0 : 10;
-                        drawBullet(g, 21, x, y, vx, vy, GameScr.windx * boomerangWind / 100 , GameScr.windy * boomerangWind / 100, 50);
+                        drawBullet(g, 21, x, y, vx, vy, this.guideWindX(boomerangWind) , this.guideWindY(boomerangWind), 50);
                         break;
                     case 8:
-                        drawBullet(g, 17, x, y, vx, vy, GameScr.windx * 30 / 100 , GameScr.windy * 30 / 100, 100);
+                        drawBullet(g, 17, x, y, vx, vy, this.guideWindX(30) , this.guideWindY(30), 100);
                         break;
                     case 9:
                         vx = (this.maxforce + 5) * cos(this.angle) >> 10;
                         vy = -((this.maxforce + 5) * sin(this.angle) >> 10);
-                        drawBullet(g, 49, x, y, vx, vy, GameScr.windx * 40 / 100 , GameScr.windy * 40 / 100, 70);
+                        drawBullet(g, 49, x, y, vx, vy, this.guideWindX(40) , this.guideWindY(40), 70);
                         break;
                 }
                 break;
@@ -2407,29 +2410,43 @@ public class CPlayer {
     }
     
     
-    private boolean trajCounting;
-    /** Shots left with item 36 "Chỉ kẻ đầu": the whole guide, right up to the target, like the original game. */
+    /** Shots left with item 36 "Chỉ kẻ đầu": the aim guide follows the wind too, right where the shot will fly. */
     public static int headGuideShots;
-    private boolean fullGuide;
+    /** Colour of the guide path being drawn. */
+    private int guideColor;
+    /** Map pixels between two dots of the aim guide, and the path length over which they shrink to the smallest. */
+    private static final int GUIDE_GAP = 14, GUIDE_FADE = 600;
+    private static mImage guideDot;
+    private static com.badlogic.gdx.graphics.Color guideTint;
 
-    /** Aim guide shows only the first 3/4 of the predicted path (all of it with item 36). */
-    private void drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100) {
-        // Item 36, or Tarzan's set passive: the whole guide.
-        if ((headGuideShots > 0 || this.pactTarzan()) && this == PM.getMyPlayer()) {
-            fullGuide = true;
-            drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
-            fullGuide = false;
-            return;
-        }
-        trajCounting = true;
-        int frames = drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 1000);
-        trajCounting = false;
-        // Chicken shots and eggs get a shorter guide so eggs cannot be dropped precisely.
-        int keep = bulletId == 20 ? frames / 3 : bulletId == 19 ? frames * 3 / 5 : frames * 3 / 4;
-        drawBullet(g, bulletId, x, y, vx, vy, ax100, ay100, g100, keep);
+    /**
+     * LAN aim guide: round dots, big at the gun and smaller along the way (like GunPow), over the whole path the shot
+     * would fly WITHOUT wind, until it meets ground or a player in sight; with wind the shot leaves it. Item 36 "Chỉ kẻ
+     * đầu" and Tarzan's set passive (his boomerang ignores the wind) show the real path, wind included.
+     */
+    private boolean exactGuide() {
+        return (headGuideShots > 0 || this.pactTarzan()) && this == PM.getMyPlayer();
     }
 
-    private int drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100, int maxFrames) {
+    /** Wind a guide path feels: share percent of the real wind on the exact guide, none on the usual one. */
+    private int guideWindX(int share) {
+        return this.exactGuide() ? GameScr.windx * share / 100 : 0;
+    }
+
+    private int guideWindY(int share) {
+        return this.exactGuide() ? GameScr.windy * share / 100 : 0;
+    }
+
+    private void drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100) {
+        this.guidePath(g, bulletId, x, y, vx, vy, ax100, ay100, g100, 0);
+    }
+
+    /**
+     * One path of the aim guide, stepped frame by frame like the server's bullets (Bullet.nextXY), with a dot every
+     * GUIDE_GAP pixels; walked is how far the guide has come before this path starts (the dots keep shrinking).
+     * Chicky's egg, Apache's three hammers and Magenta's laser branch off where the shot would make them.
+     */
+    private void guidePath(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100, int walked) {
         int vyTemp2 = 0;
         int vxTemp = 0;
         int vyTemp = 0;
@@ -2437,22 +2454,34 @@ public class CPlayer {
         int y0 = y;
         int xold = x;
         int yold = y;
+        int nextDot = walked;
         byte quayLai = -1;
         boolean addTZ = (vx <= 0);
         for (int frame = 0; frame < 1000; frame++, xold = x, yold = y) {
-            if((x < -100) || (x > MM.mapWidth + 100) || (y > MM.mapHeight + 100) || frame >= maxFrames || (!fullGuide && nearOtherPlayer(x, y))) {
-                return frame;
+            if ((x < -100) || (x > MM.mapWidth + 100) || (y > MM.mapHeight + 100)) {
+                return;
             }
-            if (trajCounting) {
-                x = xold + vx;
-                y = yold + vy;
-            } else {
-                g.drawLine(x, y, x = xold + vx, y = yold + vy ,true);
+            x = xold + vx;
+            y = yold + vy;
+            int steps = Math.max(Math.abs(x - xold), Math.abs(y - yold));
+            float stepLength = steps == 0 ? 0f : (float) Math.sqrt((double) (x - xold) * (x - xold) + (double) (y - yold) * (y - yold)) / steps;
+            for (int s = 1; s <= steps; s++) {
+                int px = xold + (x - xold) * s / steps;
+                int py = yold + (y - yold) * s / steps;
+                walked += Math.round(stepLength);
+                if ((s % 3 == 0 || s == steps) && this.guideBlocked(px, py)) { // every 3 px is close enough to see
+                    this.drawGuideDot(g, px, py, walked);
+                    return;
+                }
+                if (walked >= nextDot) {
+                    this.drawGuideDot(g, px, py, walked);
+                    nextDot = walked + GUIDE_GAP;
+                }
             }
-            if (!trajCounting && (bulletId == 19 || bulletId == 17) && frame < 30) {
+            if ((bulletId == 19 || bulletId == 17) && frame < 30) {
+                // Chicky's and Apache's step numbers, for "lm" force 2.
                 g.setColor(0xff0000);
                 Font.normalGFont.drawString(g, String.valueOf(frame + 1), x, y + 5, 65);
-                g.setColor(0x00ff);
             }
             vxTemp  += Math.abs(ax100);
             vyTemp  += Math.abs(ay100);
@@ -2478,20 +2507,21 @@ public class CPlayer {
                 vyTemp2 %= 100;
             }
             if (bulletId == 17 && frame + 1 == this.maxforce2) {
-                if (trajCounting) return frame + 1;
-                g.setColor(0xffff00);
+                int color = this.guideColor;
+                this.guideColor = 0xffff00;
                 int ang = this.angle + fixangle(angle(PM.getMyPlayer().x - xold, PM.getMyPlayer().y - yold));
                 if (this.angle < 90) {
                     ang = 180 - ang;
                 }
                 for (int i = ang - 15, j = 0; j < 3; j++, i += 15) {
-                    x = xold + (20 * cos(i) >> 10);
-                    y = yold - 12 - (20 * sin(i) >> 10);
-                    vx = this.maxforce * cos(i) >> 11;
-                    vy = -(this.maxforce * sin(i) >> 11);
-                    drawBullet(g, 18, x, y, vx, vy, ax100, ay100, g100);
+                    int hx = xold + (20 * cos(i) >> 10);
+                    int hy = yold - 12 - (20 * sin(i) >> 10);
+                    int hvx = this.maxforce * cos(i) >> 11;
+                    int hvy = -(this.maxforce * sin(i) >> 11);
+                    this.guidePath(g, 18, hx, hy, hvx, hvy, ax100, ay100, g100, walked);
                 }
-                return frame + 1;
+                this.guideColor = color;
+                return;
             }
             if (bulletId == 21) {
                 if(quayLai == 0) {
@@ -2512,35 +2542,59 @@ public class CPlayer {
                 }
             }
             if(vy >= 0 && bulletId == 49) {
-                if (trajCounting) return frame + 1;
                 int ang = angle(x - x0, y0 - y);
                 vx = (this.maxforce * cos(ang) >> 10);
                 vy = (this.maxforce * sin(ang) >> 10);
+                if (vx == 0 && vy == 0) {
+                    // As the server's MirrorBullet for force 0 or 1.
+                    vx = 15 * cos(ang) >> 10;
+                    vy = 15 * sin(ang) >> 10;
+                }
                 if (vx != 0) {
                     while (Math.abs(vx) < 15) {
                         vx += vx;
                         vy += vy;
                     }
                 }
-                g.setColor(0xff0000);
-                drawBullet(g, -1, x, y, vx, vy, 0, 0, 0);
-                return frame + 1;
+                int color = this.guideColor;
+                this.guideColor = 0xff0000;
+                this.guidePath(g, -1, x, y, vx, vy, 0, 0, 0, walked);
+                this.guideColor = color;
+                return;
             }
-            if (!trajCounting && bulletId == 19 && frame + 1 == this.maxforce2) {
-                g.setColor(0xffff00);
-                drawBullet(g, 20, x, y + 8, 0, 0, ax100 / 2, ay100 / 2, 30);
-                g.setColor(0x00ff);
+            if (bulletId == 19 && frame + 1 == this.maxforce2) {
+                int color = this.guideColor;
+                this.guideColor = 0xffff00;
+                this.guidePath(g, 20, x, y + 8, 0, 0, ax100 / 2, ay100 / 2, 30, walked);
+                this.guideColor = color;
             }
         }
-        return 1000;
     }
 
-    /** True when the aim guide point is close to another player, so it never marks a target. */
-    private boolean nearOtherPlayer(int x, int y) {
+    /** The guide stops on ground and on a player in sight (never on a hidden one: it must not give him away). */
+    private boolean guideBlocked(int x, int y) {
+        if (GameScr.mm != null && GameScr.mm.isLand(x, y)) return true;
         if (PM.p == null) return false;
         for (CPlayer o : PM.p) {
-            if (o != null && o != this && Math.abs(o.x - x) < 70 && Math.abs(o.y - y) < 70) return true;
+            if (o == null || o == this || o.getState() == 5 || o.isInvisible) continue;
+            if (x >= o.x - 12 && x < o.x + 12 && y >= o.y - 24 && y < o.y) return true;
         }
         return false;
+    }
+
+    /** One dot of the guide in guideColor, smaller the farther along the path (walked pixels). */
+    private void drawGuideDot(mGraphics g, int x, int y, int walked) {
+        if (guideDot == null) {
+            guideDot = mImage.createImage("/gui/aimdot.png");
+            guideTint = new com.badlogic.gdx.graphics.Color();
+        }
+        float scale = Math.max(0.3f, 0.75f - 0.45f * walked / GUIDE_FADE);
+        com.badlogic.gdx.graphics.Color.rgb888ToColor(guideTint, this.guideColor);
+        guideTint.a = 0.9f;
+        g.tint = guideTint;
+        g.drawScale = scale;
+        g.drawImage(guideDot, x, y, 3, false);
+        g.drawScale = 1f;
+        g.tint = null;
     }
 }

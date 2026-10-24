@@ -2,6 +2,7 @@ package mobiarmy.war.Boss.bullet;
 
 import mobiarmy.war.Gun;
 import mobiarmy.war.MapData;
+import mobiarmy.war.Player;
 import mobiarmy.war.SetPassive;
 
 /**
@@ -120,6 +121,12 @@ public class WorldWarFlare extends Bullet {
             super.isCanCollisionMap = false;
             super.isCanCollisionPlayer = false;
             this.path = path;
+        }
+
+        /** The bombs spare the Rocketer who called them; only the radiation can catch him, up close. */
+        @Override
+        protected boolean hurts(Player player) {
+            return player != super.gun.shooter();
         }
 
         @Override
