@@ -59,6 +59,12 @@ public class CTime {
                   }
                }
 
+               // LAN: time is up on my turn and nothing is flying: the turn passes now (the server used to wait
+               // 15 more seconds, and the player could still shoot meanwhile).
+               if (GameScr.pm.isYourTurn() && !player.CPlayer.isShooting && !item.BM.active) {
+                  this.skipTurn();
+               }
+
                return;
             }
 

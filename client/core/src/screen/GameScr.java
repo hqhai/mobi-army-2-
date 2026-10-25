@@ -738,6 +738,9 @@ public class GameScr extends CScreen {
         if (!command.matches()) {
             return null;
         }
+        if (me.paralyzed == 2) {
+            return "Tê liệt: không đổi được góc";
+        }
         int wanted = Math.min(90, Integer.parseInt(command.group(2)));
         if (command.group(1).equals("gs")) {
             wanted = -wanted;
@@ -863,7 +866,9 @@ public class GameScr extends CScreen {
 
     public void addTimeBomb(TimeBomb bomb) {
         timeBombs.addElement(bomb);
-        waitting();
+        if (!bomb.isGrenade()) { // Granos's grenades (build 7) all drop at once, holding nothing up
+            waitting();
+        }
     }
 
     /**
@@ -890,6 +895,25 @@ public class GameScr extends CScreen {
         CCanvas.lockNotify = true;
         if (CCanvas.curScr == CCanvas.gameScr) {
             Session_ME.receiveSynchronized = 1;
+        }
+    }
+
+    /**
+     * How full the walk bar is, drawn for 60 steps: Tarzan's longer walk and Electrician's shorter one in proportion;
+     * locked by the shock (no steps at all) it shows as used up (it divided by 0 and threw, closing the game).
+     */
+    public static int walkBarFill(CPlayer me) {
+        int steps = me.maxMovePoint();
+        return steps > 0 ? me.movePoint * CPlayer.MAX_MOVE_POINT / steps : CPlayer.MAX_MOVE_POINT;
+    }
+
+    /** One of Granos's lasers landed at x (build 7): his grenade there bursts; the server has removed it too. */
+    public static void burstGrenades(int x) {
+        for (int i = timeBombs.size() - 1; i >= 0; --i) {
+            TimeBomb bomb = timeBombs.elementAt(i);
+            if (bomb.isGrenade() && Math.abs(bomb.x - x) <= 4) {
+                bomb.isExplore = true;
+            }
         }
     }
 
@@ -1295,7 +1319,7 @@ public class GameScr extends CScreen {
                 }
                 break;
             case 2:
-                if (PM.p[1].y > 514) {
+                if (PM.p[1].y > 514 * MM.mapScale) { // (the training map is MM.mapScale times bigger)
                     trainingStep = -1;
                     CCanvas.startOKDlg(Language.training6(), new IAction() {
                         public void perform() {
@@ -1630,8 +1654,7 @@ public class GameScr extends CScreen {
         if (pm.isYourTurn() && PM.getCurPlayer() != null) {
             int forceT1 = PM.getMyPlayer().getState() == 3 ? PM.getMyPlayer().force : 0;
             int forceT2 = PM.getMyPlayer().getState() == 3 ? PM.getMyPlayer().force_2 : 0;
-            // The walk bar is drawn for 60 steps: Tarzan's longer walk is shown in proportion.
-            yPaint = PM.getMyPlayer().movePoint * CPlayer.MAX_MOVE_POINT / PM.getMyPlayer().maxMovePoint();
+            yPaint = walkBarFill(PM.getMyPlayer());
             int lastForcePoint1 = PM.getMyPlayer().lastForcePoint;
             int lastForcePoint2 = PM.getMyPlayer().lastForcePoint_2;
             if (!this.isSelectItem && MainGame.getNumberFingerOnScreen() < 2 && Camera.mode != 0 && !CPlayer.isShooting) {
@@ -1854,7 +1877,7 @@ public class GameScr extends CScreen {
             g.fillRect(Camera.x, y - 1, CCanvas.width, CCanvas.isTouch ? 43 : 36, false);
         }
 
-        Item.DrawSetItem(g, PM.getMyPlayer().item, curItemSelec, x, y, CCanvas.isTouch, PrepareScr.currLevel == 7 ? num : null);
+        Item.DrawSetItem(g, PM.getMyPlayer().item, curItemSelec, x, y, CCanvas.isTouch, PrepareScr.currLevel == 7 ? num : null, PM.getMyPlayer().itemCooling(Item.ITEM_TELEPORT) ? PM.getMyPlayer().teleportCooldown : 0);
         Font.borderFont.drawString(g, Language.use(), Camera.x + 5, Camera.y + CCanvas.hieght - Font.normalFont.getHeight() - 4, 0);
         Font.borderFont.drawString(g, Language.close(), Camera.x + CCanvas.width - 5, Camera.y + CCanvas.hieght - Font.normalFont.getHeight() - 4, 1);
     }

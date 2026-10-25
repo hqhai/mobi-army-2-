@@ -56,7 +56,7 @@ public final class Training {
             }
         }
         session.sendMessage(message);
-        session.sessionHandler.status(map.players); // the set passive the client shows (aim guide, walk, POW aim)
+        session.sessionHandler.status(map.players); // the set passive the client shows (Tarzan's walk, Rocketer's POW aim)
     }
 
     /** Bullets the practice accepts from the client besides the character's own: the items' (MapData.useItem). */
@@ -104,7 +104,7 @@ public final class Training {
         mobiarmy.war.SetPassive.beforeShot(player);
         map.protectedGround = mobiarmy.war.SetPassive.protectedGround(map);
         Gun gun = new Gun(map, 0, player.isPow);
-        gun.shootBullet(bullet, x, y, 24, 24, ang, f, f2, Math.max(1, Math.min(2, nShoot)), 0, -1);
+        gun.shootBullet(bullet, x, y, player.bodyWidth(), player.bodyHeight(), ang, f, f2, Math.max(1, Math.min(2, nShoot)), 0, -1);
         gun.fillXY();
         if (player.poisonRain) {
             gun.poisonRain = true;
@@ -114,6 +114,7 @@ public final class Training {
         mobiarmy.war.SetPassive.afterShot(player);
         player.isPow = false;
         player.updateTurn(); // the next practice shot is a new turn: concrete, poison and stun count down
+        session.sessionHandler.status(map.players); // so the client draws King Kong as big as he has grown
         // Rage grows like a match: +10 a turn (Player.updateTurn adds it at each turn of a match).
         player.updateAngry(10);
         session.sessionHandler.updateAngry(0, player.angry);

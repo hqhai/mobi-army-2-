@@ -89,7 +89,8 @@ public class Gun {
                 }
 
                 case 2 -> {
-                    // Electric
+                    // Electric (his set passive: bolts ELECTRICIAN_BIG percent big, blast and hole)
+                    int big = SetPassive.holeScale(this.shooter(), 2);
                     int lent = this.isPow == 1 ? 6 : 3;
                     int startAngle = this.ang - (lent / 2) * 5; 
                     for (int i = 0; i < lent; i++) {
@@ -98,7 +99,9 @@ public class Gun {
                         int byNew = this.gunY - (height / 2) - ((height - 4) * GameData.sin(currAng) >> 10);
                         int vxNew = force * GameData.cos(currAng) >> 10;
                         int vyNew = -(force * GameData.sin(currAng) >> 10);
-                        this.bullets.add(new Bullet(this, 2, att / 3, bxNew, byNew, vxNew, vyNew, this.windX * 80 / 100, this.windY * 80 / 100, 60));
+                        Bullet bolt = new Bullet(this, 2, att / 3, bxNew, byNew, vxNew, vyNew, this.windX * 80 / 100, this.windY * 80 / 100, 60);
+                        bolt.radius = bolt.radius * big / 100;
+                        this.bullets.add(bolt);
                     }
                 }
 
@@ -125,13 +128,16 @@ public class Gun {
                     this.bullets.add(new ItemSilkBullet(this, att, bx, by, vx, vy));
 
                 case 9 -> {
-                    // Kingkong
+                    // Kingkong (his set passive: his POW as big and strong as he has grown standing still)
+                    int grown = SetPassive.powGrowth(this.shooter(), this.isPow == 1);
                     for (int i = this.ang - 6, j = 0; j < 4; i += 4, j++) {
                         int bxNew = this.gunX + ((width - 4) * GameData.cos(i) >> 10);
                         int byNew = this.gunY - (height / 2) - ((height - 4) * GameData.sin(i) >> 10);
                         int vxNew = force * GameData.cos(i) >> 10;
                         int vyNew = -(force * GameData.sin(i) >> 10);
-                        this.bullets.add(new Bullet(this, 9, att / 4 * (this.isPow == 1 ? 2 : 1), bxNew, byNew, vxNew, vyNew, this.windX * 40 / 100, this.windY * 40 / 100, 90));
+                        Bullet banana = new Bullet(this, 9, att / 4 * (this.isPow == 1 ? 2 : 1) * grown / 100, bxNew, byNew, vxNew, vyNew, this.windX * 40 / 100, this.windY * 40 / 100, 90);
+                        banana.radius = banana.radius * grown / 100;
+                        this.bullets.add(banana);
                     }
                 }
 
@@ -151,8 +157,14 @@ public class Gun {
 
                 case 11 -> {
                     // Granos
-                    for (int i = 0; i < 5; i++) {
-                        this.bullets.add(new Bullet(this, 11, att / 5 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 30 / 100, this.windY * 30 / 100, 90));
+                    if (num == 0 && SetPassive.laserSower(this.shooter(), this.isPow == 1)) {
+                        // His set passive's POW: the seed of his lasers; the clients play it as its own bullet.
+                        this.bulletId = GranosSeed.ID;
+                        this.bullets.add(new GranosSeed(this, att, bx, by, vx, vy));
+                    } else if (this.bulletId != GranosSeed.ID) {
+                        for (int i = 0; i < 5; i++) {
+                            this.bullets.add(new Bullet(this, 11, att / 5 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 30 / 100, this.windY * 30 / 100, 90));
+                        }
                     }
                 }
 
@@ -255,7 +267,7 @@ public class Gun {
                 case 53 -> {
                     // UFO
                     this.mapData.disableLuck = true;
-                    this.bullets.add(new ItemUfoBullet(this, att, this.mapData.players[this.index].hp, this.mapData.players[this.index].team, 100, 100));
+                    this.bullets.add(new ItemUfoBullet(this, att, this.mapData.players[this.index].hp, this.mapData.players[this.index].team, 100 * mobiarmy.server.Map.SCALE, 100 * mobiarmy.server.Map.SCALE));
                 }
 
                 case 54 -> // Đóng băng

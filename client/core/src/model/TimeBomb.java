@@ -45,6 +45,15 @@ public class TimeBomb {
       return this.id >= 100;
    }
 
+   /** One of Granos's grenades (server ids below 0, build 7): his lasers strike it two rounds after his seed. */
+   public boolean isGrenade() {
+      return this.id < 0;
+   }
+
+   /** How high above the ground Granos's grenades appear, falling (the server's SetPassive.GRANOS_DROP). */
+   public static final int GRENADE_DROP = 300;
+   private static final com.badlogic.gdx.graphics.Color ARMED_RED = new com.badlogic.gdx.graphics.Color(1f, 0.45f, 0.45f, 1f);
+
    /** Row of eggs.png: the kind of bullet the owner's chicken is (her skin), the classic egg when unknown. */
    int eggKind() {
       CPlayer p = PM.p != null && this.owner >= 0 && this.owner < PM.p.length ? PM.p[this.owner] : null;
@@ -53,6 +62,18 @@ public class TimeBomb {
    }
 
    public void paint(mGraphics g) {
+      if (this.isGrenade()) {
+         if (Bullet.grenadeImg == null) return;
+         // Blinks red now and then: armed, a laser will come down on it.
+         boolean blink = !this.falling && CCanvas.gameTick % 20 < 4;
+         if (blink) g.tint = ARMED_RED;
+         try {
+            g.drawImage(Bullet.grenadeImg, this.x, this.y, mGraphics.HCENTER | mGraphics.BOTTOM, false);
+         } finally {
+            g.tint = null;
+         }
+         return;
+      }
       if (this.isEgg()) {
          if (eggs == null) eggs = mImage.createImage("/gui/eggs.png");
          int bob = CCanvas.gameTick % 10 < 5 ? 0 : 2;

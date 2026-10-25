@@ -775,6 +775,27 @@ public class MessageHandler implements IMessageHandler {
                         }
                         break;
                     }
+                    case 127: {
+                        // LAN build 7: Tarzan's kick; the kicked players fly to where they land, the next messages wait.
+                        int kickedCount = msg.reader().readUnsignedByte();
+                        boolean flying = false;
+                        for (int k = 0; k < kickedCount; k++) {
+                            int who = msg.reader().readUnsignedByte();
+                            short xK = msg.reader().readShort();
+                            short yK = msg.reader().readShort();
+                            if (PM.p != null && who < PM.p.length && PM.p[who] != null) {
+                                PM.p[who].kickTo(xK, yK);
+                                if (!flying) {
+                                    GameScr.cam.setPlayerMode(who);
+                                }
+                                flying = true;
+                            }
+                        }
+                        if (flying && CCanvas.curScr == CCanvas.gameScr) {
+                            Session_ME.receiveSynchronized = 1;
+                        }
+                        break;
+                    }
                     case 114: {
                         // LAN: who is poisoned (heals half) or stunned (loses a turn), shown over their heads.
                         int count = msg.reader().readUnsignedByte();
@@ -795,7 +816,7 @@ public class MessageHandler implements IMessageHandler {
                                 if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].hide();
                             }
                         }
-                        // Then who has a set passive and at which tier (Tarzan's aim guide and walk, Rocketer's POW aim).
+                        // Then who has a set passive and at which tier (Tarzan's walk and windless boomerang, Rocketer's POW aim).
                         if (msg.reader().available() > 0) {
                             if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.setTier = 0; // only those listed have one
                             int tiers = msg.reader().readUnsignedByte();
@@ -812,6 +833,49 @@ public class MessageHandler implements IMessageHandler {
                             for (int s = 0; s < running; s++) {
                                 int who = msg.reader().readUnsignedByte();
                                 if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].huntRun = true;
+                            }
+                        }
+                        // Server build 7: how big King Kong has grown standing still, in percent (the others are 100).
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.bodyPercent = 100;
+                            int grown = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < grown; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                int size = msg.reader().readUnsignedShort(); // up to 300
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].bodyPercent = size;
+                            }
+                        }
+                        // Then items waiting before they work again, {player, item id, turns left}: the Teleport.
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.teleportCooldown = 0;
+                            int cooling = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < cooling; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                int itemId = msg.reader().readUnsignedByte();
+                                int turns = msg.reader().readUnsignedByte();
+                                if (itemId == Item.ITEM_TELEPORT && PM.p != null && who < PM.p.length && PM.p[who] != null) {
+                                    PM.p[who].teleportCooldown = turns;
+                                }
+                            }
+                        }
+                        // And how many times bigger the maps are: walking climbs steps that much higher (CPlayer.climb).
+                        if (msg.reader().available() > 0) {
+                            MM.mapScale = Math.max(1, msg.reader().readUnsignedByte());
+                        }
+                        // Then who is shocked by Electrician this turn: 2 locked, 1 slowed, and the steps he may walk.
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.paralyzed = 0;
+                            int shocked = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < shocked; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                int level = msg.reader().readUnsignedByte();
+                                int steps = msg.reader().readUnsignedByte();
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) {
+                                    CPlayer p = PM.p[who];
+                                    if (level == 2 && p.paralyzed != 2) p.frozenAngle = p.angle; // locked where he aims now
+                                    p.paralyzed = level;
+                                    p.paralyzedSteps = steps;
+                                }
                             }
                         }
                         break;
@@ -1662,7 +1726,9 @@ public class MessageHandler implements IMessageHandler {
                             int xBomb = msg.reader().readInt();
                             int yBomb = msg.reader().readInt();
                             CRes.out("bomb x= " + xBomb + " bomb y= " + yBomb);
-                            TimeBomb bomb = new TimeBomb(bombId, xBomb, yBomb);
+                            // LAN build 7: Granos's grenades (ids below 0) drop from the sky onto the spot the server gives.
+                            TimeBomb bomb = new TimeBomb(bombId, xBomb, bombId < 0 ? yBomb - TimeBomb.GRENADE_DROP : yBomb);
+                            if (bomb.isGrenade()) bomb.falling = true;
                             // LAN: whose Chicky's Easter egg it is, so it takes the colours of her chicken.
                             if (msg.reader().available() > 0) bomb.owner = msg.reader().readByte();
                             CCanvas.gameScr.addTimeBomb(bomb);

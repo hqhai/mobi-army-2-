@@ -105,6 +105,8 @@ public class Player {
     final java.util.Set<Object> huntHammers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     /** Magenta's POW laser hit this player in this shot (SetPassive: her UFO is called over him). */
     boolean hitLaser;
+    /** Tarzan's kick (SetPassive): opponents his POW boomerang hurt this shot, with the x of the blast that did. */
+    final java.util.Map<Player, Integer> kicks = new java.util.LinkedHashMap<>();
     /**
      * Chicky's Easter eggs (SetPassive): her eggs that hit an opponent this shot (each counted once) and the last
      * opponent one hit, how many hit in the match toward the next Easter egg, and her damage dealt before this shot.
@@ -113,10 +115,30 @@ public class Player {
     Player lastEggTarget;
     int eggHits;
     int dealtBeforeShot;
-    /** LAN item 36 "Chỉ kẻ đầu": shots left with the aim guide that follows the wind. */
+    /** LAN item 36 "Chỉ kẻ đầu": shots left with the aim guide (nobody has one without it). */
     public int headGuideShots;
     /** Stunned (Electrician): turns to skip. */
     public int stunTurns;
+    /**
+     * LAN: the Teleport item (id TELEPORT_ITEM) is not used up; after a use it counts down TELEPORT_COOLDOWN of the
+     * player's turns (3, 2, 1) and works again at 0 (MapData.useItem), so once every 3 turns.
+     */
+    public static final int TELEPORT_ITEM = 1, TELEPORT_COOLDOWN = 3;
+    /**
+     * How high a step a walker climbs (4 px on the original maps); higher is a wall. The maps are Map.SCALE times
+     * bigger, their slopes too, so the step is as well; the clients get the scale in status message 114.
+     */
+    public static final int CLIMB = 4 * mobiarmy.server.Map.SCALE;
+    /** Granos's lasers are striking for this player (MapData.granosStrike): what they deal is true damage. */
+    public boolean laserStrike;
+    /**
+     * Electrician's shock (SetPassive.shock): 2 locked (no walking, no new angle), 1 slowed (paralyzeSlow percent fewer
+     * steps, aims no lower than 60 degrees), 0 none; paralyzeNext waits for the player's next turn, paralyzed is this
+     * one's. lastAng: the angle of his last shot (a locked player fires at it again).
+     */
+    public int paralyzed, paralyzeNext, paralyzeSlow;
+    public int lastAng = Integer.MIN_VALUE;
+    public int teleportCooldown;
 
 
     public class Item {
@@ -286,13 +308,13 @@ public class Player {
             return 0;
         }
         int dX = Math.abs(x - this.x);
-        int dY = Math.abs(y - (this.y - (this.height / 2)));
-        
-        int pX = (int) (100F / (float) (d + this.width) * (float)dX);
+        int dY = Math.abs(y - (this.y - (this.bodyHeight() / 2)));
+
+        int pX = (int) (100F / (float) (d + this.bodyWidth()) * (float)dX);
         if (pX > 100) {
             pX = 100;
         }
-        int pY = (int) (100F / (float) (d + this.height) * (float)dY);
+        int pY = (int) (100F / (float) (d + this.bodyHeight()) * (float)dY);
         if (pY > 100) {
             pY = 100;
         }
@@ -345,6 +367,8 @@ public class Player {
             } else if (SetPassive.trueHit(player, this)) {
                 // Miss 6's third hit: true damage (no defense, no luck save) and a sure crit.
                 this.attAffect = this.attAffect * SetPassive.trueHitCrit(player) / 100;
+            } else if (player.laserStrike) {
+                // Granos's lasers (MapData.granosStrike): true damage as they dealt it, no defense, no luck save.
             } else if (this.mapData.skillRules) {
                 int def = this.def + (this.lucky ? 3000 : 0);
                 boolean direct = this.attDirect > 0;
@@ -450,7 +474,7 @@ public class Player {
     }
     
     private void move(boolean addX) {
-        if (this.countFreeze > 0) {
+        if (this.countFreeze > 0 || this.paralyzed == 2) { // frozen, or locked by Electrician's shock: not one step
             return;
         }
         byte step = (byte) (this.isRunSpeed || this.huntRun ? 2 : 1);
@@ -463,7 +487,7 @@ public class Player {
         } else {
             this.x -= step;
         }
-        if(this.mapData.isCollisionMap(this.x, this.y - 5)) {
+        if(this.mapData.isCollisionMap(this.x, this.y - CLIMB - 1)) {
             this.buocdi--;
             if(addX) {
                 this.x -= step;
@@ -472,7 +496,7 @@ public class Player {
             }
             return;
         }
-        for(int i = 4; i >= 0; i--) {
+        for(int i = CLIMB; i >= 0; i--) {
             if(this.mapData.isCollisionMap(this.x, this.y - i)) {
                 this.y -= i;
                 return;
@@ -482,11 +506,22 @@ public class Player {
     }
 
     public boolean isCollision(int x, int y) {
-        return this.mapData.inRegion(x, y, this.x - this.width / 2, this.y - this.height, this.width, this.height);
+        int w = this.bodyWidth(), h = this.bodyHeight();
+        return this.mapData.inRegion(x, y, this.x - w / 2, this.y - h, w, h);
     }
-    
+
     public boolean isCollision(int x, int y, int d) {
-        return this.mapData.inRegion(x, y, this.x - this.width / 2 - d, this.y - this.height - d, this.width + 2 * d, this.height + 2 * d);
+        int w = this.bodyWidth(), h = this.bodyHeight();
+        return this.mapData.inRegion(x, y, this.x - w / 2 - d, this.y - h - d, w + 2 * d, h + 2 * d);
+    }
+
+    /** The body bullets hit, around the feet: King Kong grows while he stands still (SetPassive.bodyPercent). */
+    public int bodyWidth() {
+        return this.width * SetPassive.bodyPercent(this) / 100;
+    }
+
+    public int bodyHeight() {
+        return this.height * SetPassive.bodyPercent(this) / 100;
     }
     
     public void attBullet(Bullet bullet) {
@@ -525,6 +560,7 @@ public class Player {
                 SetPassive.bulletHit(shooterPlayer, this, bullet.bulletId);
                 SetPassive.hammerHit(shooterPlayer, this, bullet);
                 SetPassive.eggHit(shooterPlayer, this, bullet);
+                SetPassive.kickHit(shooterPlayer, this, bullet);
             }
             this.attAffect += att;
             if (direct) {
@@ -555,8 +591,12 @@ public class Player {
     }
     
     public void updateTurn() {
+        this.paralyzed = this.paralyzeNext; // Electrician's shock lasts this one turn
+        this.paralyzeNext = 0;
+        if (this.typePlayer == 0) this.theluc = SetPassive.steps(this);
         if (this.concreteTurns > 0) this.concreteTurns--;
         if (this.antiHealTurns > 0) this.antiHealTurns--;
+        if (this.teleportCooldown > 0) this.teleportCooldown--;
         SetPassive.newTurn(this);
         this.buocdi = 0;
         this.nTest = 0;

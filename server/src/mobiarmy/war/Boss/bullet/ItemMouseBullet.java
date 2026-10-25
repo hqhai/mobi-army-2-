@@ -45,11 +45,11 @@ public class ItemMouseBullet extends Bullet {
         int num5 = super.bY;
         kiemtraX: {
             super.bX += super.vx;
-            if(super.gun.mapData.isCollisionMap(super.bX, (super.bY + this.dLeg) - 5)) {
+            if(super.gun.mapData.isCollisionMap(super.bX, (super.bY + this.dLeg) - mobiarmy.war.Player.CLIMB - 1)) {
                 super.bX -= super.vx;
                 break kiemtraX;
             }
-            for(int i = 4; i >= 0; i--) {
+            for(int i = mobiarmy.war.Player.CLIMB; i >= 0; i--) {
                 if(super.gun.mapData.isCollisionMap(super.bX, (super.bY + this.dLeg) - i)) {
                     super.bY -= i;
                     break kiemtraX;

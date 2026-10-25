@@ -18,6 +18,8 @@ public class Session {
     public User                 user;
     public Training             training;
     public String               version;
+    /** LAN client build sent at login (ClientVersion); 0 for clients from before the build number. */
+    public int                  build;
 
     public Session(Socket socket, int id) throws IOException {
         this.id = id;

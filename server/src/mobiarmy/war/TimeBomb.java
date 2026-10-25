@@ -16,6 +16,8 @@ public class TimeBomb {
     public MapData mapData;
     /** Chicky's Easter egg (SetPassive) instead of a time bomb: ids 100 and up, owner in leadIndex. */
     public boolean egg;
+    /** One of Granos's grenades (SetPassive "Người Gieo Laze"): negative ids, owner in leadIndex, att a laser's damage. */
+    public boolean grenade;
     
     public TimeBomb(MapData mapData, int id, int leadIndex, int att, int x, int y, int count, int radius) {
         this.id = id;

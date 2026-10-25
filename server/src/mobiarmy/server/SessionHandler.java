@@ -443,7 +443,7 @@ public class SessionHandler {
             switch(typeIcon) {
                 case 0 -> data = getCache("res/icon/item/"+idIcon+".png");
                 case 1 -> data = getCache("res/icon/item/"+idIcon+".png");
-                case 2 -> data = getCache("res/icon/map/"+idIcon+".png");
+                case 2 -> data = Map.brick(idIcon).png; // LAN: Map.SCALE times bigger, as the matches use it
                 case 3 -> data = getCache("res/icon/item/"+idIcon+".png");
                 case 4 -> data = getCache("res/icon/item/"+idIcon+".png");
             }
@@ -1195,6 +1195,20 @@ public class SessionHandler {
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
+
+    /** LAN build 7: Tarzan's kick, the kicked players and where each lands; the client plays their flight. */
+    public void kick(java.util.List<Player> kicked) {
+        try {
+            Message message = new Message(ClientVersion.KICK_MESSAGE);
+            message.writer().writeByte(kicked.size());
+            for (Player player : kicked) {
+                message.writer().writeByte(player.index);
+                message.writer().writeShort(player.x);
+                message.writer().writeShort(player.y);
+            }
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
     
     public void shoot(Gun gun) {
         try {
@@ -1271,7 +1285,10 @@ public class SessionHandler {
             for (short[] rect : gun.mapData.protectedGround) {
                 for (short value : rect) message.writer().writeShort(value);
             }
-            message.writer().writeShort(0); // was Gunner's stack bonus (passive since replaced); kept for the layout
+            // Was Gunner's stack bonus; now how big this shot's bullets are drawn (percent, 0 as usual): King Kong's
+            // POW as big as he has grown (client build 7).
+            int grownPow = mobiarmy.war.SetPassive.powGrowth(shooter, shooter != null && shooter.isPow);
+            message.writer().writeShort(grownPow > 100 ? grownPow : 0);
             message.writer().writeByte(gun.poisonRain ? 1 : 0); // LAN item 38: the client paints the rain purple
             this.session.sendMessage(message);
         } catch (IOException ex){}
@@ -1299,8 +1316,8 @@ public class SessionHandler {
             for (mobiarmy.war.Player player : players) if (player != null && player.huntHidden) hidden++;
             message.writer().writeByte(hidden);
             for (mobiarmy.war.Player player : players) if (player != null && player.huntHidden) message.writer().writeByte(player.index);
-            // Then who has a set passive and at which tier: the client gives Tarzan the exact aim guide and longer walk,
-            // and lifts Rocketer's aim limit for his WorldWar POW.
+            // Then who has a set passive and at which tier: the client gives Tarzan the longer walk (and his windless
+            // boomerang on the item 36 guide) and lifts Rocketer's aim limit for his WorldWar POW.
             int tiers = 0;
             for (mobiarmy.war.Player player : players) if (player != null && player.setTier > 0) tiers++;
             message.writer().writeByte(tiers);
@@ -1314,6 +1331,37 @@ public class SessionHandler {
             for (mobiarmy.war.Player player : players) if (player != null && player.huntRun) running++;
             message.writer().writeByte(running);
             for (mobiarmy.war.Player player : players) if (player != null && player.huntRun) message.writer().writeByte(player.index);
+            // Client build 7: how big King Kong has grown standing still (SetPassive.bodyPercent; the others are 100).
+            int grown = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && mobiarmy.war.SetPassive.bodyPercent(player) != 100) grown++;
+            message.writer().writeByte(grown);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null || mobiarmy.war.SetPassive.bodyPercent(player) == 100) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeShort(mobiarmy.war.SetPassive.bodyPercent(player)); // up to 300
+            }
+            // Client build 7: items waiting before they work again, as {player, item id, turns left}: the Teleport.
+            int cooling = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && player.teleportCooldown > 0) cooling++;
+            message.writer().writeByte(cooling);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null || player.teleportCooldown <= 0) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeByte(mobiarmy.war.Player.TELEPORT_ITEM);
+                message.writer().writeByte(player.teleportCooldown);
+            }
+            // And how many times bigger the maps are (Map.SCALE): walking climbs steps that much higher (Player.CLIMB).
+            message.writer().writeByte(Map.SCALE);
+            // Then who is shocked by Electrician this turn, {player, 2 locked or 1 slowed, steps he may walk}.
+            int shocked = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && player.paralyzed > 0) shocked++;
+            message.writer().writeByte(shocked);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null || player.paralyzed <= 0) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeByte(player.paralyzed);
+                message.writer().writeByte(player.theluc);
+            }
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }

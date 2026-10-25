@@ -182,15 +182,32 @@ public class CPlayer {
         return this.gun == 4 && this.setTier > 0 && this.itemUsed == 100;
     }
 
-    /** Lowest aim of this character (angleLock), or straight down for Rocketer's WorldWar POW. */
-    int angleLimit() {
-        return this.worldWarPow() ? -90 : angleLock[this.gun];
+    /** Granos's POW with his set passive (build 7): the seed of his lasers, aimed at any angle too (server laserSower). */
+    public boolean laserSeedPow() {
+        return this.gun == 5 && this.setTier > 0 && this.itemUsed == 100;
     }
 
-    /** Steps a turn: 60, twice as many for Tarzan with his set passive (server Player.theluc). */
+    /**
+     * Lowest aim of this character (angleLock), or straight down for Rocketer's WorldWar POW and Granos's seed; no
+     * lower than 60 degrees while Electrician's shock slows him (build 7, the server holds him to it too).
+     */
+    public int angleLimit() {
+        int limit = this.worldWarPow() || this.laserSeedPow() ? -90 : angleLock[this.gun];
+        return this.paralyzed == 1 ? Math.max(limit, SHOCK_MIN_ANGLE) : limit;
+    }
+
+    /** Steps a turn: 60, twice as many for Tarzan with his set passive; Electrician's shock sets fewer (Player.theluc). */
     public int maxMovePoint() {
+        if (this.paralyzed > 0) return this.paralyzedSteps;
         return this.pactTarzan() ? 120 : MAX_MOVE_POINT;
     }
+
+    /**
+     * Electrician's shock this turn (status message 114, build 7): 2 locked, no walking and no new angle (frozenAngle,
+     * the angle he had when it began); 1 slowed, fewer steps and no aim below SHOCK_MIN_ANGLE; 0 none.
+     */
+    public int paralyzed, paralyzedSteps, frozenAngle;
+    public static final int SHOCK_MIN_ANGLE = 60;
     public boolean active;
     boolean isSendM_autoDie;
     public int hp;
@@ -208,6 +225,36 @@ public class CPlayer {
     public boolean isRunSpeed;
     /** Apache's set passive: hidden by his hunt, he walks twice as far (status message 114, server build 6). */
     public boolean huntRun;
+    /** King Kong's set passive: how big he has grown standing still, in percent (status message 114, build 7). */
+    public int bodyPercent = 100;
+
+    /**
+     * LAN: turns of this player left before his Teleport works again (status message 114, build 7): it is never used
+     * up, but waits 3 of his turns between uses. Practice has no wait.
+     */
+    public int teleportCooldown;
+
+    public boolean itemCooling(int itemID) {
+        return itemID == Item.ITEM_TELEPORT && this.teleportCooldown > 0 && !GameScr.trainingMode;
+    }
+
+    /**
+     * How high a step a walker climbs: 4 px on the original maps, MM.mapScale times that on the bigger LAN maps (the
+     * server's Player.CLIMB); a higher one is a wall.
+     */
+    public static int climb() {
+        return 4 * MM.mapScale;
+    }
+
+    /** How much bigger to draw him: King Kong grown standing still, alive; everyone else as usual. */
+    public float grownScale() {
+        return this.gun == GUN_CHUOI && this.state != PSTATE_DIE ? this.bodyPercent / 100f : 1f;
+    }
+
+    /** How far his grown head rises above the usual 32 px (the HP bar and name move up as much). */
+    public int grownLift() {
+        return Math.round(32 * (this.grownScale() - 1f));
+    }
     public boolean isStopWind;
     public boolean isPoison;
     public boolean poisonEff;
@@ -551,6 +598,45 @@ public class CPlayer {
         return this.state;
     }
 
+    /** Tarzan's kick (message 127, LAN build 7): KICK_TICKS ticks in an arc from where he stood to where he lands. */
+    private static final int KICK_TICKS = 28, KICK_PEAK = 40;
+    private int kickTick = -1, kickFromX, kickFromY, kickToX, kickToY;
+
+    public void kickTo(int xT, int yT) {
+        this.kickFromX = this.x;
+        this.kickFromY = this.y;
+        this.kickToX = xT;
+        this.kickToY = yT;
+        this.kickTick = 0;
+        this.falling = false;
+        this.isActiveFall = false;
+        this.activeFallbyEx = false;
+        this.isMove = false;
+    }
+
+    public boolean kicked() {
+        return this.kickTick >= 0;
+    }
+
+    /** One tick of the kick's flight; false once he has landed (the next message may then be read). */
+    private boolean kickFly() {
+        if (this.kickTick < 0) {
+            return false;
+        }
+        float t = ++this.kickTick / (float) KICK_TICKS;
+        if (t >= 1f) {
+            this.kickTick = -1;
+            GameScr.pm.updatePlayerXY(this.index, (short) this.kickToX, (short) this.kickToY);
+            this.xToNow = this.kickToX;
+            this.yToNow = this.kickToY;
+            Session_ME.receiveSynchronized = 0;
+            return false;
+        }
+        this.x = this.kickFromX + Math.round((this.kickToX - this.kickFromX) * t);
+        this.y = this.kickFromY + Math.round((this.kickToY - this.kickFromY) * t - 4 * KICK_PEAK * t * (1 - t));
+        return true;
+    }
+
     public void flyToPoint(int xT, int yT) {
         this.flyActive = true;
         this.xTo = xT;
@@ -598,6 +684,13 @@ public class CPlayer {
     }
 
     public void update() {
+        if (this.kickFly()) {
+            return;
+        }
+        if (this.paralyzed == 2) {
+            this.angle = this.frozenAngle; // locked by Electrician's shock: whatever tries to turn the gun, it stays
+        }
+
         if (PM.curP == GameScr.myIndex) {
             if (this.angryX < this.currAngry) {
                 this.angryX = (byte) (this.angryX + 2);
@@ -632,8 +725,10 @@ public class CPlayer {
                 this.animHurt();
         }
 
-        this.dx = this.radius * CRes.cos(this.angle) >> 10;
-        this.dy = this.radius * CRes.sin(this.angle) >> 10;
+        // (King Kong grown standing still holds his gun further out: the crosshair stays outside him.)
+        int aimRadius = Math.round(this.radius * this.grownScale());
+        this.dx = aimRadius * CRes.cos(this.angle) >> 10;
+        this.dy = aimRadius * CRes.sin(this.angle) >> 10;
         if (this.isCom && !this.flyPlayer && !this.isJump) {
             if (this.nextx == this.x && this.nexty == this.y) {
                 this.setState((byte) 1);
@@ -1135,10 +1230,16 @@ public class CPlayer {
             if (this.isUsedItem) {
                 return;
             }
+            if (this.itemCooling(itemID)) {
+                if (CCanvas.gameScr != null && coreLG.TerrainMidlet.myInfo != null) {
+                    CCanvas.gameScr.showChat(coreLG.TerrainMidlet.myInfo.IDDB, "Dịch chuyển: chờ " + this.teleportCooldown + " lượt nữa", 90);
+                }
+                return;
+            }
 
             GameService.gI().useItem((byte) itemID);
             if (itemID == Item.HEAD_GUIDE) headGuideShots = 2; // this turn and the next
-            if (PrepareScr.currLevel != 7) {
+            if (PrepareScr.currLevel != 7 && itemID != Item.ITEM_TELEPORT) { // the Teleport stays, cooling down
                 this.item[curSlot] = -1;
             }
 
@@ -1243,8 +1344,8 @@ public class CPlayer {
                 new Explosion(this.x, this.y - 12, (byte) 3, this.index, (byte) itemID);
             }
 
-            if (this.index == GameScr.myIndex && itemID != 100 && !GameScr.trainingMode) {
-                --ShopItem.getI(itemID).num;
+            if (this.index == GameScr.myIndex && itemID != 100 && itemID != Item.ITEM_TELEPORT && !GameScr.trainingMode) {
+                --ShopItem.getI(itemID).num; // (the Teleport is never used up: it cools down)
             }
 
             mSound.playSound(1, mSound.volumeSound, 3);
@@ -1376,7 +1477,12 @@ public class CPlayer {
                 }
             }
 
-            g.drawRegion(lua, 0, this.fa * 47, 41, 47, 0, this.x, this.y, 33, false);
+            g.beginScaleAround(this.x, this.y, this.grownScale());
+            try {
+                g.drawRegion(lua, 0, this.fa * 47, 41, 47, 0, this.x, this.y, 33, false);
+            } finally {
+                g.endScaleAround();
+            }
         }
 
         int Look = this.look;
@@ -1392,11 +1498,17 @@ public class CPlayer {
                             if (this.gun != 22) {
                                 if (this.gun != 23 && this.gun != 24) {
                                     if (PrepareScr.currLevel != 7 || PrepareScr.currLevel == 7 && this.state != 5 && this.hp != 0) {
-                                        if (this.equip != null) {
-                                            this.equip.paint(g, Look, this.curFrame, this.x, this.y);
-                                        } else {
-                                            if (!PhotonSkin.paint(g, this.gun, Look, this.curFrame, this.x, this.y))
-                                                this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
+                                        // King Kong grows standing still (set passive): his whole body, around his feet.
+                                        g.beginScaleAround(this.x, this.y, this.grownScale());
+                                        try {
+                                            if (this.equip != null) {
+                                                this.equip.paint(g, Look, this.curFrame, this.x, this.y);
+                                            } else {
+                                                if (!PhotonSkin.paint(g, this.gun, Look, this.curFrame, this.x, this.y))
+                                                    this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
+                                            }
+                                        } finally {
+                                            g.endScaleAround();
                                         }
                                     }
 
@@ -1435,7 +1547,7 @@ public class CPlayer {
 
     private void paintCrosshair(mGraphics g) {
         if (!(this instanceof Boss)) {
-            g.drawImage(crosshair, this.x + this.dx, this.y - this.dy - 11, mGraphics.HCENTER | mGraphics.VCENTER, false);
+            g.drawImage(crosshair, this.x + this.dx, this.y - this.dy - Math.round(11 * this.grownScale()), mGraphics.HCENTER | mGraphics.VCENTER, false);
             if (CCanvas.isDebugging()) {
                 String param = "a " + this.angle;
                 Font.smallFont.drawString(g, param, this.x + this.dx + 5, this.y - this.dy - 11 + 5, 2, false);
@@ -1453,7 +1565,7 @@ public class CPlayer {
         if (GameScr.res.equals("")) {
             if (this.gun != 15) {
                 if (this.state != 5 && this.hp > 0) {
-                    int dy = this.gun != 10 ? 40 : 46;
+                    int dy = (this.gun != 10 ? 40 : 46) + this.grownLift();
                     g.setColor(16777215);
                     g.fillRect(this.x - 15, this.y + 5 - dy, 25, 4, false);
                     if (this.hpRectW > 16) {
@@ -1477,7 +1589,7 @@ public class CPlayer {
         }
     }
 
-    /** Unused since Gunner's stacking passive was replaced; the shot message still carries it. */
+    /** How big this player's last shot's bullets are drawn, percent (0 as usual): King Kong's grown POW (build 7). */
     public int passiveBonus;
     /** From the server (message 114): healing halved by the poison rain, or losing the next turn. */
     public boolean poisoned, stunned;
@@ -1486,9 +1598,13 @@ public class CPlayer {
     public void paintName(mGraphics g) {
         if (this.state != 5) {
             // smallFont has only digits and capitals; borderFont is white with a black edge, tinted purple here.
-            int y = this.y - 60;
+            int y = this.y - 60 - this.grownLift();
             if (this.stunned) {
                 Font.normalYFont.drawString(g, "Choáng", this.x, y, 2);
+                y -= 13;
+            }
+            if (this.paralyzed > 0) {
+                Font.normalYFont.drawString(g, "Tê liệt", this.x, y, 2);
                 y -= 13;
             }
             if (this.poisoned) {
@@ -1499,10 +1615,10 @@ public class CPlayer {
         }
         if (PM.curP == this.index) {
             if (CCanvas.gameTick % 10 > 5) {
-                (this.team ? Font.smallFontRed : Font.smallFontYellow).drawString(g, this.name.toUpperCase(), this.x, this.y - 44, 2);
+                (this.team ? Font.smallFontRed : Font.smallFontYellow).drawString(g, this.name.toUpperCase(), this.x, this.y - 44 - this.grownLift(), 2);
             }
         } else {
-            (this.team ? Font.smallFontRed : Font.smallFontYellow).drawString(g, this.name.toUpperCase(), this.x, this.y - 44, 2);
+            (this.team ? Font.smallFontRed : Font.smallFontYellow).drawString(g, this.name.toUpperCase(), this.x, this.y - 44 - this.grownLift(), 2);
         }
 
         int dy = this.gun != 10 ? 27 : 35;
@@ -1699,7 +1815,7 @@ public class CPlayer {
                 }
 
                 if (!this.isCom) {
-                    if (this.movePoint > this.maxMovePoint()) {
+                    if (this.movePoint > this.maxMovePoint() || this.paralyzed == 2) { // (locked: not one step)
                         return;
                     }
 
@@ -1714,7 +1830,7 @@ public class CPlayer {
                 }
 
                 this.falling = true;
-                if (GameScr.mm.isLand(this.x, this.y - 5)) {
+                if (GameScr.mm.isLand(this.x, this.y - climb() - 1)) {
                     if (!this.isCom) {
                         --this.movePoint;
                     }
@@ -1730,7 +1846,7 @@ public class CPlayer {
                         this.y = this.nexty;
                     }
                 } else {
-                    for (int i = 4; i >= 0; --i) {
+                    for (int i = climb(); i >= 0; --i) {
                         if (GameScr.mm.isLand(this.x, this.y - i)) {
                             this.falling = false;
                             this.y -= i;
@@ -1784,7 +1900,7 @@ public class CPlayer {
                 }
 
                 if (!this.isCom) {
-                    if (this.movePoint > this.maxMovePoint()) {
+                    if (this.movePoint > this.maxMovePoint() || this.paralyzed == 2) { // (locked: not one step)
                         return;
                     }
 
@@ -1804,7 +1920,7 @@ public class CPlayer {
                     GameService.gI().move((short) this.x, (short) this.y);
                 }
 
-                if (GameScr.mm.isLand(this.x, this.y - 5)) {
+                if (GameScr.mm.isLand(this.x, this.y - climb() - 1)) {
                     if (!this.isCom) {
                         --this.movePoint;
                     }
@@ -1820,7 +1936,7 @@ public class CPlayer {
                         this.y = this.nexty;
                     }
                 } else {
-                    for (int i = 4; i >= 0; --i) {
+                    for (int i = climb(); i >= 0; --i) {
                         if (GameScr.mm.isLand(this.x, this.y - i)) {
                             this.y -= i;
                             this.nexty = this.y;
@@ -2244,95 +2360,99 @@ public class CPlayer {
     }
     
     public void drawKegoc(mGraphics g) {
-        int w = 24, h = 24, lent;
+        if (!this.guideShown()) {
+            return;
+        }
+        // From his body as big as it is, as the server fires it (MapData.shoot).
+        int w = Math.round(24 * this.grownScale()), h = w, lent;
         int x = this.x + ((w - 4) * cos(this.angle) >> 10);
         int y = this.y -(h / 2) - ((h - 4) * sin(this.angle) >> 10);
         int vx = this.maxforce * cos(this.angle) >> 10;
         int vy = -(this.maxforce * sin(this.angle) >> 10);
-        this.guideColor = (0x0000ff);
+        this.guideColor = GUIDE_COLOR;
         switch (this.itemUsed) {
             case 1:
-                this.guideColor = (0x00ff00);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 5, x, y, vx, vy, 0, 0, 80);
                 break;
             case 6:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 6, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 90);
                 break;
             case 7:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 7, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 80);
                 break;
             case 8:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 4, x, y, vx, vy, 0, 0, 80);
                 break;
             case 9:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 8, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 70);
                 break;
             case 11:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 16, x, y, vx, vy, 0, 0, 100);
                 break;
             case 16:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 14, x, y, vx, vy, this.guideWindX(10), this.guideWindY(10), 50);
                 break;
             case 17:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 13, x, y, vx, vy, this.guideWindX(50), this.guideWindY(50), 120);
                 break;
             case 18:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 //drawBullet(g, 22, x, y, vx, vy, 0, 0, 0);
                 break;
             case 19:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 26, x, y, vx, vy, this.guideWindX(30), this.guideWindY(30), 60);
                 break;
             case 20:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 25, x, y, vx, vy, 0, 0, -50);
                 break;
             case 21:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 23, x, y, vx, vy, this.guideWindX(20), this.guideWindY(20), 100);
                 break;
             case 22:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 28, x, y, vx, vy, 0, 0, 20);
                 break;
             case 23:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 30, x, y, 0, 2, 0, 0, 0);
                 break;
             case 24:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 //drawBullet(g, 50, x, y, 0, 0, 0, 0, 0);
                 break;
             case 25:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 51, x, y, vx, vy, this.guideWindX(5), this.guideWindY(5), 60);
                 break;
             case 26:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 52, x, y, vx, vy, this.guideWindX(10), this.guideWindY(10), 100);
                 break;
             case 27:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 //drawBullet(g, 53, x, y, 0, 0, 0, 0, 0);
                 break;
             case 28:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 54, x, y, vx, vy, 0, 0, 80);
                 break;
             case 29:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 55, x, y, vx, vy, this.guideWindX(6), this.guideWindY(6), 60);
                 break;
             case 30:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 lent = 3; 
                 int step = 5;
                 for (int j = 0; j < lent; j++) {
@@ -2345,7 +2465,7 @@ public class CPlayer {
                 }
                 break;
             case 31:
-                this.guideColor = (0xee8aaa);
+                this.guideColor = GUIDE_COLOR;
                 drawBullet(g, 57, x, y, vx, vy, 0, 0, 120);
                 break;
 
@@ -2386,7 +2506,11 @@ public class CPlayer {
                         }
                         break;
                     case 5:
-                        drawBullet(g, 11, x, y, vx, vy, this.guideWindX(30) , this.guideWindY(30), 90);
+                        if (this.laserSeedPow()) {
+                            drawBullet(g, 4, x, y, vx, vy, 0, 0, 80); // Granos's seed: no wind, like the flare
+                        } else {
+                            drawBullet(g, 11, x, y, vx, vy, this.guideWindX(30) , this.guideWindY(30), 90);
+                        }
                         break;
                     case 6:
                         drawBullet(g, 19, x, y, vx, vy, this.guideWindX(20) , this.guideWindY(20), 50);
@@ -2416,25 +2540,27 @@ public class CPlayer {
     private int guideColor;
     /** Map pixels between two dots of the aim guide, and the path length over which they shrink to the smallest. */
     private static final int GUIDE_GAP = 14, GUIDE_FADE = 600;
+    /** Light sea blue of the guide, and the paler blue of its branches (Chicky's egg, Apache's hammers, Magenta's laser). */
+    private static final int GUIDE_COLOR = 0x7fd3f7, GUIDE_BRANCH = 0xc4ecff;
     private static mImage guideDot;
-    private static com.badlogic.gdx.graphics.Color guideTint;
+    private static com.badlogic.gdx.graphics.Color guideTint, guideNumberTint;
 
     /**
-     * LAN aim guide: round dots, big at the gun and smaller along the way (like GunPow), over the whole path the shot
-     * would fly WITHOUT wind, until it meets ground or a player in sight; with wind the shot leaves it. Item 36 "Chỉ kẻ
-     * đầu" and Tarzan's set passive (his boomerang ignores the wind) show the real path, wind included.
+     * LAN aim guide (build 7): none, for everyone alike, unless item 36 "Chỉ kẻ đầu" is on (this turn and the next):
+     * then round dots, big at the gun and smaller along the way (like GunPow), over the whole path the shot will fly,
+     * wind included, until it meets ground or a player in sight.
      */
-    private boolean exactGuide() {
-        return (headGuideShots > 0 || this.pactTarzan()) && this == PM.getMyPlayer();
+    public boolean guideShown() {
+        return headGuideShots > 0 && this == PM.getMyPlayer();
     }
 
-    /** Wind a guide path feels: share percent of the real wind on the exact guide, none on the usual one. */
+    /** Wind a guide path feels: share percent of the real wind, as the server's bullet does. */
     private int guideWindX(int share) {
-        return this.exactGuide() ? GameScr.windx * share / 100 : 0;
+        return GameScr.windx * share / 100;
     }
 
     private int guideWindY(int share) {
-        return this.exactGuide() ? GameScr.windy * share / 100 : 0;
+        return GameScr.windy * share / 100;
     }
 
     private void drawBullet(mGraphics g, int bulletId, int x, int y, int vx, int vy, int ax100, int ay100, int g100) {
@@ -2478,10 +2604,12 @@ public class CPlayer {
                     nextDot = walked + GUIDE_GAP;
                 }
             }
-            if ((bulletId == 19 || bulletId == 17) && frame < 30) {
-                // Chicky's and Apache's step numbers, for "lm" force 2.
-                g.setColor(0xff0000);
+            if ((bulletId == 19 || bulletId == 17) && frame < 30 && (frame + 1) % 5 == 0) {
+                // Chicky's and Apache's step numbers (for "lm" force 2), every 5 steps and faint so the guide stays light.
+                if (guideNumberTint == null) guideNumberTint = new com.badlogic.gdx.graphics.Color(1f, 1f, 1f, 0.5f);
+                g.tint = guideNumberTint;
                 Font.normalGFont.drawString(g, String.valueOf(frame + 1), x, y + 5, 65);
+                g.tint = null;
             }
             vxTemp  += Math.abs(ax100);
             vyTemp  += Math.abs(ay100);
@@ -2508,7 +2636,7 @@ public class CPlayer {
             }
             if (bulletId == 17 && frame + 1 == this.maxforce2) {
                 int color = this.guideColor;
-                this.guideColor = 0xffff00;
+                this.guideColor = GUIDE_BRANCH;
                 int ang = this.angle + fixangle(angle(PM.getMyPlayer().x - xold, PM.getMyPlayer().y - yold));
                 if (this.angle < 90) {
                     ang = 180 - ang;
@@ -2557,14 +2685,14 @@ public class CPlayer {
                     }
                 }
                 int color = this.guideColor;
-                this.guideColor = 0xff0000;
+                this.guideColor = GUIDE_BRANCH;
                 this.guidePath(g, -1, x, y, vx, vy, 0, 0, 0, walked);
                 this.guideColor = color;
                 return;
             }
             if (bulletId == 19 && frame + 1 == this.maxforce2) {
                 int color = this.guideColor;
-                this.guideColor = 0xffff00;
+                this.guideColor = GUIDE_BRANCH;
                 this.guidePath(g, 20, x, y + 8, 0, 0, ax100 / 2, ay100 / 2, 30, walked);
                 this.guideColor = color;
             }
@@ -2582,15 +2710,15 @@ public class CPlayer {
         return false;
     }
 
-    /** One dot of the guide in guideColor, smaller the farther along the path (walked pixels). */
+    /** One soft dot of the guide in guideColor, smaller and fainter the farther along the path (walked pixels). */
     private void drawGuideDot(mGraphics g, int x, int y, int walked) {
         if (guideDot == null) {
             guideDot = mImage.createImage("/gui/aimdot.png");
             guideTint = new com.badlogic.gdx.graphics.Color();
         }
-        float scale = Math.max(0.3f, 0.75f - 0.45f * walked / GUIDE_FADE);
+        float scale = Math.max(0.4f, 0.8f - 0.4f * walked / GUIDE_FADE);
         com.badlogic.gdx.graphics.Color.rgb888ToColor(guideTint, this.guideColor);
-        guideTint.a = 0.9f;
+        guideTint.a = Math.max(0.25f, 0.9f * (float) Math.exp(-walked / 700.0)); // fainter toward the far end, never gone
         g.tint = guideTint;
         g.drawScale = scale;
         g.drawImage(guideDot, x, y, 3, false);

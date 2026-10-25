@@ -138,13 +138,17 @@ public class ApacheHuntCheck {
         check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0, "then the hidden list: Apache only");
         check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0 && in.readUnsignedByte() == 6,
                 "then who has a set passive: Apache at tier 6");
-        check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0 && in.available() == 0, "then who runs twice as far: Apache");
+        check(in.readUnsignedByte() == 1 && in.readUnsignedByte() == 0, "then who runs twice as far: Apache");
+        check(in.readUnsignedByte() == 0 && in.readUnsignedByte() == 0,
+                "then (build 7) who has grown, King Kong standing still, and whose Teleport waits: nobody");
+        check(in.readUnsignedByte() == mobiarmy.server.Map.SCALE, "then how many times bigger the maps are");
+        check(in.readUnsignedByte() == 0 && in.available() == 0, "and last who is shocked by Electrician: nobody");
         apache.huntHidden = false;
         apache.huntRun = false;
         session.sessionHandler.status(map.players);
         in = new DataInputStream(new ByteArrayInputStream(session.sent.get(1)));
         in.skipBytes(1 + 2 * 3);
-        check(in.readUnsignedByte() == 0 && in.available() == 4, "nobody hidden: an empty list (the set tiers and an empty run list follow)");
+        check(in.readUnsignedByte() == 0 && in.available() == 8, "nobody hidden: an empty list (the set tiers, empty run, size and cooldown lists, the map scale and an empty shock list follow)");
     }
 
     static void hammers() throws Exception {

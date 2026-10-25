@@ -42,8 +42,10 @@ public class ClientVersionCheck {
     public static void main(String[] args) throws Exception {
         String client = Files.readString(Path.of("client/core/src/com/teamobi/mobiarmy2/GameMidlet.java"), StandardCharsets.UTF_8);
         Matcher build = Pattern.compile("LAN_BUILD\\s*=\\s*(\\d+)").matcher(client);
-        check(build.find() && Integer.parseInt(build.group(1)) == ClientVersion.REQUIRED,
-                "client LAN_BUILD equals server REQUIRED (" + ClientVersion.REQUIRED + ")");
+        check(build.find() && Integer.parseInt(build.group(1)) == ClientVersion.LATEST,
+                "client LAN_BUILD equals server LATEST (" + ClientVersion.LATEST + ")");
+        check(ClientVersion.REQUIRED <= ClientVersion.LATEST && ClientVersion.KICK_BUILD <= ClientVersion.LATEST,
+                "the required build and the kick's are not newer than the latest");
 
         check(ClientVersion.problem(0) != null && ClientVersion.problem(0).contains("cũ"), "a client without a build is old");
         check(ClientVersion.problem(ClientVersion.REQUIRED) == null && ClientVersion.problem(ClientVersion.REQUIRED + 1) == null,
@@ -64,6 +66,7 @@ public class ClientVersionCheck {
         session = session();
         session.controlHandler.handleControlMessage(login(true, ClientVersion.REQUIRED - 1));
         check(session.user == null && session.commands.equals(List.of(45)), "an older build is refused too");
+        check(session.build == ClientVersion.REQUIRED - 1, "the session keeps the build it logged in with");
         System.out.println("CLIENT VERSION PASSED: " + checks + " checks");
     }
 

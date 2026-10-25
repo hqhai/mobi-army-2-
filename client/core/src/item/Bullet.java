@@ -621,6 +621,7 @@ public class Bullet {
             case 4:
             case 16:
             case BM.WORLDWAR_FLARE:
+            case BM.GRANOS_SEED:
                 this.frmImg = new FrameImage(bomb_flag.image, 32, 32);
                 this.smoke = true;
                 this.changeFrame = true;
@@ -1431,7 +1432,7 @@ public class Bullet {
             new Explosion(this.x, this.y, (byte) 1);
         } else if (this.type != 5 && this.type != 36) {
             if (this.type != 8 && this.type != 56) {
-                if (this.type == 57) {
+                if (this.type == 57 || this.type == BM.GRANOS_SEED) { // (Granos's seed lands softly: no hole)
                     new Explosion(this.x, this.y, (byte) 1);
                 } else if (this.type != 53) {
                     if (this.type == 47) {
@@ -1529,10 +1530,17 @@ public class Bullet {
                             } else if (this.type == 54) {
                                 new Explosion(this.x, this.y, (byte) 14);
                             } else if (this.type == 42) {
-                                for (i = 0; i < PM.p.length; ++i) {
-                                    CPlayer p = PM.p[i];
-                                    if (p != null && p.gun == 16 && p.getState() != 5) {
-                                        BM.lazerPosition.addElement(new Position(p.x, p.y, this.x, this.y));
+                                CPlayer shooter = this.whoShot >= 0 && this.whoShot < PM.p.length ? PM.p[this.whoShot] : null;
+                                if (shooter != null && shooter.gun != 16) {
+                                    // LAN: one of Granos's lasers (not a UFO's): from the sky, bursting his grenade there.
+                                    BM.lazerPosition.addElement(new Position(this.x, Camera.y - 20, this.x, this.y));
+                                    GameScr.burstGrenades(this.x);
+                                } else {
+                                    for (i = 0; i < PM.p.length; ++i) {
+                                        CPlayer p = PM.p[i];
+                                        if (p != null && p.gun == 16 && p.getState() != 5) {
+                                            BM.lazerPosition.addElement(new Position(p.x, p.y, this.x, this.y));
+                                        }
                                     }
                                 }
 
@@ -1740,6 +1748,9 @@ public class Bullet {
                         // Gunner's set passive: his POW is a giant cannonball, as much bigger as the hole it digs.
                         if (this.type == 0 && map.CMap.holeScaleBullet == 0 && map.CMap.holeScale > 100) g.drawScale = map.CMap.holeScale / 100f;
                         if (this.type == BM.WORLDWAR_BOMB) g.drawScale = 1.5f; // the nuclear bombs are big ones
+                        // King Kong's POW, as big as he has grown standing still (server SetPassive.powGrowth).
+                        if (this.type == 9 && this.whoShot >= 0 && this.whoShot < PM.p.length && PM.p[this.whoShot] != null
+                                && PM.p[this.whoShot].passiveBonus > 100) g.drawScale = PM.p[this.whoShot].passiveBonus / 100f;
                         this.frmImg.drawFrame(this.curFrame, this.x, this.y, this.trans, 3, g, false);
                         g.drawScale = 1f;
                     } else if (this.type == 2) {

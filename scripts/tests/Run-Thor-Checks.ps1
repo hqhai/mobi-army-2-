@@ -6,7 +6,7 @@ try {
     $java = "$root/tools/jdk-21/bin/java.exe"
     $javac = "$root/tools/jdk-21/bin/javac.exe"
     New-Item -ItemType Directory -Force verification, verification/tmp, verification/profile | Out-Null
-    & $javac -encoding UTF-8 -cp 'runtime/server-classes;server/lib/*' -d verification scripts/tests/ThorShopCheck.java scripts/tests/ApacheMechanicsCheck.java scripts/tests/SkillBalanceCheck.java scripts/tests/ClientVersionCheck.java scripts/tests/WindCheck.java scripts/tests/UpgradeTableCheck.java scripts/tests/SetPassiveCheck.java scripts/tests/ApacheHuntCheck.java scripts/tests/ThorCostumeCheck.java scripts/tests/CostumeBulletsCheck.java scripts/tests/RoomStartCheck.java scripts/tests/AdminRoleCheck.java
+    & $javac -encoding UTF-8 -cp 'runtime/server-classes;server/lib/*' -d verification scripts/tests/ThorShopCheck.java scripts/tests/ApacheMechanicsCheck.java scripts/tests/SkillBalanceCheck.java scripts/tests/ClientVersionCheck.java scripts/tests/WindCheck.java scripts/tests/UpgradeTableCheck.java scripts/tests/SetPassiveCheck.java scripts/tests/ApacheHuntCheck.java scripts/tests/ThorCostumeCheck.java scripts/tests/CostumeBulletsCheck.java scripts/tests/RoomStartCheck.java scripts/tests/AdminRoleCheck.java scripts/tests/MapScaleCheck.java
     if ($LASTEXITCODE -ne 0) { throw 'Server test compilation failed.' }
     [Environment]::SetEnvironmentVariable('ARMY_DB_PASSWORD', (Import-Clixml runtime/db-credential.xml).GetNetworkCredential().Password, 'Process')
     try {
@@ -19,6 +19,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Costume bullet checks failed; see verification/costume-bullets.log.' }
         & $java '-Darmy.db.url=jdbc:mysql://127.0.0.1:3307/army' -cp '../verification;../runtime/server-classes;lib/*' AdminRoleCheck *> ../verification/admin-role.log
         if ($LASTEXITCODE -ne 0) { throw 'Admin role checks failed; see verification/admin-role.log.' }
+        & $java -cp '../verification;../runtime/server-classes;lib/*' MapScaleCheck
+        if ($LASTEXITCODE -ne 0) { throw 'Map scale checks failed.' }
     } finally {
         Pop-Location
         [Environment]::SetEnvironmentVariable('ARMY_DB_PASSWORD', $null, 'Process')

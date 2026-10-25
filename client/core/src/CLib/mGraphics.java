@@ -88,6 +88,34 @@ public class mGraphics {
         return this.translateY / zoomLevel;
     }
 
+    private final com.badlogic.gdx.math.Matrix4 transformBefore = new com.badlogic.gdx.math.Matrix4();
+    private final com.badlogic.gdx.math.Matrix4 transformScaled = new com.badlogic.gdx.math.Matrix4();
+    private boolean scaledAround;
+
+    /**
+     * Until endScaleAround(): every draw is s times bigger around the point (x, y) of the current coordinates, such
+     * as a character's feet, so the parts of a drawing keep their places relative to each other (drawScale cannot:
+     * it grows each image around its own centre). Always pair it with endScaleAround(), in a finally.
+     */
+    public void beginScaleAround(int x, int y, float s) {
+        if (this.scaledAround || s == 1f) {
+            return;
+        }
+        float px = x * zoomLevel + this.translateX, py = y * zoomLevel + this.translateY; // where _drawRegion puts (x, y)
+        this.transformBefore.set(this.g.getTransformMatrix());
+        this.transformScaled.set(this.transformBefore).translate(px, py, 0).scale(s, s, 1).translate(-px, -py, 0);
+        this.g.setTransformMatrix(this.transformScaled);
+        this.scaledAround = true;
+    }
+
+    public void endScaleAround() {
+        if (!this.scaledAround) {
+            return;
+        }
+        this.g.setTransformMatrix(this.transformBefore);
+        this.scaledAround = false;
+    }
+
     public void enableBlending(float alpha) {
         this.g.setColor(1.0F, 1.0F, 1.0F, alpha);
     }

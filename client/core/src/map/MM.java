@@ -20,6 +20,12 @@ import screen.MenuScr;
 public class MM {
     public static int mapWidth;
     public static int mapHeight;
+    /**
+     * LAN: how many times bigger the server's maps are than the game's own (status message 114, server Map.SCALE;
+     * 2 since build 7). The map itself comes scaled from the server; this only adjusts what depends on it: the step a
+     * walker climbs (CPlayer.climb), and the water and background.
+     */
+    public static int mapScale = 2;
     public static Vector<CMap> maps = new Vector();
     public static Vector<MapFile> mapFiles = new Vector();
     int index = 0;
@@ -51,7 +57,8 @@ public class MM {
     }
 
     public void createBackGround() {
-        Background.waterY = mapHeight - (Background.water.image.getHeight() + Background.inWater.image.getHeight()) + 37;
+        // LAN: on maps mapScale times bigger the water line sits as high, relatively, as on the original map.
+        Background.waterY = mapHeight - mapScale * (Background.water.image.getHeight() + Background.inWater.image.getHeight() - 37);
         CRes.out(this.getClass().getName() + " createBackGround have mapID = " + mapID);
         if (GameScr.curGRAPHIC_LEVEL != 2) {
             for (int i = 0; i < mapFiles.size(); ++i) {
@@ -67,7 +74,7 @@ public class MM {
                     }
 
                     if (mf.yWater != -1) {
-                        Background.waterY += mf.yWater;
+                        Background.waterY += mf.yWater * mapScale;
                     }
 
                     if (mf.water_class != -1) {
@@ -235,11 +242,11 @@ public class MM {
             for (int i = 0; i < nLand; ++i) {
                 landID[i] = data[seek];
                 if (this.containsImage(landID[i])) {
-                    cmap = new CMap(landID[i], CRes.getShort(seek + 1, data), CRes.getShort(seek + 3, data), this.getImage(landID[i]), !this.isTileDestroy(landID[i]));
+                    cmap = new CMap(landID[i], (short) CRes.getShort(seek + 1, data), (short) CRes.getShort(seek + 3, data), this.getImage(landID[i]), !this.isTileDestroy(landID[i]));
                     cmap.index = i;
                     this.addMap(cmap);
                 } else {
-                    cmap = new CMap(landID[i], CRes.getShort(seek + 1, data), CRes.getShort(seek + 3, data), (mImage) null, !this.isTileDestroy(landID[i]));
+                    cmap = new CMap(landID[i], (short) CRes.getShort(seek + 1, data), (short) CRes.getShort(seek + 3, data), (mImage) null, !this.isTileDestroy(landID[i]));
                     cmap.index = i;
                     this.addMap(cmap);
                     if (!h.containsKey(String.valueOf(landID[i]))) {
@@ -354,6 +361,9 @@ public class MM {
     }
 
     public void makeHole(int x, int y, byte bulletType, int indexTest) {
+        if (bulletType == CMap.holeScaleBullet && CMap.holeScale <= 0) {
+            return; // King Kong's POW digs no ground (server SetPassive.holeScale 0)
+        }
         int holeW = CMap.getHoleW(bulletType);
         int holeH = CMap.getHoleH(bulletType);
 

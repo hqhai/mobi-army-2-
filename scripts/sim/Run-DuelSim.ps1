@@ -2,7 +2,8 @@ param(
     [ValidateSet('pro', 'skilled', 'casual', 'exact', 'all')]
     [string]$Aim = 'all',
     [int]$Count = 2250,
-    [string[]]$Extra = @()
+    [string[]]$Extra = @(),
+    [int]$MapScale = 2
 )
 # Builds the server code with scripts/sim/DuelSim.java into runtime/sim-classes and runs 1v1 duels between all
 # characters (see DuelSim.java). Needs the database running (Start-Server.cmd starts it).
@@ -12,6 +13,10 @@ param(
 # Characters' attack comes from the database; override one with e.g. -Extra att0=375,att6=470.
 #   .\scripts\sim\Run-DuelSim.ps1                       all four profiles, 2250 duels each (about 5 minutes each)
 #   .\scripts\sim\Run-DuelSim.ps1 -Aim skilled -Count 900 -Extra matrix=true
+#   .\scripts\sim\Run-DuelSim.ps1 -Aim skilled -Count 900 -Extra threads=3   fewer cores, the machine stays usable
+# They play the server's maps, twice as big as the originals (-MapScale 1 for the originals). On those an
+# opponent is often out of reach: the bots then use their Teleport (every 3 turns) to land about 250 px from him;
+# on the original maps they use no items. The bigger maps take longer.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot)
 $jdk = "$root/tools/jdk-21/bin"
@@ -37,7 +42,7 @@ try {
     foreach ($name in $profiles.Keys) {
         if ($Aim -ne 'all' -and $Aim -ne $name) { continue }
         "== $name"
-        & "$jdk/java.exe" -Xmx6g '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn' '-Darmy.db.url=jdbc:mysql://127.0.0.1:3307/army' '-Darmy.db.user=root' `
+        & "$jdk/java.exe" -Xmx6g '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn' '-Darmy.db.url=jdbc:mysql://127.0.0.1:3307/army' '-Darmy.db.user=root' "-Darmy.map.scale=$MapScale" `
             -cp "$out;$root/server/lib/*" mobiarmy.war.DuelSim "matches=$Count" @($profiles[$name] + $extraArgs)
         if ($LASTEXITCODE -ne 0) { throw "Simulation failed: $LASTEXITCODE" }
     }

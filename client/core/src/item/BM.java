@@ -312,6 +312,7 @@ public class BM {
          this.nBull = 1;
          break;
       case 42:
+      case GRANOS_SEED:
          this.nBull = 1;
          break;
       case 43:
@@ -516,6 +517,7 @@ public class BM {
       case 54:
       case 55:
       case 57:
+      case GRANOS_SEED:
          this.bullets.addElement(new Bullet(Type, this.xPaint[this.bIndex], this.yPaint[this.bIndex], this.whoShot));
          ++this.bIndex;
          break;
@@ -560,6 +562,8 @@ public class BM {
    private final java.util.HashMap<Integer, Object> kindPictures = new java.util.HashMap<Integer, Object>();
    /** Rocketer's WorldWar (server WorldWarFlare): its flare and its nuclear bombs, and the next bomb to drop. */
    public static final byte WORLDWAR_FLARE = 60, WORLDWAR_BOMB = 61;
+   /** Granos's POW with his set passive (server GranosSeed): the seed of his lasers, drawn as a flare (build 7). */
+   public static final byte GRANOS_SEED = 62;
    private int worldWarBomb;
    private final java.util.HashSet<Integer> kindsCutting = new java.util.HashSet<Integer>();
 

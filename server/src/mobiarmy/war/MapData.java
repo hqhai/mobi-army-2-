@@ -38,6 +38,8 @@ public class MapData {
     public ArrayList<Tornado> tornados;
     public Player[] players;
     public long timeWait;
+    /** How long after a turn's time is up the server ends it itself when the player's client has not (was 15 s). */
+    static final int TURN_GRACE = 5000;
     public int windX;
     public int windY;
     public int nTurn;
@@ -78,10 +80,8 @@ public class MapData {
         this.width = this.map.data.width;
         this.height =  this.map.data.height;
         for (Map.Brick brick : map.data.bricks) {
-            BufferedImage img = ImageIO.read(new File("res/icon/map/"+brick.id+".png"));
-            int[] argb = new int[img.getWidth() * img.getHeight()];
-            img.getRGB(0, 0, img.getWidth(), img.getHeight(), argb, 0, img.getWidth());
-            Image image = new Image(brick.id, brick.x, brick.y, argb, (short)img.getWidth(), (short)img.getHeight(), !isNotColision(brick.id));
+            Map.BrickImage img = Map.brick(brick.id); // Map.SCALE times bigger (LAN)
+            Image image = new Image(brick.id, brick.x, brick.y, img.argb, img.width, img.height, !isNotColision(brick.id)); // (copies the pixels)
             this.data.add(image);
         }
         this.players = new Player[Room.MAX_E_PLAYER];
@@ -266,6 +266,7 @@ public class MapData {
 
     /** scale: hole size in percent (SetPassive.holeScale). */
     public void makeHole(int x, int y, int bulletType, int scale) {
+        if (scale <= 0) return; // King Kong's POW (SetPassive.holeScale 0) digs no ground
         int type = GameData.getHoleType(bulletType);
         int[][] hole = SCALED_HOLES.computeIfAbsent(type * 10000 + scale, key -> {
             int w = GameData.holeIMask[type].getWidth();
@@ -581,23 +582,93 @@ public class MapData {
         }
         this.pendingEggs.clear();
         //no
+        ArrayList<TimeBomb> struck = new ArrayList<>();
         for (int i = this.timeBombs.size() - 1; i >= 0; i--) {
             TimeBomb bomb = this.timeBombs.get(i);
             bomb.count--;
             if (bomb.count == 0) {
                 if (bomb.egg) this.hatchEgg(bomb);
+                else if (bomb.grenade) struck.add(bomb);
                 else this.explodeTimeBomb(bomb);
             }
         }
+        if (!struck.isEmpty()) this.granosStrike(struck);
     }
 
     /** Chicky's eggs laid this turn; they appear at the start of the next one (like the time bomb item). */
     ArrayList<TimeBomb> pendingEggs = new ArrayList<>();
     private int countEgg;
+    private int countGrenade;
+
+    /**
+     * Granos's seed landed at x, y (SetPassive "Người Gieo Laze"): a row of SetPassive.GRANOS_SEEDS grenades
+     * GRANOS_SPACING px apart, centred on it, drops from GRANOS_DROP px above onto the ground. They appear at the start
+     * of the next turn (with the eggs) and are struck GRANOS_ROUNDS rounds later; each keeps the damage of its laser.
+     */
+    public void layGrenades(Player owner, int x, int y) {
+        int fighters = 0;
+        for (Player p : this.players) if (p != null && !p.isDie && p.isTurn) fighters++;
+        int count = SetPassive.GRANOS_ROUNDS * Math.max(1, fighters);
+        int laser = SetPassive.granosLaser(owner);
+        int sky = Math.max(0, y - SetPassive.GRANOS_DROP);
+        for (int k = 0; k < SetPassive.GRANOS_SEEDS; k++) {
+            int gx = x + (k - SetPassive.GRANOS_SEEDS / 2) * SetPassive.GRANOS_SPACING;
+            if (gx < 0 || gx >= this.width) continue;
+            TimeBomb grenade = new TimeBomb(this, -1 - this.countGrenade++ % 120, owner.index, laser, gx, sky, count,
+                    SetPassive.GRANOS_LASER_RADIUS);
+            grenade.grenade = true;
+            grenade.update(); // down onto the ground under the sky
+            if (grenade.y > this.height + 100) continue; // nothing there to land on
+            this.pendingEggs.add(grenade);
+        }
+    }
+
+    /**
+     * Granos's lasers strike his grenades: per owner, one shot of UFO beams (bullet 42), one from the sky above each
+     * grenade, as if he fired it (his opponents only, his damage); the grenades go with it (the clients burst them
+     * where the beams land).
+     */
+    void granosStrike(java.util.List<TimeBomb> grenades) {
+        java.util.Map<Integer, java.util.List<TimeBomb>> byOwner = new java.util.LinkedHashMap<>();
+        for (TimeBomb grenade : grenades) {
+            this.timeBombs.remove(grenade);
+            byOwner.computeIfAbsent(grenade.leadIndex, k -> new ArrayList<>()).add(grenade);
+        }
+        for (java.util.Map.Entry<Integer, java.util.List<TimeBomb>> row : byOwner.entrySet()) {
+            int index = row.getKey();
+            Player owner = index >= 0 && index < this.players.length ? this.players[index] : null;
+            if (owner == null) continue; // he left: his grenades just go
+            row.getValue().sort((a, b) -> Integer.compare(a.x, b.x));
+            this.protectedGround = SetPassive.protectedGround(this);
+            Gun gun = new Gun(this, owner.index, false);
+            gun.bulletId = 42;
+            gun.gunX = owner.x; // the clients put the shooter where this says
+            gun.gunY = owner.y;
+            gun.ang = 90;
+            gun.radius = SetPassive.GRANOS_LASER_RADIUS;
+            gun.nshoot = row.getValue().size(); // one beam after another
+            for (TimeBomb grenade : row.getValue()) {
+                gun.bullets.add(new mobiarmy.war.Boss.bullet.GranosLaser(gun, grenade.att, grenade.x, Math.max(0, grenade.y - SetPassive.GRANOS_DROP)));
+            }
+            gun.fillXY();
+            for (Bullet bullet : gun.bullets) {
+                this.addTimeUntilAction(50 * bullet.frames.size());
+            }
+            this.nextLuck();
+            this.updateLuck();
+            this.shoot(gun);
+            owner.laserStrike = true; // their damage is true damage (Player.updateAllAffect)
+            try {
+                this.updateAffect(owner.index);
+            } finally {
+                owner.laserStrike = false;
+            }
+        }
+    }
 
     /** One of this Chicky's Easter eggs is still waiting to hatch: she lays the next only after it has. */
     boolean eggWaiting(Player owner) {
-        for (TimeBomb egg : this.pendingEggs) if (egg.leadIndex == owner.index) return true;
+        for (TimeBomb egg : this.pendingEggs) if (egg.egg && egg.leadIndex == owner.index) return true;
         for (TimeBomb egg : this.timeBombs) if (egg.egg && egg.leadIndex == owner.index) return true;
         return false;
     }
@@ -810,6 +881,24 @@ public class MapData {
             }
         }
     }
+
+    /**
+     * Tarzan's kick (SetPassive.kick): he yells, and the kicked players, already moved, fly to where they landed;
+     * clients older than ClientVersion.KICK_BUILD just put them there.
+     */
+    public void kick(Player tarzan, java.util.List<Player> kicked) {
+        this.addTimeUntilAction(SetPassive.KICK_TIME);
+        for (Player player : this.players) {
+            if (player == null || player.user == null || player.user.session == null) continue;
+            mobiarmy.server.SessionHandler handler = player.user.session.sessionHandler;
+            if (tarzan.user != null) handler.chat(tarzan.user.id, SetPassive.TARZAN_YELL);
+            if (player.user.session.build >= mobiarmy.server.ClientVersion.KICK_BUILD) {
+                handler.kick(kicked);
+            } else {
+                for (Player p : kicked) handler.setXY(p.index, p.x, p.y);
+            }
+        }
+    }
     
     public void skipTurn(int index) {
         Player player = this.players[index];
@@ -851,7 +940,10 @@ public class MapData {
                 bulletID = player.bulletId;
             }
             SetPassive.beforeShot(player);
-            this.shootBullet(player.index, player.isPow, bulletID, player.x, player.y, player.width, player.height, ang, force, force2, player.nshoot, att, -1);
+            ang = SetPassive.shockedAngle(player, ang); // Electrician's shock holds his aim
+            player.lastAng = ang;
+            // The shot leaves from his body as big as it is (King Kong grown standing still), not from inside it.
+            this.shootBullet(player.index, player.isPow, bulletID, player.x, player.y, player.bodyWidth(), player.bodyHeight(), ang, force, force2, player.nshoot, att, -1);
             this.updateAffect(index);
             SetPassive.afterShot(player);
             this.sendStatus();
@@ -930,6 +1022,7 @@ public class MapData {
                 player2.updateAllAffect(this.players[index]);
             }
         }
+        SetPassive.kick(this.players[index]);
         if (player.expAdd > 0) {
             
             if (player.user != null) {
@@ -983,6 +1076,10 @@ public class MapData {
             if (item == null && (itemID != 100 || player.angry < 100)) {
                 return;
             }
+            // LAN: the Teleport item is not used up, but waits Player.TELEPORT_COOLDOWN of his turns between uses.
+            if (item != null && item.itemId == Player.TELEPORT_ITEM && player.teleportCooldown > 0) {
+                return;
+            }
             player.isUseItem = true;
             //send
             for (Player us : this.players) {
@@ -997,7 +1094,12 @@ public class MapData {
                 return;
             }
             if (item == null) return;
-            item.isUse = true;
+            if (item.itemId == Player.TELEPORT_ITEM) {
+                player.teleportCooldown = Player.TELEPORT_COOLDOWN;
+                this.sendStatus(); // the clients count it down on the item
+            } else {
+                item.isUse = true;
+            }
             if (item.itemId != 0 && item.itemId != 1 && player.user != null) {
                 Item item2 = player.user.getItem(item.itemId);
                 if (item2.num == 0) return;
@@ -1086,7 +1188,7 @@ public class MapData {
             if (item.itemId == 21) {
                 player.bulletId = 23;
             }
-            // LAN item 36 "Chỉ kẻ đầu": the client's aim guide follows the wind for 2 shots (CPlayer.exactGuide).
+            // LAN item 36 "Chỉ kẻ đầu": the only aim guide, wind included, for 2 shots (CPlayer.guideShown).
             if (item.itemId == 36) {
                 player.headGuideShots = 2;
             }
@@ -1249,6 +1351,13 @@ public class MapData {
             }
         }
         if (array != null) {
+            // LAN: the places above are on the database map; the map is Map.SCALE times bigger.
+            for (Player player : array) {
+                if (player != null) {
+                    player.x = (short) (player.x * Map.SCALE);
+                    player.y = (short) (player.y * Map.SCALE);
+                }
+            }
             this.isFightBoss = true;
             this.addBoss(array);
             for (Player player : array) {
@@ -1270,7 +1379,9 @@ public class MapData {
         if (this.updateComplete()) {
             return;
         }
-        if (this.getTurn() != -1 && System.currentTimeMillis() > this.timeWait + 15000) {
+        // Time is up: the player's client says so the moment its counter hits 0 (message 49, skipTurn); this is only
+        // for a client that does not (gone, stuck), TURN_GRACE ms later.
+        if (this.getTurn() != -1 && System.currentTimeMillis() > this.timeWait + TURN_GRACE) {
             this.isTurn = true;
         }
         if (this.isTurn) {
@@ -1339,8 +1450,9 @@ public class MapData {
 //                        }
                     if (this.players[num2] != null && !this.players[num2].isDie && this.players[num2].isTurn && ((typeTurn == 2 && this.players[num2].isBoss) || (typeTurn == 3 && !this.players[num2].isBoss))) {
                         if (this.players[num2].stunTurns > 0) {
-                            // Stunned (Electrician): this turn is skipped.
+                            // Stunned (Electrician): this turn is skipped, though it counts for the Teleport.
                             this.players[num2].stunTurns--;
+                            if (this.players[num2].teleportCooldown > 0) this.players[num2].teleportCooldown--;
                             this.sendStatus();
                             if (num2 == num3) break;
                             continue;
@@ -1389,7 +1501,8 @@ public class MapData {
                 player.updateTurn();
                 //turn
                 this.sendStatus();
-                this.timeWait = System.currentTimeMillis() + (this.maxSecondTurn * 1000);
+                // The clients start counting once they have played what came before (the last shot): so does this.
+                this.timeWait = Math.max(System.currentTimeMillis(), this.timeUntilAction2) + (this.maxSecondTurn * 1000);
                 this.nTurn++;
             }
         }

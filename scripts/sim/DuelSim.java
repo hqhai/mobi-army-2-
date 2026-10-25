@@ -28,17 +28,22 @@ import sun.misc.Unsafe;
  * <p>Both sides wear a full gold +14 set (passives at the given tier). Bots aim like the in-game Bot (the lowest force
  * whose path goes through the opponent's body), then aim the middle of a spread and pick when Chicky's egg drops or
  * Apache's hammer splits; a hand error is added that grows with the wind the shot feels. They use POW as soon as it is
- * full, walk only when they have no shot or to step off an Easter egg, and use no items.
+ * full, walk only when they have no shot or to step off an Easter egg, and use no item but the Teleport: on the
+ * server's bigger maps (mobiarmy.server.Map.SCALE, -Darmy.map.scale) an opponent more than TELEPORT_FAR px away is
+ * out of reach, so when it is ready (every 3 turns) they teleport to about TELEPORT_GAP px from him.
  *
  * <p>Args (key=value): matches, threads, rules (0 free, 1 balanced, 2 base), tier, maxTurns, sf / sa / s2 / sw (hand
  * error of force, angle, force2, and per full wind), evade (chance to step off an egg or from under a UFO), ufo (chance to
  * shoot down an opponent's UFO that one shot kills), hp / att / def / luck (stat
- * points on top of the character's start), pow, heroes (e.g. 5,6), attN (override character N's attack), matrix.
+ * points on top of the character's start), pow, heroes (e.g. 5,6), attN (override character N's attack), matrix,
+ * teleport (true by default on maps bigger than the originals).
  */public class DuelSim {
     static int matches = 2000, threads = Runtime.getRuntime().availableProcessors(), rules = RoomRules.BALANCED,
             tier = 6, maxTurns = 120, ptsHp = 0, ptsAtt = 0, ptsDef = 0, ptsLuck = 0;
     static double sigmaForce = 0.6, sigmaAng = 1.0, sigmaF2 = 1.0, sigmaWind = 1.0, evadeChance = 0.5, ufoChance = 0.6;
-    static boolean usePow = true, matrix = false;
+    static boolean usePow = true, matrix = false, useTeleport = mobiarmy.server.Map.SCALE > 1;
+    /** Teleport when the opponent is farther than this (px), to land about TELEPORT_GAP from him, within TELEPORT_MISS. */
+    static final int TELEPORT_FAR = 600, TELEPORT_GAP = 250, TELEPORT_MISS = 120;
     static int[] heroes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     static final int[] MAPS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
         24, 25, 26, 28, 29, 36, 37, 38, 39};
@@ -50,7 +55,7 @@ import sun.misc.Unsafe;
 
     static final class Tally {
         long games, wins, losses, draws, dealt, taken, turns, shots, hits, kills, fallKills, fallDeaths, eggs;
-        long pows, powDealt, shotDealt;
+        long pows, powDealt, shotDealt, teleports;
     }
 
     static final Tally[] tally = new Tally[10];
@@ -75,6 +80,7 @@ import sun.misc.Unsafe;
                 case "def" -> ptsDef = Integer.parseInt(v);
                 case "luck" -> ptsLuck = Integer.parseInt(v);
                 case "pow" -> usePow = Boolean.parseBoolean(v);
+                case "teleport" -> useTeleport = Boolean.parseBoolean(v);
                 case "evade" -> evadeChance = Double.parseDouble(v);
                 case "ufo" -> ufoChance = Double.parseDouble(v);
                 case "matrix" -> matrix = Boolean.parseBoolean(v);
@@ -123,22 +129,23 @@ import sun.misc.Unsafe;
 
     static void report(double seconds) {
         System.out.printf(Locale.ROOT, "%d duels, rules %d, set tier %d, hand error force %.2f angle %.2f force2 %.2f wind %.2f,"
-                + " evade %.2f, +hp %d +att %d +def %d +luck %d, %.0fs%n",
-                matches, rules, tier, sigmaForce, sigmaAng, sigmaF2, sigmaWind, evadeChance, ptsHp, ptsAtt, ptsDef, ptsLuck, seconds);
+                + " evade %.2f, +hp %d +att %d +def %d +luck %d, maps x%d, teleport %b, %.0fs%n",
+                matches, rules, tier, sigmaForce, sigmaAng, sigmaF2, sigmaWind, evadeChance, ptsHp, ptsAtt, ptsDef, ptsLuck,
+                mobiarmy.server.Map.SCALE, useTeleport, seconds);
         StringBuilder atts = new StringBuilder();
         for (int h : heroes) atts.append(NAMES[h]).append(' ').append(Glass.entrys[h].att).append(", ");
         System.out.println("att: " + atts);
-        System.out.println("hero          win%    +-   W-L-D            dealt  taken  turns  hit%  kills fall-k fall-d eggs  /shot  /pow");
+        System.out.println("hero          win%    +-   W-L-D            dealt  taken  turns  hit%  kills fall-k fall-d eggs  /shot  /pow  tp");
         Integer[] order = Arrays.stream(heroes).boxed().toArray(Integer[]::new);
         Arrays.sort(order, (x, y) -> Double.compare(rate(tally[y]), rate(tally[x])));
         for (int h : order) {
             Tally t = tally[h];
             double p = rate(t), n = Math.max(1, t.games);
             double ci = 196 * Math.sqrt(Math.max(p, 1) * Math.max(100 - p, 1) / 10000.0 / n);
-            System.out.printf(Locale.ROOT, "%-12s %5.1f  %4.1f   %4d-%4d-%3d  %6d %6d %6.1f %5.1f %6.2f %6.2f %6.2f %5.2f %6d %5d%n",
+            System.out.printf(Locale.ROOT, "%-12s %5.1f  %4.1f   %4d-%4d-%3d  %6d %6d %6.1f %5.1f %6.2f %6.2f %6.2f %5.2f %6d %5d %4.1f%n",
                     NAMES[h], p, ci, t.wins, t.losses, t.draws, t.dealt / (long) n, t.taken / (long) n, t.turns / n,
                     t.shots == 0 ? 0 : 100.0 * t.hits / t.shots, t.kills / n, t.fallKills / n, t.fallDeaths / n, t.eggs / n,
-                    t.shots == t.pows ? 0 : t.shotDealt / (t.shots - t.pows), t.pows == 0 ? 0 : t.powDealt / t.pows);
+                    t.shots == t.pows ? 0 : t.shotDealt / (t.shots - t.pows), t.pows == 0 ? 0 : t.powDealt / t.pows, t.teleports / n);
         }
         if (matrix) {
             System.out.print("\nrow beats col %  ");
@@ -221,12 +228,14 @@ import sun.misc.Unsafe;
         t.pows += brain.pows;
         t.powDealt += brain.powDealt;
         t.shotDealt += brain.shotDealt;
+        t.teleports += brain.teleports;
     }
 
     static Player spawn(SimMap map, int index, int glassId, int team, List<mobiarmy.server.Map.Point> points) {
         Glass glass = Glass.entrys[glassId];
         int[] s = stats(glass);
-        Player p = new Player(map, null, NAMES[glassId], glassId, 50, s[0], s[1], s[2], s[3], s[4], 24, 24, null);
+        byte[] items = useTeleport ? new byte[] {(byte) Player.TELEPORT_ITEM} : null;
+        Player p = new Player(map, null, NAMES[glassId], glassId, 50, s[0], s[1], s[2], s[3], s[4], 24, 24, items);
         p.index = (byte) index;
         p.setTier = rules == RoomRules.BASE ? 0 : tier;
         p.theluc = SetPassive.steps(p);
@@ -277,7 +286,7 @@ import sun.misc.Unsafe;
     /** One side's bot. */
     static final class Brain {
         final Player me, foe;
-        long shots, hits, eggsLaid, pows, powDealt, shotDealt;
+        long shots, hits, eggsLaid, pows, powDealt, shotDealt, teleports;
         int seenX, seenY;
         boolean seen;
 
@@ -288,7 +297,9 @@ import sun.misc.Unsafe;
 
         void act() {
             MapData map = this.me.mapData;
-            if (usePow && this.me.angry >= 100) map.useItem(this.me.index, (byte) 100);
+            // Far away on a big map he teleports nearer this turn (one item a turn), keeping his POW for later.
+            boolean far = useTeleport && Math.abs(this.foe.x - this.me.x) > TELEPORT_FAR && this.me.teleportCooldown == 0;
+            if (usePow && this.me.angry >= 100 && !far) map.useItem(this.me.index, (byte) 100);
             if (ThreadLocalRandom.current().nextDouble() < evadeChance) this.stepOffEggs();
             // Hidden by his hunt, Apache runs somewhere else so that he is not where he was last seen.
             if (this.me.huntHidden && this.me.huntRun) walk(this.me, ThreadLocalRandom.current().nextBoolean() ? 1 : -1);
@@ -308,6 +319,8 @@ import sun.misc.Unsafe;
                     return;
                 }
             }
+            // The opponent far away on a big map is out of reach: get nearer with the Teleport when it is ready.
+            if (far && this.teleport()) return;
             Shot shot = aim(this.me, this.foe, this.seenX, this.seenY, true);
             if (shot == null) {
                 walk(this.me, this.seenX >= this.me.x ? 1 : -1);
@@ -316,6 +329,36 @@ import sun.misc.Unsafe;
             if (shot == null) shot = aim(this.me, this.foe, this.seenX, this.seenY, false);
             if (shot == null) shot = new Shot(this.seenX >= this.me.x ? 45 : 135, 20, 30);
             this.fire(shot);
+        }
+
+        /**
+         * Teleports to about TELEPORT_GAP px short of the opponent (on his near side), if the Teleport is ready and some
+         * shot of it lands within TELEPORT_MISS of there; true if he went.
+         */
+        boolean teleport() {
+            MapData map = this.me.mapData;
+            if (this.me.teleportCooldown > 0 || this.me.findUnusedItemById(Player.TELEPORT_ITEM) == null) return false;
+            int dir = this.seenX >= this.me.x ? 1 : -1;
+            int tx = this.seenX - dir * TELEPORT_GAP;
+            Tracer gun = new Tracer(map, this.me.index, false);
+            Shot best = null;
+            int bestMiss = TELEPORT_MISS + 1;
+            for (int force = 6; force <= 30; force++) {
+                for (int a = 15; a <= 85; a++) {
+                    int ang = dir > 0 ? a : 180 - a;
+                    int x = landing(gun, this.me, ang, force);
+                    if (x != Integer.MIN_VALUE && Math.abs(x - tx) < bestMiss) {
+                        bestMiss = Math.abs(x - tx);
+                        best = new Shot(ang, force, 0);
+                    }
+                }
+            }
+            if (best == null) return false;
+            map.useItem(this.me.index, (byte) Player.TELEPORT_ITEM);
+            if (this.me.bulletId != 5) return false; // refused
+            this.teleports++;
+            map.shoot(this.me.index, -1, best.ang, best.force, 0);
+            return true;
         }
 
         /** An opponent's flying UFO (Magenta's passive), or null. */
@@ -331,7 +374,7 @@ import sun.misc.Unsafe;
             this.handError(shot);
             int dealt = this.me.statDealt;
             boolean pow = this.me.isPow;
-            int eggs = map.pendingEggs.size();
+            long eggs = map.pendingEggs.stream().filter(e -> e.egg).count();
             map.shoot(this.me.index, -1, shot.ang, shot.force, shot.force2);
             this.shots++;
             int gained = this.me.statDealt - dealt;
@@ -342,12 +385,12 @@ import sun.misc.Unsafe;
             } else {
                 this.shotDealt += gained;
             }
-            this.eggsLaid += Math.max(0, map.pendingEggs.size() - eggs);
+            this.eggsLaid += Math.max(0, map.pendingEggs.stream().filter(e -> e.egg).count() - eggs);
         }
 
         /** Share of the wind (percent) this turn's shot feels: the bullet's own share, after the shooter's passive. */
         int windFelt() {
-            if (SetPassive.worldWar(this.me, this.me.isPow)) return 0;
+            if (SetPassive.worldWar(this.me, this.me.isPow) || SetPassive.laserSower(this.me, this.me.isPow)) return 0;
             int pct = switch (this.me.bulletId) {
                 case 0, 2 -> 80;
                 case 1, 10 -> 50;
@@ -380,8 +423,10 @@ import sun.misc.Unsafe;
                 return;
             }
             for (TimeBomb bomb : this.me.mapData.timeBombs) {
-                if (!bomb.egg || bomb.leadIndex == this.me.index) continue;
-                if (Math.hypot(this.me.x - bomb.x, this.me.y - bomb.y) <= SetPassive.CHICKY_EGG_RADIUS + 6) {
+                if (!(bomb.egg || bomb.grenade) || bomb.leadIndex == this.me.index) continue;
+                // An egg's blast, or one of Granos's lasers (a step's width either side of his grenade).
+                int reach = bomb.egg ? SetPassive.CHICKY_EGG_RADIUS + 6 : SetPassive.GRANOS_LASER_RADIUS + 12;
+                if (Math.hypot(this.me.x - bomb.x, this.me.y - bomb.y) <= reach) {
                     int dir = this.me.x >= bomb.x ? 1 : -1;
                     if (!walk(this.me, dir)) walk(this.me, -dir);
                     return;
@@ -400,9 +445,9 @@ import sun.misc.Unsafe;
         int x = me.x, y = me.y, to = x;
         for (int i = 0; i <= me.theluc - me.buocdi; i++) {
             int nx = x + dir * step;
-            if (map.isCollisionMap(nx, y - 5)) break;
+            if (map.isCollisionMap(nx, y - Player.CLIMB - 1)) break;
             int ny = -1;
-            for (int k = 4; k >= 0; k--) {
+            for (int k = Player.CLIMB; k >= 0; k--) {
                 if (map.isCollisionMap(nx, y - k)) {
                     ny = y - k;
                     break;
@@ -412,7 +457,7 @@ import sun.misc.Unsafe;
                 ny = y;
                 while (ny < map.height + 200 && !map.isCollisionMap(nx, ny)) ny++;
             }
-            if (ny > map.height + 50 || ny - y > 80) break;
+            if (ny > map.height + 50 || ny - y > 80 * mobiarmy.server.Map.SCALE) break;
             x = nx;
             y = ny;
             to = x;
@@ -420,6 +465,23 @@ import sun.misc.Unsafe;
         if (to == me.x) return false;
         me.updateXY(to, me.y);
         return true;
+    }
+
+    /**
+     * Where a Teleport (bullet 5: no wind, through players, stops on the ground) fired at ang, force would land: its x,
+     * or Integer.MIN_VALUE when it falls off the map. Traced with a plain bullet, so nobody moves.
+     */
+    static int landing(Gun gun, Player me, int ang, int force) {
+        int w = me.bodyWidth(), h = me.bodyHeight(); // as MapData.shoot fires it
+        int bx = me.x + ((w - 4) * GameData.cos(ang) >> 10);
+        int by = me.y - (h / 2) - ((h - 4) * GameData.sin(ang) >> 10);
+        int vx = force * GameData.cos(ang) >> 10;
+        int vy = -(force * GameData.sin(ang) >> 10);
+        Bullet b = new Bullet(gun, 5, 0, bx, by, vx, vy, 0, 0, 80);
+        b.isCanCollision = false;
+        b.isCanCollisionPlayer = false;
+        for (int guard = 0; guard < 4000 && !b.collect; guard++) b.nextXY();
+        return b.collect && me.mapData.isCollisionMap(b.bX, b.bY) ? b.bX : Integer.MIN_VALUE;
     }
 
     /** A gun that only traces paths. */
@@ -436,12 +498,20 @@ import sun.misc.Unsafe;
      */
     static Shot aim(Player me, Player foe, int tx, int ty, boolean land) {
         int bulletId = me.bulletId;
-        boolean flare = SetPassive.worldWar(me, me.isPow);
+        boolean flare = SetPassive.worldWar(me, me.isPow) || SetPassive.laserSower(me, me.isPow);
         int minAng = flare ? -60 : Glass.entrys[me.glassID].angle;
-        int bx = tx - foe.width / 2, by = ty - foe.height, bw = foe.width, bh = foe.height;
+        int bw = foe.bodyWidth(), bh = foe.bodyHeight(), bx = tx - bw / 2, by = ty - bh; // King Kong grows standing still
         boolean right = tx >= me.x;
         boolean timed = bulletId == 17 || bulletId == 19; // the shot's force2 matters: find the path without it first
         Tracer gun = new Tracer(me.mapData, me.index, me.isPow);
+        // Electrician's shock: slowed, no aim below 60 degrees; locked, only the angle of his last shot.
+        if (me.paralyzed >= 1) minAng = Math.max(minAng, SetPassive.ELECTRICIAN_MIN_ANGLE);
+        if (me.paralyzed == 2 && me.lastAng != Integer.MIN_VALUE) {
+            for (int force = 1; force <= 30; force++) {
+                if (trace(gun, me, bulletId, me.lastAng, force, 30, land, bx, by, bw, bh) > 0) return new Shot(me.lastAng, force, 30);
+            }
+            return null;
+        }
         for (int force = 1; force <= 30; force++) {
             for (int side = 0; side < 2; side++) {
                 boolean toRight = side == 0 == right;
@@ -479,7 +549,7 @@ import sun.misc.Unsafe;
 
     /** Frame (1+) at which a bullet of this shot is inside the box, 0 if none gets there. */
     static int trace(Tracer gun, Player me, int bulletId, int ang, int force, int force2, boolean land, int bx, int by, int bw, int bh) {
-        gun.shootBullet(bulletId, me.x, me.y, me.width, me.height, ang, force, force2, 1, 100, -1);
+        gun.shootBullet(bulletId, me.x, me.y, me.bodyWidth(), me.bodyHeight(), ang, force, force2, 1, 100, -1);
         for (Bullet b : gun.bullets) {
             b.isCanCollisionMap = land;
             b.isCanCollisionPlayer = true;
@@ -517,7 +587,7 @@ import sun.misc.Unsafe;
 
     /** Splash damage (before defense) the explosions of this shot would deal to foe, the map left as it is. */
     static int splash(Tracer gun, Player me, Player foe, int bulletId, int ang, int force, int force2, boolean land) {
-        gun.shootBullet(bulletId, me.x, me.y, me.width, me.height, ang, force, force2, 1, 100, -1);
+        gun.shootBullet(bulletId, me.x, me.y, me.bodyWidth(), me.bodyHeight(), ang, force, force2, 1, 100, -1);
         for (Bullet b : gun.bullets) b.isCanCollisionMap = land;
         java.util.Set<Bullet> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         int total = 0;
@@ -567,10 +637,9 @@ import sun.misc.Unsafe;
             for (mobiarmy.server.Map.Brick brick : m.map.data.bricks) {
                 Object[] img = BRICKS.computeIfAbsent(brick.id, id -> {
                     try {
-                        BufferedImage bi = ImageIO.read(new File("res/icon/map/" + id + ".png"));
-                        int[] argb = new int[bi.getWidth() * bi.getHeight()];
-                        bi.getRGB(0, 0, bi.getWidth(), bi.getHeight(), argb, 0, bi.getWidth());
-                        return new Object[] {argb, bi.getWidth(), bi.getHeight()};
+                        // The bricks as the matches use them: mobiarmy.server.Map.SCALE times bigger.
+                        mobiarmy.server.Map.BrickImage bi = mobiarmy.server.Map.brick(id);
+                        return new Object[] {bi.argb, bi.width, bi.height};
                     } catch (java.io.IOException e) {
                         throw new RuntimeException(e);
                     }

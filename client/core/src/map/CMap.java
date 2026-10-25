@@ -319,9 +319,18 @@ public class CMap {
 
    }
 
+   /** this.map was made here after a hole (not the image shared by every brick of this kind), so it may be freed. */
+   private boolean ownMap;
+
    public void update() {
       if (this.changed) {
+         mImage old = this.map;
          this.map = mImage.createImageNotRunable(this.aMap, this.width, this.height);
+         // LAN: free the texture this brick had made for its last hole (bricks are 9 times bigger on the x3 maps).
+         if (this.ownMap && old != null && old.image != null && old.image.texture != null) {
+            old.image.texture.dispose();
+         }
+         this.ownMap = true;
          this.changed = false;
       }
 

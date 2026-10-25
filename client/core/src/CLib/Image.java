@@ -194,20 +194,25 @@ public class Image {
       return img;
    }
 
+   /** A colour channel as mSystem.setColor (c / 256) then Color's 8 bits (* 255) leave it. */
+   private static final int[] CHANNEL = new int[256];
+   static {
+      for (int c = 0; c < 256; c++) CHANNEL[c] = (int) ((float) c / 256.0F * 255.0F);
+   }
+
    public static Image createImageNotRunable(int[] encodedData, int w, int h) {
       Image img = new Image();
-      Color cl = null;
       Pixmap p = new Pixmap(w, h, Pixmap.Format.RGBA8888);
 
-      for(int i = 0; i < w; ++i) {
-         for(int j = 0; j < h; ++j) {
-            if (encodedData[j * w + i] != 16777215 && encodedData[j * w + i] != -16777215) {
-               p.setColor(mSystem.setColor(encodedData[j * w + i]));
+      // LAN: the same pixels as before, written as numbers instead of one new Color each (bricks are big now).
+      for(int j = 0; j < h; ++j) {
+         for(int i = 0; i < w; ++i) {
+            int c = encodedData[j * w + i];
+            if (c != 16777215 && c != -16777215) {
+               p.drawPixel(i, j, CHANNEL[c >> 16 & 255] << 24 | CHANNEL[c >> 8 & 255] << 16 | CHANNEL[c & 255] << 8 | 255);
             } else {
-               p.setColor(0.0F, 0.0F, 0.0F, 0.0F);
+               p.drawPixel(i, j, 0);
             }
-
-            p.drawPixel(i, j);
          }
       }
 

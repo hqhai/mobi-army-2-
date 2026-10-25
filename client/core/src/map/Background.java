@@ -372,6 +372,8 @@ public class Background {
 
    private void drawBackGround(byte Type, mGraphics g) {
       g.translate(-g.getTranslateX(), -g.getTranslateY());
+      // LAN: the maps are MM.mapScale times taller; the layers move as they do on the original maps.
+      int camY = Camera.y / Math.max(1, MM.mapScale);
       int dXKeo;
       int dXKeo2;
       int dYKeo;
@@ -382,7 +384,7 @@ public class Background {
          g.fillRect(0, 0, CScreen.w + 10, CScreen.h + 10, false);
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 2) % 128;
-            dXKeo2 = CScreen.h - (Camera.y + CScreen.h >> 2) + this.yBackGr;
+            dXKeo2 = CScreen.h - (camY + CScreen.h >> 2) + this.yBackGr;
             g.setColor(2002158);
             g.fillRect(0, dXKeo2, CScreen.w, CScreen.h - dXKeo2, false);
 
@@ -403,7 +405,7 @@ public class Background {
          g.fillRect(0, 0, CScreen.w + 10, CScreen.h + 10, false);
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 2) % 64;
-            dXKeo2 = CScreen.h - (Camera.y + CScreen.h >> 2) + this.yBackGr;
+            dXKeo2 = CScreen.h - (camY + CScreen.h >> 2) + this.yBackGr;
 
             for(dYKeo = 0; dYKeo <= nBgX + 1; ++dYKeo) {
                g.drawImage(canhdong, -dXKeo + dYKeo * 64, dXKeo2, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -419,7 +421,7 @@ public class Background {
          g.fillRect(0, 0, CScreen.w + 10, CScreen.h + 10, false);
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 2) % 64;
-            dXKeo2 = CScreen.h - (Camera.y + CScreen.h >> 2) + 150 + this.yBackGr;
+            dXKeo2 = CScreen.h - (camY + CScreen.h >> 2) + 150 + this.yBackGr;
 
             for(dYKeo = 0; dYKeo <= nBgX + 1; ++dYKeo) {
                g.drawImage(bang, -dXKeo + dYKeo * 64, dXKeo2, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -437,7 +439,7 @@ public class Background {
          g.fillRect(0, 0, CScreen.w + 10, CScreen.h + 10, false);
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 2) % 72;
-            dXKeo2 = CScreen.h - (Camera.y + CScreen.h >> 2) + this.yBackGr;
+            dXKeo2 = CScreen.h - (camY + CScreen.h >> 2) + this.yBackGr;
 
             for(dYKeo = 0; dYKeo <= nBgX + 1; ++dYKeo) {
                g.drawImage(rungRam, -dXKeo + dYKeo * 72, dXKeo2, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -450,7 +452,7 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 3) % 241;
             dXKeo2 = (Camera.x >> 2) % 226;
-            dYKeo = CScreen.h - (Camera.y + CScreen.h >> 2) + this.yBackGr;
+            dYKeo = CScreen.h - (camY + CScreen.h >> 2) + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back02, -dXKeo + i * 241, dYKeo - 5, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -472,7 +474,7 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 3) % 241;
             dXKeo2 = (Camera.x >> 2) % 241;
-            dYKeo = CScreen.h - Camera.y / 2 + this.yBackGr;
+            dYKeo = CScreen.h - camY / 2 + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back04, -dXKeo + i * 241, dYKeo, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -492,7 +494,7 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 3) % 238;
             dXKeo2 = (Camera.x >> 2) % 225;
-            dYKeo = CScreen.h - Camera.y / 2 + this.yBackGr;
+            dYKeo = CScreen.h - camY / 2 + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back06, -dXKeo + i * 238, dYKeo, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -514,8 +516,8 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 3) % 269;
             dXKeo2 = (Camera.x >> 2) % 368;
-            dYKeo = CScreen.h - Camera.y / 3 + this.yBackGr - 100;
-            i = CScreen.h - Camera.y / 2 + this.yBackGr;
+            dYKeo = CScreen.h - camY / 3 + this.yBackGr - 100;
+            i = CScreen.h - camY / 2 + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back08, -dXKeo + i * 269, dYKeo, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -539,7 +541,7 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 3) % 238;
             dXKeo2 = (Camera.x >> 2) % 225;
-            dYKeo = CScreen.h - Camera.y / 2 + this.yBackGr;
+            dYKeo = CScreen.h - camY / 2 + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back06, -dXKeo + i * 238, dYKeo, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -561,7 +563,7 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 3) % 238;
             dXKeo2 = (Camera.x >> 2) % 225;
-            dYKeo = CScreen.h - Camera.y / 2 + this.yBackGr;
+            dYKeo = CScreen.h - camY / 2 + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back12, -dXKeo + i * 238, dYKeo, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -586,7 +588,7 @@ public class Background {
          if (GameScr.curGRAPHIC_LEVEL != 2) {
             dXKeo = (Camera.x >> 4) % 108;
             dXKeo2 = (Camera.x >> 3) % 108;
-            dYKeo = CScreen.h - (Camera.y + CScreen.h >> 2) + this.yBackGr;
+            dYKeo = CScreen.h - (camY + CScreen.h >> 2) + this.yBackGr;
 
             for(i = 0; i <= nBgX + 1; ++i) {
                g.drawImage(back15, -dXKeo + i * 108, dYKeo, mGraphics.LEFT | mGraphics.VCENTER, false);
@@ -628,8 +630,8 @@ public class Background {
             dXKeo = (Camera.x >> 2) % 144;
             dXKeo2 = (Camera.x >> 2) % 176;
             dYKeo = (Camera.x >> 3) % 69;
-            i = CScreen.h - Camera.y / 3 + this.yBackGr;
-            i = CScreen.h - Camera.y / 4 + this.yBackGr - 80;
+            i = CScreen.h - camY / 3 + this.yBackGr;
+            i = CScreen.h - camY / 4 + this.yBackGr - 80;
 
             for(i = 0; i <= CCanvas.width / 69 + 1; ++i) {
                g.drawImage(map_spider_layout, -dYKeo + i * 69, i, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -643,10 +645,10 @@ public class Background {
             }
 
             g.setColor(3223857);
-            g.fillRect(0, -500, CCanvas.width, -Camera.y / 3 + 120 + 500 - 88, false);
+            g.fillRect(0, -500, CCanvas.width, -camY / 3 + 120 + 500 - 88, false);
 
             for(i = 0; i <= CCanvas.width / 176 + 1; ++i) {
-               g.drawImage(rock_up, -dXKeo2 + i * 176, -Camera.y / 3 + 120, mGraphics.LEFT | mGraphics.BOTTOM, false);
+               g.drawImage(rock_up, -dXKeo2 + i * 176, -camY / 3 + 120, mGraphics.LEFT | mGraphics.BOTTOM, false);
             }
 
             g.setColor(4996403);
@@ -679,8 +681,8 @@ public class Background {
             this.drawSun2(g);
             dXKeo = (Camera.x >> 2) % 241;
             dXKeo2 = (Camera.x >> 3) % 241;
-            dYKeo = CCanvas.hieght - Camera.y / 3 - this.yBackGr;
-            i = CCanvas.hieght - 10 - Camera.y / 4 - this.yBackGr;
+            dYKeo = CCanvas.hieght - camY / 3 - this.yBackGr;
+            i = CCanvas.hieght - 10 - camY / 4 - this.yBackGr;
 
             for(i = 0; i <= CCanvas.width / 241 + 1; ++i) {
                g.drawImage(back16, -dXKeo2 + i * 241, i, mGraphics.LEFT | mGraphics.BOTTOM, false);
@@ -727,6 +729,22 @@ public class Background {
 
    }
 
+   private static int deepWater = -1;
+
+   /** The colour at the bottom of the water strip (RGB), read once from the image. */
+   private static int deepWater() {
+      if (deepWater < 0) {
+         try {
+            int w = inWater.image.getWidth(), h = inWater.image.getHeight();
+            int[] row = new int[w];
+            inWater.image.getRGB(row, 0, w, 0, h - 1, w, 1);
+            if ((row[w / 2] & 0xFFFFFF) != 0) deepWater = row[w / 2] & 0xFFFFFF; // (0 while the image still loads)
+         } catch (Exception e) {
+         }
+      }
+      return deepWater < 0 ? 0x0F3A5C : deepWater;
+   }
+
    public static void drawWater(byte WaterOrGlass, mGraphics g) {
       int i;
       int start;
@@ -738,6 +756,12 @@ public class Background {
          for(i = start; i <= end; ++i) {
             waterSp.drawFrame(CCanvas.gameTick % 8 > 4 ? 0 : 1, i * 24, waterY - 12 + inWater.image.getHeight() / 2, 0, 0, g);
             g.drawImage(inWater, i * 24, waterY - 12 + 24 + inWater.image.getHeight() / 2, 0, false);
+            // LAN: on the bigger maps the water goes deeper than one strip; its deep colour fills the rest.
+            int deep = waterY - 12 + 24 + inWater.image.getHeight() / 2 + inWater.image.getHeight();
+            if (deep < MM.mapHeight + 40) {
+               g.setColor(deepWater());
+               g.fillRect(i * 24, deep, 24, MM.mapHeight + 40 - deep, false);
+            }
          }
       } else if (WaterOrGlass == 1) {
          start = Camera.x / 64;

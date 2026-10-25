@@ -33,9 +33,10 @@ public class GameMidlet extends MIDlet implements IActionListener {
     public static String version = "2.4.1";
     /**
      * LAN build, sent at login; the server turns away builds below the one it requires (mobiarmy.server.ClientVersion).
-     * Raise both together when every player must have this client, then publish the client update.
+     * Raise both together when every player must have this client, then publish the client update. Build 7 shows
+     * no aim guide unless item 36 is on (the server requires it) and plays Tarzan's kick (message 127).
      */
-    public static final int LAN_BUILD = 6;
+    public static final int LAN_BUILD = 7;
     public static short versionByte = 241;
     public static byte versioncode = 11;
     public static byte server = -2;

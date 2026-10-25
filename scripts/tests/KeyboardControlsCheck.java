@@ -296,6 +296,118 @@ public class KeyboardControlsCheck extends MainGame {
             network.MessageHandler.gI().onMessage(bomb(1,101,0,0,-1));
             check(GameScr.timeBombs.size()==1 && GameScr.timeBombs.get(0).hatchIn>0,"an egg told to explode hatches the same way");
             GameScr.timeBombs.clear(); network.Session_ME.receiveSynchronized=0; CCanvas.lockNotify=false; CCanvas.tNotify=0;
+            // Tarzan's kick (message 127, build 7): the kicked player flies in an arc to where the server says he lands;
+            // the next messages (the HP of who fell off) wait until he is down.
+            {java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+             foe.x=200; foe.y=100;
+             out.writeByte(1); out.writeByte(1); out.writeShort(260); out.writeShort(130);
+             network.MessageHandler.gI().onMessage(new network.Message((byte)127,bytes.toByteArray()));
+             check(foe.kicked() && !player.kicked() && network.Session_ME.receiveSynchronized==1,"message 127 kicks the player it names; the next messages wait");
+             int top=foe.y; for(int i=0;i<14;i++){foe.update(); top=Math.min(top,foe.y);}
+             check(foe.kicked() && foe.x>200 && foe.x<260 && top<100,"he flies in an arc, up first: "+foe.x+","+top);
+             for(int i=0;i<40 && foe.kicked();i++) foe.update();
+             check(!foe.kicked() && foe.x==260 && foe.y==130 && network.Session_ME.receiveSynchronized==0,"he lands where the server said, then the messages go on");}
+            // Build 7, status 114's tail: who has grown (King Kong standing still), whose Teleport waits how long, and
+            // how many times bigger the maps are (the step a walker climbs grows as much).
+            {java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+             out.writeByte(2); out.writeByte(0); out.writeBoolean(false); out.writeBoolean(false); out.writeByte(1); out.writeBoolean(false); out.writeBoolean(false);
+             out.writeByte(0); out.writeByte(0); out.writeByte(0);      // nobody hidden, no set tiers, nobody running
+             out.writeByte(1); out.writeByte(1); out.writeShort(120);   // the foe has grown to 120%
+             out.writeByte(1); out.writeByte(0); out.writeByte(item.Item.ITEM_TELEPORT); out.writeByte(2); // my Teleport waits 2 turns
+             out.writeByte(3);                                          // maps 3 times bigger
+             map.MM.mapScale=1;
+             network.MessageHandler.gI().onMessage(new network.Message((byte)114,bytes.toByteArray()));
+             check(foe.bodyPercent==120 && player.bodyPercent==100,"status 114 tells who has grown");
+             check(player.teleportCooldown==2 && foe.teleportCooldown==0 && player.itemCooling(item.Item.ITEM_TELEPORT),"and whose Teleport waits");
+             check(map.MM.mapScale==3 && CPlayer.climb()==12,"and the map scale: walkers climb 12 px steps");
+             map.MM.mapScale=2;}
+            {byte gun=player.gun; player.gun=CPlayer.GUN_CHUOI; player.bodyPercent=120; // (the foe above is dead by now)
+             check(Math.abs(player.grownScale()-1.2f)<0.001f && player.grownLift()==6,"King Kong at 120% is drawn 1.2 times bigger, his HP bar 6 px higher");
+             player.bodyPercent=300;
+             check(Math.abs(player.grownScale()-3f)<0.001f && player.grownLift()==64,"at 300% 3 times bigger, his HP bar 64 px higher");
+             player.gun=5;
+             check(player.grownScale()==1f && foe.grownScale()==1f,"anyone else is drawn as usual");
+             player.gun=gun; player.bodyPercent=100;}
+            // Time is up on my turn: the client tells the server at once (message 49, skip turn), once; not on another
+            // player's turn, nor while my shot is still flying.
+            {model.CTime clock=GameScr.time!=null?GameScr.time:new model.CTime(); model.CTime before=GameScr.time; GameScr.time=clock;
+             java.lang.reflect.Field last=model.CTime.class.getDeclaredField("last"); last.setAccessible(true);
+             java.lang.reflect.Field shown=model.CTime.class.getDeclaredField("visible"); shown.setAccessible(true);
+             byte turn=PM.curP; Object scr=CCanvas.curScr; CCanvas.curScr=screen; GameScr gameBeforeClock=CCanvas.gameScr; CCanvas.gameScr=screen;
+             PM.curP=(byte)GameScr.myIndex; CPlayer.isShooting=false; BM.active=false;
+             sent.clear(); shown.setBoolean(clock,true); model.CTime.seconds=1; last.setLong(clock,0L); clock.update();
+             check(sent.size()==1 && sent.get(0).command==49 && model.CTime.seconds==0,"my time runs out: the turn is passed to the server");
+             sent.clear(); last.setLong(clock,0L); clock.update(); last.setLong(clock,0L); clock.update();
+             check(sent.isEmpty(),"and only once");
+             PM.curP=(byte)(GameScr.myIndex==0?1:0); shown.setBoolean(clock,true); model.CTime.seconds=1; last.setLong(clock,0L); sent.clear(); clock.update();
+             check(sent.isEmpty() && model.CTime.seconds==0,"another player's time runs out: nothing sent (his client does it)");
+             PM.curP=(byte)GameScr.myIndex; CPlayer.isShooting=true; shown.setBoolean(clock,true); model.CTime.seconds=1; last.setLong(clock,0L); sent.clear(); clock.update();
+             check(sent.isEmpty(),"my shot still flying: the shot ends the turn, nothing sent");
+             CPlayer.isShooting=false; PM.curP=turn; CCanvas.curScr=(CScreen)scr; CCanvas.gameScr=gameBeforeClock; GameScr.time=before; player.active=true;}
+            // Electrician's shock (status 114's last list): slowed, fewer steps and no aim below 60 even with "g";
+            // locked, no steps and the angle stays where it was.
+            {int angleBefore=player.angle; byte lookBefore=(byte)player.look;
+             for (int level : new int[]{1, 2, 0}) {
+                 java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+                 out.writeByte(2); out.writeByte(0); out.writeBoolean(false); out.writeBoolean(false); out.writeByte(1); out.writeBoolean(false); out.writeBoolean(false);
+                 out.writeByte(0); out.writeByte(0); out.writeByte(0); out.writeByte(0); out.writeByte(0); out.writeByte(2);
+                 if (level > 0) { out.writeByte(1); out.writeByte(0); out.writeByte(level); out.writeByte(level == 1 ? 42 : 0); } else out.writeByte(0);
+                 network.MessageHandler.gI().onMessage(new network.Message((byte)114,bytes.toByteArray()));
+                 if (level == 1) {
+                     check(player.paralyzed==1 && player.maxMovePoint()==42 && player.angleLimit()>=60,"slowed: 42 steps, no aim below 60");
+                     player.look=2;
+                     check("Góc: 60".equals(GameScr.applyAngleCommand("g 30",player)) && player.angle==60,"g 30 gives 60 while slowed");
+                     player.movePoint=21;
+                     check(GameScr.walkBarFill(player)==30,"half of 42 steps walked: the bar half full");
+                 } else if (level == 2) {
+                     int locked=player.angle;
+                     check(player.paralyzed==2 && player.maxMovePoint()==0 && player.frozenAngle==locked,"locked: no steps, the angle held where it is");
+                     check(GameScr.applyAngleCommand("g 45",player).startsWith("Tê liệt") && player.angle==locked,"g cannot turn a locked gun");
+                     player.angle=locked+20; player.update();
+                     check(player.angle==locked,"nothing else can either");
+                     player.movePoint=0;
+                     check(GameScr.walkBarFill(player)==CPlayer.MAX_MOVE_POINT,"the walk bar shows no steps left (it divided by 0 and closed the game)");
+                 } else {
+                     check(player.paralyzed==0 && player.maxMovePoint()==60,"over: 60 steps again");
+                 }
+             }
+             player.angle=angleBefore; player.look=lookBefore;}
+            // The Teleport is not used up: while it waits nothing is sent and the slot stays; then it works and stays.
+            {int[] slots=player.item.clone(); boolean used=player.isUsedItem; int usedId=player.itemUsed;
+             player.item[0]=item.Item.ITEM_TELEPORT; player.isUsedItem=false; player.teleportCooldown=2; // (as the status said above)
+             sent.clear(); player.UseItem(item.Item.ITEM_TELEPORT,false,0);
+             check(sent.isEmpty() && player.item[0]==item.Item.ITEM_TELEPORT && !player.isUsedItem,"a waiting Teleport cannot be used");
+             player.teleportCooldown=0;
+             sent.clear(); player.UseItem(item.Item.ITEM_TELEPORT,false,0);
+             check(sent.size()==1 && sent.get(0).command==26 && player.item[0]==item.Item.ITEM_TELEPORT && player.isUsedItem,"a ready Teleport is used and stays in its slot");
+             player.item=slots; player.isUsedItem=used; player.itemUsed=usedId;}
+            // Granos's seed is aimed at any angle; his grenades (ids below 0) drop from the sky and burst under his lasers.
+            {byte gun=player.gun; int tier=player.setTier; short lock=CPlayer.angleLock[5]; CPlayer.angleLock[5]=30;
+             player.gun=5; player.setTier=6; player.itemUsed=100;
+             check(player.laserSeedPow() && player.angleLimit()==-90,"Granos's POW seed aims straight down too");
+             player.itemUsed=-1;
+             check(!player.laserSeedPow() && player.angleLimit()==30,"his usual limit otherwise");
+             player.gun=gun; player.setTier=tier; CPlayer.angleLock[5]=lock;}
+            {GameScr.timeBombs.clear();
+             java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+             out.writeByte(0); out.writeByte(-3); out.writeInt(300); out.writeInt(400); out.writeByte(0);
+             network.Session_ME.receiveSynchronized=0; CCanvas.lockNotify=false;
+             network.MessageHandler.gI().onMessage(new network.Message((byte)109,bytes.toByteArray()));
+             model.TimeBomb grenade=GameScr.timeBombs.isEmpty()?null:GameScr.timeBombs.get(0);
+             check(grenade!=null && grenade.isGrenade() && grenade.falling && grenade.y==400-model.TimeBomb.GRENADE_DROP && grenade.x==300,"a grenade drops from the sky above its spot");
+             check(network.Session_ME.receiveSynchronized==0 && !CCanvas.lockNotify,"and holds no messages up (the others drop with it)");
+             GameScr.burstGrenades(320);
+             check(!grenade.isExplore,"a laser elsewhere leaves it");
+             GameScr.burstGrenades(300);
+             check(grenade.isExplore,"the laser on it bursts it");
+             GameScr.timeBombs.clear();}
+            // Build 7: nobody has an aim guide, Tarzan with his set included, unless item 36 "Chỉ kẻ đầu" is on.
+            {byte gun=player.gun; int tier=player.setTier; int shots=CPlayer.headGuideShots;
+             player.gun=7; player.setTier=6; CPlayer.headGuideShots=0;
+             check(!player.guideShown(),"no aim guide, not even for Tarzan with his set");
+             CPlayer.headGuideShots=2;
+             check(player.guideShown() && !foe.guideShown(),"item 36 shows my aim guide, nobody else's");
+             player.gun=gun; player.setTier=tier; CPlayer.headGuideShots=shots;}
             CCanvas.gameScr=gameBefore;
             PM.p=new CPlayer[]{player};
             System.out.println("KEYBOARD CHECKS PASSED: " + checks);

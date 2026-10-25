@@ -21,7 +21,10 @@ public class SetPassiveCheck {
         ground();
         items();
         ufoItem();
-        System.out.println("SET PASSIVE PASSED: " + checks + " checks; set detection, Gunner, Miss 6, Rocketer, Chicky, Electrician, Tarzan, King Kong, Magenta");
+        kick();
+        teleport();
+        granos();
+        System.out.println("SET PASSIVE PASSED: " + checks + " checks; set detection, Gunner, Miss 6, Rocketer, Chicky, Electrician, Tarzan, King Kong, Magenta, Granos, Teleport");
     }
 
     static void sets() throws Exception {
@@ -170,18 +173,48 @@ public class SetPassiveCheck {
         check(drop.bullets.size() == 2 && drop.bullets.get(0).att == 550 && drop.bullets.get(1).att == 300,
                 "the chicken carries 55% of Chicky's attack, the egg it drops 30%");
 
-        // Electrician: an opponent hit by 3 bolts in one shot loses his next turn.
+        // Electrician: an opponent hit by 3 bolts in one shot loses his next turn; by 2 he is locked on it (no walking,
+        // no new angle), by 1 slowed (30% fewer steps, no aim below 60 degrees).
         Player elec = player(map3, 4, 100, SetPassive.ELECTRICIAN, 6);
         Player zapped = player(map3, 5, 300, 5, 0);
         SetPassive.beforeShot(elec);
         apply(map3, elec, zapped, 2);
+        SetPassive.afterShot(elec);
+        check(zapped.stunTurns == 0 && zapped.paralyzeNext == 1 && zapped.paralyzeSlow == 30 && zapped.paralyzed == 0,
+                "1 bolt: slowed, from his next turn");
+        zapped.updateTurn();
+        check(zapped.paralyzed == 1 && zapped.theluc == 42 && zapped.paralyzeNext == 0, "on it he walks 42 steps instead of 60");
+        check(SetPassive.shockedAngle(zapped, 45) == 60 && SetPassive.shockedAngle(zapped, 75) == 75
+                && SetPassive.shockedAngle(zapped, 135) == 120 && SetPassive.shockedAngle(zapped, -30) == 60
+                && SetPassive.shockedAngle(zapped, 330) == 60 && SetPassive.shockedAngle(zapped, 200) == 120,
+                "and aims no lower than 60 degrees on either side");
+        zapped.updateTurn();
+        check(zapped.paralyzed == 0 && zapped.theluc == 60 && SetPassive.shockedAngle(zapped, 45) == 45, "one turn only");
+        SetPassive.beforeShot(elec);
+        apply(map3, elec, zapped, 2);
         apply(map3, elec, zapped, 2);
         SetPassive.afterShot(elec);
-        check(zapped.stunTurns == 0, "2 bolts: no stun");
+        check(zapped.stunTurns == 0 && zapped.paralyzeNext == 2, "2 bolts: no stun, locked");
+        zapped.lastAng = 50;
+        zapped.updateTurn();
+        check(zapped.paralyzed == 2 && zapped.theluc == 0 && SetPassive.shockedAngle(zapped, 30) == 50,
+                "on his next turn he cannot walk and fires at the angle of his last shot");
+        int lockedX = zapped.x;
+        zapped.updateXY(lockedX + 10, zapped.y);
+        check(zapped.x == lockedX, "not even one step");
+        zapped.updateTurn();
         SetPassive.beforeShot(elec);
         for (int i = 0; i < 3; i++) apply(map3, elec, zapped, 2);
         SetPassive.afterShot(elec);
-        check(zapped.stunTurns == 1, "3 bolts: the opponent loses his next turn");
+        check(zapped.stunTurns == 1 && zapped.paralyzeNext == 0, "3 bolts: the opponent loses his next turn");
+        elec.setTier = 1;
+        SetPassive.beforeShot(elec);
+        apply(map3, elec, zapped, 2);
+        SetPassive.afterShot(elec);
+        zapped.updateTurn();
+        check(zapped.theluc == 51, "set 1: 15% fewer steps");
+        zapped.updateTurn();
+        elec.setTier = 6;
 
         // Miss 6: every third hit ignores defense and crits x1.5.
         Player miss = player(map, 4, 100, SetPassive.MISS6, 6);
@@ -212,9 +245,35 @@ public class SetPassiveCheck {
         SetPassive.newTurn(kong);
         check(kong.passiveStill == 0, "the first turn does not count");
         SetPassive.newTurn(kong);
-        check(hit(map2, shooter, kong, false) == full * 90 / 100, "King Kong after 1 still round: -10%");
+        // (He also grows, so a blast aimed at his usual middle lands a little off his new one: compare what he takes.)
+        check(SetPassive.taken(kong, 1000) == 900, "King Kong after 1 still round: -10%");
         for (int i = 0; i < 5; i++) SetPassive.newTurn(kong);
-        check(hit(map2, shooter, kong, false) == full * 80 / 100, "King Kong caps at -20%");
+        check(SetPassive.taken(kong, 1000) == 800, "King Kong caps at -20%");
+        // A blast in the middle of his grown body (300% by now) hurts him as one in the middle of his usual one, less 20%.
+        check(SetPassive.bodyPercent(kong) == 250, "after six still rounds King Kong is 250% big");
+        Bullet mid = new Bullet(new Gun(map2, shooter.index, false), 0, 1000, kong.x, kong.y - kong.bodyHeight() / 2, 0, 0, 0, 0, 0);
+        mid.radius = 16;
+        kong.hp = kong.hpMax;
+        kong.lucky = false;
+        shooter.lucky = false;
+        kong.attBullet(mid);
+        kong.updateAllAffect(shooter);
+        int grown = kong.hpMax - kong.hp;
+        check(grown <= full * 80 / 100 && grown >= full * 79 / 100, "a hit on him then: about 80% (" + grown + " of " + full + ")");
+
+        // Grown, his bananas leave from outside his body (as MapData.shoot fires them): they no longer hit him at once.
+        MapData land = map();
+        block(land, 0, 1000, 3000, 200);
+        Player big = player(land, 0, 1000, SetPassive.KINGKONG, 6);
+        big.isFly = false;
+        big.passiveStill = 8;
+        for (int ang = 30; ang <= 90; ang += 10) {
+            Gun bananas = new Gun(land, 0, false);
+            bananas.shootBullet(9, big.x, big.y, big.bodyWidth(), big.bodyHeight(), ang, 15, 0, 1, 1000, -1);
+            boolean inside = false;
+            for (Bullet b : bananas.bullets) inside |= big.isCollision(b.bX, b.bY);
+            check(!inside, "at " + ang + " degrees his 4 bananas start outside his 300% body");
+        }
         kong.x += 5;
         SetPassive.newTurn(kong);
         check(hit(map2, shooter, kong, false) == full, "moving resets King Kong");
@@ -225,7 +284,7 @@ public class SetPassiveCheck {
     /**
      * Magenta "Người Ngoài Hành Tinh": when her POW's laser hits an opponent, a UFO on her side is called over him. It
      * fires on its first turn, then flies over the nearest opponent and fires there, until shot down. Its laser only
-     * hurts her opponents and its damage counts for her; whoever of them shoots it heals 5% of what he took off it.
+     * hurts her opponents and its damage counts for her; whoever of them shoots it heals 20% of what he took off it.
      */
     static void alien() throws Exception {
         MapData sky = map();
@@ -253,14 +312,14 @@ public class SetPassiveCheck {
         laserShot(sky, magenta, foe, true);
         check(sky.players[9] == null, "one UFO of hers at a time");
 
-        // Shooting it: the foe heals 5% of the HP he takes off it, which counts as nobody's damage.
+        // Shooting it: the foe heals 20% of the HP he takes off it, which counts as nobody's damage.
         foe.hp = 1000;
         Bullet shot = new Bullet(new Gun(sky, foe.index, false), 0, 300, ufo.x, ufo.y - 12, 0, 0, 0, 0, 0);
         shot.radius = 16;
         int dealt = foe.statDealt;
         ufo.attBullet(shot);
         ufo.updateAllAffect(foe);
-        check(ufo.hp == 300 && foe.hp == 1000 + 15, "shooting it (300) heals the foe 5% (15): ufo " + ufo.hp + ", foe " + foe.hp);
+        check(ufo.hp == 300 && foe.hp == 1000 + 60, "shooting it (300) heals the foe 20% (60): ufo " + ufo.hp + ", foe " + foe.hp);
         check(foe.statDealt == dealt, "hitting a UFO is no damage dealt");
 
         // Its laser's damage counts for Magenta.
@@ -303,31 +362,63 @@ public class SetPassiveCheck {
         SetPassive.afterShot(magenta);
         magenta.isPow = false;
     }
-    /** Wider holes (Granos, Gunner's cannonball), King Kong's rock: ground he protects, smaller and softer banana. */
+    /** Wider holes (Granos, Gunner's cannonball), King Kong's rock: ground he protects, the same banana, a bigger body. */
     static void ground() throws Exception {
         MapData map = map();
         Player elec = player(map, 0, 100, SetPassive.ELECTRICIAN, 6);
         Player granos = player(map, 1, 300, SetPassive.GRANOS, 6);
-        check(SetPassive.holeScale(elec, 2) == 100, "Electrician digs as usual now");
+        check(SetPassive.holeScale(elec, 2) == 130, "Electrician's bolts are 30% bigger, holes too");
+        Gun bolts = new Gun(map, 0, false);
+        bolts.shootBullet(2, elec.x, elec.y, 24, 24, 45, 20, 0, 1, 1000, -1);
+        check(bolts.bullets.size() == 3 && bolts.bullets.get(0).radius == mobiarmy.server.GameData.radius(2) * 130 / 100,
+                "and blow up 30% wider: " + bolts.bullets.get(0).radius);
         check(SetPassive.holeScale(granos, 7) == 100, "items dig as usual");
-        check(SetPassive.holeScale(granos, 11) == 200, "Granos digs twice as wide");
+        check(SetPassive.holeScale(granos, 11) == 180, "Granos digs 1.8 times as wide");
         granos.setTier = 1;
-        check(SetPassive.holeScale(granos, 11) == 150, "set 1 Granos: half as wide again");
+        check(SetPassive.holeScale(granos, 11) == 140, "set 1 Granos: 1.4 times");
         check(SetPassive.holeScale(null, 2) == 100, "no shooter, usual hole");
 
         Player kk = player(map, 2, 600, SetPassive.KINGKONG, 6);
         Player foe = player(map, 3, 1600, 5, 0);
         int banana = kk.bulletIdByGlassID();
         int normal = hit(map, kk, foe, false);
-        int[] holes = {100, 90, 85, 70, 70};
+        // On rock his banana stays as it is (it used to hit softer and dig smaller); he grows instead.
         for (int still = 1; still <= 5; still++) {
             kk.passiveStill = still;
-            check(SetPassive.holeScale(kk, banana) == holes[still - 1], still + " still rounds: banana hole " + holes[still - 1] + "%");
+            check(SetPassive.holeScale(kk, banana) == 100, still + " still rounds: the usual banana hole");
         }
-        kk.passiveStill = 1;
-        check(hit(map, kk, foe, false) == normal, "no rock yet: full damage");
         kk.passiveStill = 2;
-        check(hit(map, kk, foe, false) == normal * 90 / 100, "on rock: banana 10% softer");
+        check(hit(map, kk, foe, false) == normal, "on rock: the banana hits as hard as ever");
+        int[] sizes = {100, 125, 150, 175, 200, 225, 250, 275, 300, 300};
+        for (int still = 0; still < sizes.length; still++) {
+            kk.passiveStill = still;
+            check(SetPassive.bodyPercent(kk) == sizes[still], still + " still rounds: King Kong is " + sizes[still] + "% big");
+        }
+        kk.passiveStill = 0;
+        check(!kk.isCollision(kk.x + 13, kk.y - 5) && !kk.isCollision(kk.x, kk.y - 26), "his usual body is 24 px");
+        kk.passiveStill = 2;
+        check(kk.isCollision(kk.x + 13, kk.y - 5) && kk.isCollision(kk.x, kk.y - 26) && kk.isCollision(kk.x - 13, kk.y - 1),
+                "grown, a shot hits him further out on each side and on top, from the feet up");
+        check(kk.calcAtt(kk.x + 13, kk.y - 5, 0, 1000) > 0, "and hurts him there");
+        kk.setTier = 1;
+        check(SetPassive.bodyPercent(kk) == 125, "set 1: half as much growth");
+        kk.setTier = 6;
+        // His POW grows with him: bananas as much bigger and stronger, digging nothing.
+        kk.passiveStill = 8;
+        kk.isPow = true;
+        check(SetPassive.holeScale(kk, banana) == 0 && SetPassive.powGrowth(kk, true) == 300, "300% big: his POW is 3 times bigger and digs no ground");
+        Gun pow = new Gun(map, kk.index, true);
+        pow.shootBullet(9, kk.x, kk.y, kk.bodyWidth(), kk.bodyHeight(), 45, 20, 0, 1, 1000, -1);
+        check(pow.bullets.size() == 4 && pow.bullets.get(0).att == 1000 / 4 * 2 * 3
+                && pow.bullets.get(0).radius == mobiarmy.server.GameData.radius(9) * 3, "its 4 bananas hit 3 times as hard, 3 times as wide");
+        kk.isPow = false;
+        check(SetPassive.holeScale(kk, banana) == 100 && SetPassive.powGrowth(kk, false) == 100, "his usual shot as usual");
+        kk.passiveStill = 2;
+        kk.setTier = 1;
+        kk.setTier = 0;
+        check(SetPassive.bodyPercent(kk) == 100 && SetPassive.bodyPercent(foe) == 100, "no set, and any other character: usual size");
+        kk.setTier = 6;
+        kk.passiveStill = 0;
 
         // Nearest-pixel scaling, the same formula as the client's CMap.scaledMask.
         int[] mask = {1, 2, 3, 4};
@@ -569,6 +660,260 @@ public class SetPassiveCheck {
         Gun noSet = new Gun(ground, rocketer.index, true);
         noSet.shootBullet(10, rocketer.x, rocketer.y, 24, 24, 45, 20, 0, 1, 1000, -1);
         check(noSet.bulletId == 10 && noSet.bullets.size() == 3, "no set: the usual POW rockets");
+    }
+
+    /**
+     * Tarzan's POW kick: with a yell, every opponent the POW boomerang hurt flies 60 px away from the blast (30 with set
+     * 1), over gaps and bumps, until a wall stops him; one kicked off the map dies by Tarzan's hand. Clients of build 7
+     * play the flight (message 127), older ones get where he landed (message 53).
+     */
+    static void kick() throws Exception {
+        MapData map = map();
+        block(map, 0, 1000, 900, 50);   // the floor, its top at y 1000...
+        block(map, 960, 1000, 240, 50); // ...a gap at x 900-959, and nothing past x 1199
+        block(map, 900, 1100, 60, 50);  // the bottom of the gap
+        block(map, 300, 940, 20, 60);   // a wall 60 px high at x 300-319
+        block(map, 700, 992, 10, 8);    // a bump 8 px high at x 700-709
+        Player tarzan = player(map, 0, 100, SetPassive.TARZAN, 6);
+        Player foe = player(map, 1, 600, 5, 0);
+        Player mate = player(map, 2, 610, 5, 0);
+        for (Player p : new Player[] {tarzan, foe, mate}) p.isFly = false;
+
+        check(kicked(map, tarzan, foe, 590, false) == 600, "a plain boomerang kicks nobody");
+        check(kicked(map, tarzan, foe, 590, true) == 660 && foe.y == 1000, "his POW kicks him 60 px away from the blast: " + foe.x + "," + foe.y);
+        check(mate.x == 610 && mate.y == 1000, "not his own side");
+        foe.x = 600;
+        check(kicked(map, tarzan, foe, 610, true) == 540, "the other way with the blast on his other side");
+        tarzan.setTier = 1;
+        foe.x = 600;
+        check(kicked(map, tarzan, foe, 590, true) == 630, "set 1: 30 px");
+        tarzan.setTier = 0;
+        foe.x = 600;
+        check(kicked(map, tarzan, foe, 590, true) == 600, "no set, no kick");
+        tarzan.setTier = 6;
+        foe.x = 340;
+        check(kicked(map, tarzan, foe, 360, true) == 320 && foe.y == 1000, "a wall stops him: " + foe.x + "," + foe.y);
+        foe.x = 680;
+        check(kicked(map, tarzan, foe, 670, true) == 740 && foe.y == 1000, "he flies over a bump: " + foe.x + "," + foe.y);
+        foe.x = 860;
+        check(kicked(map, tarzan, foe, 850, true) == 920 && foe.y == 1100 && !foe.isDie, "over the gap's edge, down into it: " + foe.x + "," + foe.y);
+        foe.x = 1180;
+        foe.y = 1000;
+        int kills = tarzan.statKills;
+        kicked(map, tarzan, foe, 1170, true);
+        check(foe.isDie && foe.hp == 0 && tarzan.statKills == kills + 1, "kicked off the map he dies, a kill for Tarzan");
+
+        // What the clients get: all hear the yell; build 7 plays the flight, older builds get where he landed.
+        Watcher fresh = watcher(mobiarmy.server.ClientVersion.KICK_BUILD), old = watcher(mobiarmy.server.ClientVersion.KICK_BUILD - 1);
+        tarzan.user = user(SetPassive.TARZAN);
+        tarzan.user.id = 42;
+        tarzan.user.session = fresh;
+        mate.user = user(5);
+        mate.user.session = old;
+        Player next = player(map, 3, 600, 5, 0);
+        next.isFly = false;
+        kicked(map, tarzan, next, 590, true);
+        check(fresh.commands.contains(mobiarmy.server.ClientVersion.KICK_MESSAGE) && !fresh.commands.contains(53), "build 7 gets the kick: " + fresh.commands);
+        java.io.DataInputStream flight = fresh.read(mobiarmy.server.ClientVersion.KICK_MESSAGE);
+        check(flight.readUnsignedByte() == 1 && flight.readUnsignedByte() == 3 && flight.readShort() == 660 && flight.readShort() == 1000,
+                "who flies and where he lands");
+        check(old.commands.contains(53) && !old.commands.contains(mobiarmy.server.ClientVersion.KICK_MESSAGE), "an older build gets his spot: " + old.commands);
+        java.io.DataInputStream spot = old.read(53);
+        check(spot.readByte() == 3 && spot.readShort() == 660 && spot.readShort() == 1000, "message 53 puts him there");
+        for (Watcher watcher : new Watcher[] {fresh, old}) {
+            java.io.DataInputStream yell = watcher.read(9);
+            check(yell.readInt() == 42 && yell.readUTF().equals(SetPassive.TARZAN_YELL), "Tarzan yells");
+        }
+    }
+
+    /**
+     * LAN item 1 "Teleport" is not used up: once used it waits 3 of the player's turns (3, 2, 1) and then works again.
+     * Status message 114 ends with who has grown (King Kong standing still) and whose Teleport is waiting how long.
+     */
+    static void teleport() throws Exception {
+        MapData map = map();
+        Player p = new Player(map, null, "t", 0, 1, 1000, 100, 0, 0, 0, 24, 24, new byte[] {1, 0, -1, -1});
+        p.index = 0;
+        p.team = 1;
+        p.x = 100;
+        p.y = 1000;
+        p.isFly = true;
+        map.players[0] = p;
+        Player other = player(map, 1, 600, 5, 0);
+        Player kong = player(map, 2, 900, SetPassive.KINGKONG, 6);
+        kong.passiveStill = 2;
+        Watcher seen = watcher(mobiarmy.server.ClientVersion.LATEST);
+        other.user = user(5);
+        other.user.session = seen;
+
+        map.useItem(0, (byte) Player.TELEPORT_ITEM);
+        check(p.bulletId == 5 && p.teleportCooldown == Player.TELEPORT_COOLDOWN && p.findUnusedItemById(Player.TELEPORT_ITEM) != null,
+                "the Teleport works and stays: " + p.teleportCooldown + " turns to wait");
+        java.io.DataInputStream status = seen.read(114);
+        int count = status.readUnsignedByte();
+        status.skipBytes(3 * count);
+        check(count == 3 && status.readUnsignedByte() == 0, "status: three players, nobody hidden");
+        check(status.readUnsignedByte() == 1 && status.readUnsignedByte() == 2 && status.readUnsignedByte() == 6, "King Kong has his set");
+        check(status.readUnsignedByte() == 0, "nobody runs");
+        check(status.readUnsignedByte() == 1 && status.readUnsignedByte() == 2 && status.readUnsignedShort() == 150, "King Kong is 150% big");
+        check(status.readUnsignedByte() == 1 && status.readUnsignedByte() == 0 && status.readUnsignedByte() == Player.TELEPORT_ITEM
+                && status.readUnsignedByte() == 3, "and the Teleport waits 3 turns");
+        check(status.readUnsignedByte() == mobiarmy.server.Map.SCALE, "then how many times bigger the maps are");
+        check(status.readUnsignedByte() == 0 && status.available() == 0, "and last who is shocked by Electrician: nobody");
+
+        for (int left = 2; left >= 1; left--) {
+            p.updateTurn();
+            map.useItem(0, (byte) Player.TELEPORT_ITEM);
+            check(p.teleportCooldown == left && !p.isUseItem && p.bulletId != 5, "a turn later it still waits: " + left + " left");
+        }
+        p.updateTurn();
+        map.useItem(0, (byte) Player.TELEPORT_ITEM);
+        check(p.bulletId == 5 && p.teleportCooldown == Player.TELEPORT_COOLDOWN, "on the third turn it works again");
+        p.updateTurn();
+        map.useItem(0, (byte) 0);
+        check(p.isUseItem && p.findUnusedItemById(0) == null, "other items are still used up");
+    }
+
+    /**
+     * Granos "Người Gieo Laze": his POW with the set fires one seed (no wind, no hole, no damage) instead of his five
+     * grenades; where it lands 5 grenades drop in a row 36 px apart; two rounds later his lasers strike them from the
+     * sky: 1000 true damage each on his opponents it reaches (no defense), nothing on his side; the grenades are gone.
+     */
+    static void granos() throws Exception {
+        // The lasers dig like the UFO's (hole of bullet 42): a 20x20 hole here, as no masks are loaded.
+        int laserHole = mobiarmy.server.GameData.getHoleType(42);
+        java.awt.image.BufferedImage savedHole = mobiarmy.server.GameData.holeIMask[laserHole];
+        java.awt.image.BufferedImage hole = new java.awt.image.BufferedImage(20, 20, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int i = 0; i < 20; i++) for (int j = 0; j < 20; j++) hole.setRGB(j, i, 0xff000000);
+        mobiarmy.server.GameData.holeIMask[laserHole] = hole;
+        try {
+            granosRow();
+        } finally {
+            mobiarmy.server.GameData.holeIMask[laserHole] = savedHole;
+        }
+    }
+
+    static void granosRow() throws Exception {
+        MapData map = map();
+        block(map, 0, 1000, 3000, 200);
+        map.isWar = true;
+        map.windX = 60;
+        Player granos = player(map, 0, 300, SetPassive.GRANOS, 6);
+        Player foe = player(map, 1, 1000, 3, 0);
+        foe.def = 5000; // would take half off a usual hit
+        Player mate = player(map, 2, 1036, 5, 0);
+        for (Player p : new Player[] {granos, foe, mate}) p.isFly = false;
+        check(SetPassive.holeScale(granos, 11) == 180 && SetPassive.holeScale(granos, 42) == 100, "his grenades dig 1.8 times as wide, his lasers as usual");
+
+        Gun pow = new Gun(map, 0, true);
+        pow.shootBullet(11, granos.x, granos.y, 24, 24, 45, 20, 0, 1, 1000, -1);
+        check(pow.bulletId == mobiarmy.war.Boss.bullet.GranosSeed.ID && pow.bullets.size() == 1
+                && pow.bullets.get(0) instanceof mobiarmy.war.Boss.bullet.GranosSeed && pow.bullets.get(0).ax100 == 0,
+                "his POW fires one seed, which the wind does not move");
+        granos.setTier = 0;
+        Gun plain = new Gun(map, 0, true);
+        plain.shootBullet(11, granos.x, granos.y, 24, 24, 45, 20, 0, 1, 1000, -1);
+        check(plain.bulletId == 11 && plain.bullets.size() == 5, "without the set: his five grenades");
+        granos.setTier = 6;
+
+        // The seed lands in front of the foe: a row of grenades drops there, nothing is dug or hurt yet.
+        Watcher seen = watcher(mobiarmy.server.ClientVersion.LATEST);
+        foe.user = user(3);
+        foe.user.session = seen;
+        Gun seedGun = new Gun(map, 0, true);
+        seedGun.radius = -1;
+        seedGun.bullets.add(new mobiarmy.war.Boss.bullet.GranosSeed(seedGun, 1000, 1000, 800, 0, 0));
+        seedGun.fillXY();
+        check(foe.attAffect == 0 && map.isCollisionMap(1000, 1000), "the seed hurts nobody and digs nothing");
+        check(map.pendingEggs.size() == 5, "five grenades: " + map.pendingEggs.size());
+        int[] xs = {928, 964, 1000, 1036, 1072};
+        for (int k = 0; k < 5; k++) {
+            TimeBomb g = map.pendingEggs.get(k);
+            check(g.grenade && g.id < 0 && g.leadIndex == 0 && g.x == xs[k] && g.y == 1000 && g.att == 1000 && g.count == 6,
+                    "grenade " + k + " lies at " + g.x + "," + g.y + " for 2 rounds of 3 fighters, its laser 1000");
+        }
+
+        // Two rounds of three turns: the lasers strike at the sixth turn change.
+        int foeHp = foe.hp, mateHp = mate.hp, granosHp = granos.hp, dealt = granos.statDealt;
+        for (int turn = 1; turn <= 5; turn++) map.timeBombTurn();
+        check(map.timeBombs.size() == 5 && foe.hp == foeHp, "after five turn changes they still wait");
+        java.io.DataInputStream laid = seen.read(109);
+        check(laid.readByte() == 0 && laid.readByte() < 0 && laid.readInt() == 1072 && laid.readInt() == 1000 && laid.readByte() == 0,
+                "the clients get them as time bombs with ids below 0, and whose they are");
+        map.timeBombTurn();
+        check(map.timeBombs.isEmpty() && map.pendingEggs.isEmpty(), "at the sixth the lasers strike and the grenades go");
+        check(foe.hp == foeHp - 2000 && granos.statDealt > dealt,
+                "the foe on a grenade loses 1000 from it and 1000 from the next one, his defense counting for nothing: " + (foeHp - foe.hp));
+        check(mate.hp == mateHp && granos.hp == granosHp, "his own side loses nothing");
+        java.io.DataInputStream beams = seen.read(22);
+        beams.readByte();
+        beams.readByte();
+        check(beams.readByte() == 0 && beams.readByte() == 42, "one shot of UFO lasers, fired by Granos");
+        beams.skipBytes(6);
+        check(beams.readByte() == 5 && beams.readByte() == 5, "five beams, one after another");
+        check(beams.readShort() > 1 && beams.readShort() == 928 && beams.readShort() == 1000 - SetPassive.GRANOS_DROP + 20,
+                "the first from the sky above the first grenade");
+
+        // Practice has no turns: the seed lays nothing there.
+        map.isWar = false;
+        Gun practice = new Gun(map, 0, true);
+        practice.radius = -1;
+        practice.bullets.add(new mobiarmy.war.Boss.bullet.GranosSeed(practice, 1000, 1500, 800, 0, 0));
+        practice.fillXY();
+        check(map.pendingEggs.isEmpty(), "no grenades in practice");
+    }
+
+    /** Tarzan's boomerang blowing up at x, level with the target; returns where the target stands after the shot. */
+    static int kicked(MapData map, Player tarzan, Player target, int x, boolean pow) {
+        SetPassive.beforeShot(tarzan);
+        tarzan.isPow = pow;
+        Bullet boomerang = new Bullet(new Gun(map, tarzan.index, pow), 21, 1000, x, target.y - 12, 0, 0, 0, 0, 0);
+        boomerang.radius = 30;
+        target.hp = target.hpMax;
+        for (Player p : map.players) {
+            if (p != null && !p.isDie) p.attBullet(boomerang);
+        }
+        map.updateAffect(tarzan.index);
+        SetPassive.afterShot(tarzan);
+        tarzan.isPow = false;
+        return target.x;
+    }
+
+    /** A solid block of ground. */
+    static void block(MapData map, int x, int y, int w, int h) {
+        int[] solid = new int[w * h];
+        java.util.Arrays.fill(solid, 0xff808080);
+        map.data.add(map.new Image(0, x, y, solid, w, h, true));
+    }
+
+    /** A game connection of the given client build that keeps what the server sends it. */
+    static final class Watcher extends mobiarmy.server.Session {
+        java.util.List<Integer> commands;
+        java.util.List<byte[]> sent;
+
+        Watcher() throws Exception {
+            super(null, -1);
+        }
+
+        @Override
+        public void sendMessage(mobiarmy.io.Message message) {
+            this.commands.add((int) message.getCommand());
+            this.sent.add(message.getData());
+        }
+
+        /** The last message of this command. */
+        java.io.DataInputStream read(int command) {
+            return new java.io.DataInputStream(new java.io.ByteArrayInputStream(this.sent.get(this.commands.lastIndexOf(command))));
+        }
+    }
+
+    static Watcher watcher(int build) throws Exception {
+        Watcher watcher = (Watcher) unsafe().allocateInstance(Watcher.class);
+        watcher.commands = new ArrayList<>();
+        watcher.sent = new ArrayList<>();
+        watcher.sessionHandler = new mobiarmy.server.SessionHandler(watcher);
+        watcher.build = build;
+        return watcher;
     }
 
     static int apply(MapData map, Player shooter, Player target) {

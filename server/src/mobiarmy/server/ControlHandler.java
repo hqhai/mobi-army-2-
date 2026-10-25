@@ -164,6 +164,7 @@ public class ControlHandler {
                     this.session.version = msg.reader().readUTF();
                     // LAN: the client's build number follows the version string; older clients send none.
                     int build = msg.reader().available() >= 4 ? msg.reader().readInt() : 0;
+                    this.session.build = build;
                     String outdated = ClientVersion.problem(build);
                     if (outdated != null) {
                         System.out.println("Login of " + name + " refused: client build " + build + ", server needs " + ClientVersion.required());
@@ -413,7 +414,7 @@ public class ControlHandler {
                     byte version = msg.reader().readByte();
                     switch (type) {
                         case 1 -> this.session.sessionHandler.iconInfo(12, version);
-                        case 2 -> this.session.sessionHandler.mapInfo(12, version);
+                        case 2 -> this.session.sessionHandler.mapInfo(Map.INFO_VERSION, version); // LAN: bigger maps, new list
                         case 3 -> this.session.sessionHandler.layerInfo(12, version);
                         // 16: Thor costumes in the game's own pieces (ThorCostume); 17: costume bullets (CostumeBullets).
                         case 4 -> this.session.sessionHandler.dataInfo(17, version);

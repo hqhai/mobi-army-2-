@@ -369,14 +369,17 @@
             return 'Cứ mỗi phát trúng đối thủ thứ 3 gây sát thương chuẩn: bỏ qua toàn bộ phòng thủ, không bị may mắn cứu, và chắc chắn chí mạng x'
                 + (1 + scaledText(50, s) / 100).toLocaleString('vi-VN') + '. Bắn trượt không tính; trúng đồng đội không tính.';
         }},
-        2: {name: 'Tê liệt', detail: function () {
-            return 'Đối thủ trúng cả 3 viên đạn điện trong một phát bắn bị tê liệt, mất lượt bắn kế tiếp (chữ "Choáng" hiện trên đầu). Đạn và hố như thường.';
+        2: {name: 'Tê liệt', detail: function (s) {
+            return 'Đạn điện to hơn ' + scaledText(30, s) + '%: nổ rộng hơn và đục hố to hơn chừng ấy. Đối thủ trúng đạn điện trong một phát bắn thì ở lượt kế tiếp của mình: '
+                + 'trúng cả 3 viên thì mất lượt (chữ "Choáng" trên đầu); trúng 2 viên thì không đi được và không đổi được góc bắn; '
+                + 'trúng 1 viên thì đi ít hơn ' + scaledText(30, s) + '% và không ngắm thấp hơn 60 độ, kể cả bằng lệnh "g" (chữ "Tê liệt" trên đầu).';
         }},
         3: {name: 'Bàn thạch', detail: function (s) {
             return 'Mỗi vòng đứng yên một chỗ giảm thêm ' + scaledText(10, s) + '% sát thương nhận vào, tối đa ' + scaledText(20, s)
-                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Cái giá: khi đã có bàn thạch, chuối gây ít hơn ' + scaledText(10, s)
-                + '% sát thương và đục hố nhỏ dần (−' + scaledText(10, s) + '%, −' + scaledText(15, s) + '%, rồi −' + scaledText(30, s)
-                + '% từ vòng thứ 3). Đi bộ, dịch chuyển hay bị hất văng đều mất hết.';
+                + '%. Đứng yên từ 2 vòng, đất dưới chân không bị phá. Chuối vẫn mạnh như thường. Mỗi vòng đứng yên King Kong to thêm '
+                + scaledText(25, s) + '%, tối đa ' + (100 + scaledText(200, s)) + '%: dễ bị bắn trúng hơn, nhưng POW to và mạnh theo '
+                + '(to 300% thì chuối POW to gấp 3, gây gấp 3 sát thương) và không đục đất. '
+                + 'Đi bộ, dịch chuyển hay bị hất văng đều mất hết và King Kong về cỡ thường.';
         }},
         4: {name: 'WorldWar', detail: function (s) {
             return 'POW không bắn tên lửa nữa mà bắn pháo hiệu gọi máy bay: pháo hiệu không bị gió ảnh hưởng và được ngắm mọi góc. '
@@ -385,9 +388,13 @@
                 + 'Phóng xạ lan ra từ chỗ nổ: đối thủ mất tới ' + scaledText(20, s) + '% sức tấn công của Rocketer, càng xa càng nhẹ; '
                 + 'Rocketer chỉ bị khi đứng quá gần. Thanh nộ tích nhanh hơn ' + scaledText(40, s) + '%. Các phát bắn thường như cũ.';
         }},
-        5: {name: 'Bom phá đất', detail: function (s) {
-            return 'Đạn của Granos đục hố rộng gấp ' + (1 + scaledText(100, s) / 100).toLocaleString('vi-VN')
-                + ' lần, chuyên đào hố cho đối thủ rơi. Sát thương giữ như thường; vật phẩm vẫn đục như thường.';
+        5: {name: 'Người Gieo Laze', detail: function (s) {
+            return 'Lựu đạn của Granos đục hố rộng gấp ' + (1 + scaledText(80, s) / 100).toLocaleString('vi-VN') + ' lần. '
+                + 'POW không bắn 5 quả lựu đạn nữa mà bắn một hạt giống: không bị gió ảnh hưởng, ngắm được mọi góc (như pháo hiệu của Rocketer), '
+                + 'rơi xuống không đục đất, không gây sát thương. Chỗ hạt giống rơi, 5 quả lựu đạn từ trên trời rơi xuống nằm thành một hàng ngang, '
+                + 'cách nhau 36 px. Sau 2 vòng, mỗi quả bị một tia laze từ trên trời bắn xuống (tia laze của UFO), gây ' + scaledText(1000, s)
+                + ' sát thương chuẩn (bỏ qua phòng thủ và may mắn) cho mỗi đối thủ trong vòng 24 px, không trúng phe mình. '
+                + 'Đứng giữa hai quả thì trúng cả hai tia. Đối thủ có 2 vòng để tránh khỏi hàng lựu đạn.';
         }},
         6: {name: 'Trứng Phục sinh', detail: function (s) {
             return 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn, hoặc trúng quả trứng gà thứ 5 của Chicky trong trận, sẽ bị đẻ một quả trứng Phục sinh '
@@ -398,7 +405,9 @@
         7: {name: 'Khế Ước Rừng Xanh', detail: function (s) {
             return 'Khế ước với King Kong: Tarzan và King Kong ở hai phe chỉ gây cho nhau một nửa sát thương (luôn luôn, bộ nào cũng vậy); '
                 + 'cùng phe thì cả hai gây thêm ' + scaledText(20, s) + '% và nhận ít hơn ' + scaledText(10, s) + '% sát thương khi cả hai còn sống. '
-                + 'Boomerang không bị gió ảnh hưởng (nên đường ngắm luôn chỉ đúng đường bay), nổ rộng gấp rưỡi và gây thêm 20% khi trúng lúc bay về. '
+                + 'Boomerang không bị gió ảnh hưởng, nổ rộng gấp rưỡi và gây thêm 20% khi trúng lúc bay về. '
+                + 'POW "Cú đá đu dây": boomerang POW trúng đối thủ nào thì Tarzan hú lên, đu dây đá văng đối thủ đó ra xa ' + scaledText(60, s)
+                + ' px, ngược phía tâm nổ; bay qua hố và gờ thấp, gặp vách thì dừng; rơi khỏi bản đồ là chết (tính cho Tarzan). '
                 + 'Đi được 120 bước mỗi lượt (thường 60). Vẫn giảm ' + scaledText(8, s) + '% mọi sát thương nhận vào.';
         }},
         8: {name: 'Thợ săn ẩn nấp', detail: function (s) {
@@ -411,7 +420,7 @@
                 + 'bị bắn hạ thì lần POW sau gọi chiếc mới). Tới lượt của mình, UFO bắn laser thẳng xuống chỗ nó đang lơ lửng, '
                 + 'lượt sau bay tới trên đầu đối thủ gần nhất rồi lại bắn, cứ thế cho tới khi bị bắn hạ hoặc Magenta gục. '
                 + 'UFO có ' + scaledText(15, s) + '% máu tối đa của Magenta, laser gây ' + scaledText(50, s) + '% sức tấn công của Magenta và chỉ trúng phe đối thủ. '
-                + 'Đối thủ nào bắn trúng UFO được hồi 5% lượng máu vừa bắn mất của UFO.';
+                + 'Đối thủ nào bắn trúng UFO được hồi 20% lượng máu vừa bắn mất của UFO.';
         }}    };
 
     /** Set tier 1..6 of a full +14 set among the worn gear, or 0, with what is still missing. */
