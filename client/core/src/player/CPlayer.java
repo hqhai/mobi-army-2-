@@ -937,6 +937,12 @@ public class CPlayer {
     }
 
     public void fall() {
+        if (!MM.groundReady()) {
+            // LAN: the ground is still coming (the first match on a map): falling now went through it, out of the
+            // map, and the players stayed out of sight until the server placed them again a turn or so later.
+            return;
+        }
+
         if (this.flyPlayer || this.isCapture) {
             if (this.gun == 25 || this.gun == 26) {
                 this.falling = false;

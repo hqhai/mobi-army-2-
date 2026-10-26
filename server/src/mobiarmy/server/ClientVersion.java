@@ -14,7 +14,7 @@ public final class ClientVersion {
      */
     public static final int REQUIRED = 8;
     /** Must equal GameMidlet.LAN_BUILD of the client built from the same code (scripts/tests/ClientVersionCheck). */
-    public static final int LATEST = 9; // 9 draws the GunBound-style angle arc; 8 still plays
+    public static final int LATEST = 10; // 10 waits for a new map's ground before anyone falls; 9 drew the angle arc; 8 still plays
     /**
      * From this build the client plays Tarzan's kick (message KICK_MESSAGE: the kicked players fly where they land);
      * older ones get each landing spot as message 53 and show the player there at once.

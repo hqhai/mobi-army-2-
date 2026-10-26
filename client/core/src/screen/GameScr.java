@@ -1818,7 +1818,8 @@ public class GameScr extends CScreen {
         g.fillRect(x + 1, y + 1, fill, h - 2, false);
         g.setColor(0xffffff);
         g.drawRect(x, y, w, h, false);
-        Font.smallFontYellow.drawString(g, "HP " + hp + "/" + me.maxhp, x, y + h + 2, 0);
+        // (borderFont: the small fonts have no space nor slash, which came out as zeros, "HP0105001050")
+        Font.borderFont.drawString(g, "HP " + hp + "/" + me.maxhp, x, y + h + 1, 0);
     }
 
     public void drawWind(mGraphics g) {

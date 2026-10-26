@@ -54,6 +54,7 @@ public class MM {
         isHaveWaterOrGlass = false;
         CRes.out("=====================> Create map = " + mapID);
         MM.mapID = mapID;
+        groundAskedAt = System.currentTimeMillis();
         this.loadMapFile(mapID);
     }
 
@@ -218,6 +219,29 @@ public class MM {
         }
 
         return false;
+    }
+
+    /** When the map was made (createMap), and how long its ground is waited for at most (a piece may never come). */
+    private static long groundAskedAt;
+    static final long GROUND_WAIT = 10000L;
+
+    /**
+     * LAN: whether every piece of the map's ground has its picture yet. A piece the client has not seen this session
+     * comes from the server (message 126) after the match has begun, above all on the random map, whose map is only
+     * known then; until it comes nothing stands on it.
+     */
+    public static boolean groundReady() {
+        if (System.currentTimeMillis() - groundAskedAt > GROUND_WAIT) {
+            return true;
+        }
+
+        for (int i = 0; i < maps.size(); ++i) {
+            if (((CMap) maps.elementAt(i)).aMap == null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static int[] rgbMap(int id) {

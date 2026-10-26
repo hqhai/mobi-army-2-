@@ -116,16 +116,18 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
-    public void iconInfo(int version, int version2) {
+    /**
+     * Always with the file: the client asks for it with another file's version (its tile map version, never set) and
+     * reads the file whenever its own icon version differs, so a file left out could leave it reading past the end.
+     */
+    public void iconInfo(int version) {
         try {
             Message message = new Message(90);
             message.writer().writeByte(1);
             message.writer().writeByte(version);
-            if (version != version2) {
-                byte[] data = GameData.mapIcon.toByteArray();
-                message.writer().writeShort(data.length);
-                message.writer().write(data);
-            }
+            byte[] data = GameData.mapIcon.toByteArray();
+            message.writer().writeShort(data.length);
+            message.writer().write(data);
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
@@ -173,16 +175,18 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
-    public void layerInfo(int version, int version2) {
+    /**
+     * Always with the file: the client asks for it with its icon version and reads the file whenever its own player
+     * version differs (as iconInfo).
+     */
+    public void layerInfo(int version) {
         try {
             Message message = new Message(90);
             message.writer().writeByte(3);
             message.writer().writeByte(version);
-            if (version != version2) {
-                byte[] data = GameData.player.toByteArray();
-                message.writer().writeShort(data.length);
-                message.writer().write(data);
-            }
+            byte[] data = GameData.player.toByteArray();
+            message.writer().writeShort(data.length);
+            message.writer().write(data);
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
@@ -248,21 +252,24 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
-    public void captionInfo(int version, int version2) {
+    /**
+     * Always with the captions: the client asks for them with its equipment version and reads them whenever its own
+     * caption version differs, or its equipment pictures are missing. A client whose equipment version happened to be
+     * this caption version (13) got none, read past the end and waited at "Xin chờ..." for good (as iconInfo).
+     */
+    public void captionInfo(int version) {
         try {
             Message message = new Message(90);
             message.writer().writeByte(5);
             message.writer().writeByte(version);
-            if (version != version2) {
-                Write write = new Write();
-                write.writer().writeByte(Caption.entrys.length);
-                for (int i = Caption.entrys.length - 1; i >= 0; i--) {
-                    write.writer().writeUTF(Caption.entrys[i].caption);
-                    write.writer().writeByte(Caption.entrys[i].level);
-                }
-                message.writer().writeShort(write.size());
-                message.writer().write(write.getBytes());
+            Write write = new Write();
+            write.writer().writeByte(Caption.entrys.length);
+            for (int i = Caption.entrys.length - 1; i >= 0; i--) {
+                write.writer().writeUTF(Caption.entrys[i].caption);
+                write.writer().writeByte(Caption.entrys[i].level);
             }
+            message.writer().writeShort(write.size());
+            message.writer().write(write.getBytes());
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }

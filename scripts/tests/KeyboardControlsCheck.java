@@ -408,6 +408,20 @@ public class KeyboardControlsCheck extends MainGame {
              CPlayer.headGuideShots=2;
              check(player.guideShown() && !foe.guideShown(),"item 36 shows my aim guide, nobody else's");
              player.gun=gun; player.setTier=tier; CPlayer.headGuideShots=shots;}
+            // The first match on a map (the random map above all): its ground comes from the server once the match has
+            // begun, and nobody falls through it meanwhile (they dropped out of the map and stayed unseen a turn or so).
+            {int height=map.MM.mapHeight, mapId=map.MM.mapID; map.MM mmBefore=GameScr.mm; if(GameScr.mm==null) GameScr.mm=new map.MM();
+             map.MM.mapHeight=600; map.CMap piece=new map.CMap(5,0,150,null,true); map.MM.maps.addElement(piece);
+             GameScr.mm.createMap(99); // (no such map: only when its ground was asked for)
+             reset(); sent.clear(); player.falling=true;
+             for(int i=0;i<40;i++) player.fall();
+             check(!map.MM.groundReady() && player.falling && player.y==100,"nobody falls before the ground has come");
+             piece.width=300; piece.height=50; piece.aMap=new int[300*50]; java.util.Arrays.fill(piece.aMap,0xff806040);
+             for(int i=0;i<40 && player.falling;i++) player.fall();
+             check(map.MM.groundReady() && !player.falling && player.y==150,"once it has come they land on it");
+             piece.aMap=null; Field asked=map.MM.class.getDeclaredField("groundAskedAt"); asked.setAccessible(true); asked.setLong(null,0L);
+             check(map.MM.groundReady(),"a piece that never comes holds nobody up for good");
+             map.MM.maps.removeElement(piece); map.MM.mapHeight=height; map.MM.mapID=mapId; GameScr.mm=mmBefore; reset(); sent.clear();}
             CCanvas.gameScr=gameBefore;
             PM.p=new CPlayer[]{player};
             System.out.println("KEYBOARD CHECKS PASSED: " + checks);
