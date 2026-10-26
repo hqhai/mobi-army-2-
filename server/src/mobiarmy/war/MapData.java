@@ -1238,6 +1238,13 @@ public class MapData {
             if (item != null && item.itemId == Player.TELEPORT_ITEM && player.teleportCooldown > 0) {
                 return;
             }
+            // LAN item 37 "Bê tông cốt thép" waits Player.CONCRETE_COOLDOWN of his turns between uses.
+            if (item != null && item.itemId == 37 && player.concreteCooldown > 0) {
+                if (player.user != null && player.user.session != null) {
+                    player.user.session.sessionHandler.log("Bê tông cốt thép đang hồi, còn " + player.concreteCooldown + " lượt.");
+                }
+                return;
+            }
             player.isUseItem = true;
             //send
             for (Player us : this.players) {
@@ -1354,6 +1361,8 @@ public class MapData {
             // LAN item 37 "Bê tông cốt thép": the ground under the player cannot be dug this round and the next.
             if (item.itemId == 37) {
                 player.concreteTurns = 2;
+                player.concreteCooldown = Player.CONCRETE_COOLDOWN;
+                this.sendStatus(); // the clients count it down on the item
             }
             // LAN item 38 "Cơn mưa độc": falls like Sao băng; whoever it hits heals half as much for 3 turns.
             if (item.itemId == 38) {
@@ -1613,6 +1622,7 @@ public class MapData {
                             // Stunned (Electrician): this turn is skipped, though it counts for the Teleport.
                             this.players[num2].stunTurns--;
                             if (this.players[num2].teleportCooldown > 0) this.players[num2].teleportCooldown--;
+                            if (this.players[num2].concreteCooldown > 0) this.players[num2].concreteCooldown--;
                             this.sendStatus();
                             if (num2 == num3) break;
                             continue;

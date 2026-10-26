@@ -164,13 +164,13 @@ public class Item {
    }
 
    public static void DrawSetItem(mGraphics g, int[] setItem, int curItem, int x, int y, boolean isTouch, byte[] num) {
-      DrawSetItem(g, setItem, curItem, x, y, isTouch, num, 0);
+      DrawSetItem(g, setItem, curItem, x, y, isTouch, num, 0, 0);
    }
 
    private static final com.badlogic.gdx.graphics.Color COOLING_GREY = new com.badlogic.gdx.graphics.Color(0.4f, 0.4f, 0.4f, 1f);
 
-   /** teleportCooldown: turns before the Teleport works again (LAN build 7); its icon is greyed with that number. */
-   public static void DrawSetItem(mGraphics g, int[] setItem, int curItem, int x, int y, boolean isTouch, byte[] num, int teleportCooldown) {
+   /** teleportCooldown, concreteCooldown: turns before the Teleport (build 7) or item 37 (build 11) works again; the icon is greyed with that number. */
+   public static void DrawSetItem(mGraphics g, int[] setItem, int curItem, int x, int y, boolean isTouch, byte[] num, int teleportCooldown, int concreteCooldown) {
       int i = 0;
       int j = 0;
       int k = 0;
@@ -192,7 +192,8 @@ public class Item {
             g.fillRect(x1 - blank / 2, y1 - blank / 2, 16 + blank, 16 + blank, false);
          }
 
-         boolean cooling = setItem[n] == ITEM_TELEPORT && teleportCooldown > 0;
+         int wait = setItem[n] == ITEM_TELEPORT ? teleportCooldown : setItem[n] == CONCRETE ? concreteCooldown : 0;
+         boolean cooling = wait > 0;
          try {
             if (cooling) g.tint = COOLING_GREY;
             if (!drawOwnIcon(g, setItem[n], x1, y1, 0, false))
@@ -203,7 +204,7 @@ public class Item {
             g.tint = null;
          }
          if (cooling) {
-            Font.borderFont.drawString(g, String.valueOf(teleportCooldown), x1 + 8, y1 + 2, 2);
+            Font.borderFont.drawString(g, String.valueOf(wait), x1 + 8, y1 + 2, 2);
          }
 
          ++i;

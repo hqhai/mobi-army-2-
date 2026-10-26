@@ -16,6 +16,14 @@ public class SetPassiveCheck {
     static int checks;
 
     public static void main(String[] args) throws Exception {
+        // The lowest aims of the characters, as table glass has them (SetPassive.lowestAngle).
+        int[] lowest = {-45, -45, -45, 30, 20, 30, -45, 1, -45, 20};
+        mobiarmy.server.Glass.entrys = new mobiarmy.server.Glass[lowest.length];
+        for (int i = 0; i < lowest.length; i++) {
+            mobiarmy.server.Glass.entrys[i] = new mobiarmy.server.Glass();
+            mobiarmy.server.Glass.entrys[i].id = (byte) i;
+            mobiarmy.server.Glass.entrys[i].angle = lowest[i];
+        }
         sets();
         damage();
         ground();
@@ -189,7 +197,12 @@ public class SetPassiveCheck {
         foe.paralyzeNext = 1;
         foe.paralyzeSlow = SetElement.LIGHTNING_SLOW;
         foe.updateTurn();
-        check(foe.theluc == 42 && SetPassive.shockedAngle(foe, 10) == SetPassive.ELECTRICIAN_MIN_ANGLE, "lightning: 30% fewer steps, aims no lower than 60: " + foe.theluc);
+        check(foe.theluc == 42 && SetPassive.shockedAngle(foe, -50) == SetPassive.lowestAngle(foe) + SetPassive.ELECTRICIAN_RAISE, "lightning: 30% fewer steps, lowest aim 30 degrees higher: " + foe.theluc);
+        int glassWas = foe.glassID;
+        foe.glassID = SetPassive.CHICKY;
+        check(SetPassive.shockedAngle(foe, -45) == -15 && SetPassive.shockedAngle(foe, 225) == 195 && SetPassive.shockedAngle(foe, 0) == 0,
+                "shocked Chicky aims no lower than -15 (her -45 raised by 30)");
+        foe.glassID = glassWas;
         foe.updateTurn();
 
         foe.hp = foe.hpMax;
@@ -395,8 +408,8 @@ public class SetPassiveCheck {
         check(drop.bullets.size() == 2 && drop.bullets.get(0).att == 550 && drop.bullets.get(1).att == 300,
                 "the chicken carries 55% of Chicky's attack, the egg it drops 30%");
 
-        // Electrician: an opponent hit by 3 bolts in one shot loses his next turn; by 2 he is locked on it (no walking,
-        // no new angle), by 1 slowed (30% fewer steps, no aim below 60 degrees).
+        // Electrician: an opponent hit by 2 or 3 bolts in one shot walks 70% less and aims no lower than 60 degrees on his
+        // next turn (3 also deal true damage), by 1 he walks 30% less with the same angle limit.
         Player elec = player(map3, 4, 100, SetPassive.ELECTRICIAN, 6);
         Player zapped = player(map3, 5, 300, 5, 0);
         SetPassive.beforeShot(elec);
@@ -416,19 +429,20 @@ public class SetPassiveCheck {
         apply(map3, elec, zapped, 2);
         apply(map3, elec, zapped, 2);
         SetPassive.afterShot(elec);
-        check(zapped.stunTurns == 0 && zapped.paralyzeNext == 2, "2 bolts: no stun, locked");
-        zapped.lastAng = 50;
+        check(zapped.stunTurns == 0 && zapped.paralyzeNext == 1 && zapped.paralyzeSlow == 70, "2 bolts: no stun, 70% slower");
         zapped.updateTurn();
-        check(zapped.paralyzed == 2 && zapped.theluc == 0 && SetPassive.shockedAngle(zapped, 30) == 50,
-                "on his next turn he cannot walk and fires at the angle of his last shot");
-        int lockedX = zapped.x;
-        zapped.updateXY(lockedX + 10, zapped.y);
-        check(zapped.x == lockedX, "not even one step");
+        check(zapped.paralyzed == 1 && zapped.theluc == 18 && SetPassive.shockedAngle(zapped, 30) == 60
+                && SetPassive.shockedAngle(zapped, 75) == 75,
+                "on his next turn he walks 18 steps and aims no lower than 60 degrees");
         zapped.updateTurn();
         SetPassive.beforeShot(elec);
         for (int i = 0; i < 3; i++) apply(map3, elec, zapped, 2);
         SetPassive.afterShot(elec);
-        check(zapped.stunTurns == 1 && zapped.paralyzeNext == 0, "3 bolts: the opponent loses his next turn");
+        check(zapped.stunTurns == 0 && zapped.paralyzeNext == 1 && zapped.paralyzeSlow == 70, "3 bolts: no lost turn, 70% slower");
+        check(SetPassive.boltsTrue(elec, zapped), "3 bolts: true damage");
+        zapped.hitBolts = 2;
+        check(!SetPassive.boltsTrue(elec, zapped), "2 bolts: no true damage");
+        zapped.updateTurn();
         elec.setTier = 1;
         SetPassive.beforeShot(elec);
         apply(map3, elec, zapped, 2);

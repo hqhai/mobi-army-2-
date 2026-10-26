@@ -73,6 +73,9 @@ public class Player {
     public int attDirect;
     /** LAN item 37 "Bê tông cốt thép": own turns left with ground that cannot be dug. */
     public int concreteTurns;
+    /** Own turns before item 37 can be used again: CONCRETE_COOLDOWN after a use. */
+    public int concreteCooldown;
+    public static final int CONCRETE_COOLDOWN = 4;
     /** LAN item 38 "Cơn mưa độc": armed for this turn's shot. */
     public boolean poisonRain;
     /** Hit by the poison rain: own turns left healing half as much. */
@@ -407,6 +410,12 @@ public class Player {
             } else if (player.laserStrike) {
                 // Granos's lasers (MapData.granosStrike): true damage as they dealt it.
                 trueDamage = true;
+            } else if (SetPassive.trueVs(player, this)) {
+                // Admin-set pair (SetPassive.TRUE_VS): true damage.
+                trueDamage = true;
+            } else if (SetPassive.boltsTrue(player, this)) {
+                // Electrician's three bolts in one shot: true damage.
+                trueDamage = true;
             } else if (player.outsiderTrue && SetPassive.enemies(player, this)) {
                 // An Outsider's POW (SetTeam "Kẻ Ngoại Lai"): true damage.
                 trueDamage = true;
@@ -675,6 +684,7 @@ public class Player {
         if (this.concreteTurns > 0) this.concreteTurns--;
         if (this.antiHealTurns > 0) this.antiHealTurns--;
         if (this.teleportCooldown > 0) this.teleportCooldown--;
+        if (this.concreteCooldown > 0) this.concreteCooldown--;
         SetPassive.newTurn(this);
         SetElement.newTurn(this); // the fire burns out, the poison bites
         this.buocdi = 0;

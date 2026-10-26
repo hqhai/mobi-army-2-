@@ -1012,8 +1012,9 @@ public class GameScr extends CScreen {
     private void changeDesktopAngle(int direction) {
         CPlayer player = PM.getMyPlayer();
         // Per-character limits (e.g. -45 below horizontal) are applied by angleUpdate().
-        player.angle = Math.max(-90, Math.min(270,
-                player.angle + (player.look == 0 ? -direction : direction)));
+        // No further up than straight up (90): past it the gun would point behind him while he still faces forward.
+        int next = player.angle + (player.look == 0 ? -direction : direction);
+        player.angle = player.look == 0 ? Math.max(90, Math.min(270, next)) : Math.max(-90, Math.min(90, next));
         player.angleUpdate();
         player.checkAngleForSprite();
     }
@@ -1920,7 +1921,7 @@ public class GameScr extends CScreen {
             g.fillRect(Camera.x, y - 1, CCanvas.width, CCanvas.isTouch ? 43 : 36, false);
         }
 
-        Item.DrawSetItem(g, PM.getMyPlayer().item, curItemSelec, x, y, CCanvas.isTouch, PrepareScr.currLevel == 7 ? num : null, PM.getMyPlayer().itemCooling(Item.ITEM_TELEPORT) ? PM.getMyPlayer().teleportCooldown : 0);
+        Item.DrawSetItem(g, PM.getMyPlayer().item, curItemSelec, x, y, CCanvas.isTouch, PrepareScr.currLevel == 7 ? num : null, PM.getMyPlayer().itemCooling(Item.ITEM_TELEPORT) ? PM.getMyPlayer().teleportCooldown : 0, PM.getMyPlayer().itemCooling(Item.CONCRETE) ? PM.getMyPlayer().concreteCooldown : 0);
         Font.borderFont.drawString(g, Language.use(), Camera.x + 5, Camera.y + CCanvas.hieght - Font.normalFont.getHeight() - 4, 0);
         Font.borderFont.drawString(g, Language.close(), Camera.x + CCanvas.width - 5, Camera.y + CCanvas.hieght - Font.normalFont.getHeight() - 4, 1);
     }

@@ -13,8 +13,13 @@ public final class ClientVersion {
      * WorldWar bombs on the ground and puts gift box items in their slots (7 showed no aim guide unless item 36 is on).
      */
     public static final int REQUIRED = 8;
+    /**
+     * Bag size (game, web and admin gifts). From BIG_BAG_BUILD the client reads the bag count unsigned; older ones read
+     * a signed byte and see only the first OLD_BAG_SHOWN pieces (SessionHandler.updateRuong).
+     */
+    public static final int BAG_LIMIT = 250, BIG_BAG_BUILD = 10, OLD_BAG_SHOWN = 127;
     /** Must equal GameMidlet.LAN_BUILD of the client built from the same code (scripts/tests/ClientVersionCheck). */
-    public static final int LATEST = 10; // 10 waits for a new map's ground before anyone falls; 9 drew the angle arc; 8 still plays
+    public static final int LATEST = 12; // 12 raises a shocked aim by 30 from his own lowest and stops the arrow keys at 90; 11 greys item 37 while it cools down; 10 reads 250-piece bags, waits for a new map's ground before anyone falls; 9 drew the angle arc; 8 still plays
     /**
      * From this build the client plays Tarzan's kick (message KICK_MESSAGE: the kicked players fly where they land);
      * older ones get each landing spot as message 53 and show the player there at once.

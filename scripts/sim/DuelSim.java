@@ -41,7 +41,9 @@ import sun.misc.Unsafe;
     static int matches = 2000, threads = Runtime.getRuntime().availableProcessors(), rules = RoomRules.BALANCED,
             tier = 6, maxTurns = 120, ptsHp = 0, ptsAtt = 0, ptsDef = 0, ptsLuck = 0;
     static double sigmaForce = 0.6, sigmaAng = 1.0, sigmaF2 = 1.0, sigmaWind = 1.0, evadeChance = 0.5, ufoChance = 0.6;
-    static boolean usePow = true, matrix = false, useTeleport = mobiarmy.server.Map.SCALE > 1;
+    static boolean usePow = true, matrix = false, useTeleport = mobiarmy.server.Map.SCALE > 1, team2 = false;
+    /** 2v2 (team=true): wins of each pair of characters as one side, keyed lower*10+higher. */
+    static final long[] duoWins = new long[100], duoGames = new long[100];
     /** Teleport when the opponent is farther than this (px), to land about TELEPORT_GAP from him, within TELEPORT_MISS. */
     static final int TELEPORT_FAR = 600, TELEPORT_GAP = 250, TELEPORT_MISS = 120;
     static int[] heroes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -84,6 +86,7 @@ import sun.misc.Unsafe;
                 case "evade" -> evadeChance = Double.parseDouble(v);
                 case "ufo" -> ufoChance = Double.parseDouble(v);
                 case "matrix" -> matrix = Boolean.parseBoolean(v);
+                case "team" -> team2 = Boolean.parseBoolean(v);
                 case "heroes" -> heroes = Arrays.stream(v.split(",")).mapToInt(Integer::parseInt).toArray();
                 default -> {
                     if (kv[0].startsWith("att")) attOverride.put(Integer.parseInt(kv[0].substring(3)), Integer.parseInt(v));
@@ -111,7 +114,7 @@ import sun.misc.Unsafe;
             int a = swap ? pair[1] : pair[0], b = swap ? pair[0] : pair[1];
             futures.add(pool.submit(() -> {
                 try {
-                    runMatch(a, b);
+                    if (team2) runTeamMatch(); else runMatch(a, b);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -125,6 +128,7 @@ import sun.misc.Unsafe;
         for (Future<?> f : futures) f.get();
         pool.shutdown();
         report((System.currentTimeMillis() - t0) / 1000.0);
+        if (team2) reportDuos();
     }
 
     static void report(double seconds) {
@@ -209,6 +213,84 @@ import sun.misc.Unsafe;
         }
     }
 
+    /**
+     * 2v2 (team=true): two random sides of two different characters each (the same character may be on both sides),
+     * with the team passives (SetTeam) and the Jungle Pact; each bot shoots the nearest living opponent.
+     */
+    static void runTeamMatch() throws Exception {
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        int a1 = heroes[r.nextInt(heroes.length)], a2, b1 = heroes[r.nextInt(heroes.length)], b2;
+        do a2 = heroes[r.nextInt(heroes.length)]; while (a2 == a1);
+        do b2 = heroes[r.nextInt(heroes.length)]; while (b2 == b1);
+        SimMap map = SimMap.create(MAPS[Util.nextInt(MAPS.length)]);
+        map.rules = (byte) rules;
+        map.skillRules = rules == RoomRules.BALANCED;
+        List<mobiarmy.server.Map.Point> points = new ArrayList<>(Arrays.asList(map.map.data.points));
+        int[] glass = {a1, b1, a2, b2}; // turns alternate sides
+        Player[] ps = new Player[4];
+        for (int i = 0; i < 4; i++) ps[i] = spawn(map, i, glass[i], i % 2 == 0 ? 1 : 2, points);
+        SetTeam.apply(map, rules == RoomRules.BASE);
+        Brain[] brains = new Brain[4];
+        for (int i = 0; i < 4; i++) brains[i] = new Brain(ps[i], ps[(i + 1) % 4]);
+        map.isWar = true;
+        map.isTurn = true;
+        int turns = 0;
+        while (map.isWar && turns < maxTurns * 2) {
+            map.update();
+            if (!map.isWar) break;
+            int t = map.getTurn();
+            if (t < 0) break;
+            Player me = map.players[t];
+            if (t >= 4) {
+                map.timeUntilAction2 = 0;
+                if (!map.isTurn) me.update();
+                map.isTurn = true;
+                continue;
+            }
+            if (me.isDie || me.isShoot) {
+                map.isTurn = true;
+                continue;
+            }
+            turns++;
+            brains[t].act();
+            if (!me.isShoot) map.isTurn = true;
+        }
+        if (map.isWar) map.updateComplete();
+        int result = map.typeComplete; // 1: team 1 won, 2: team 2 won, else a draw
+        synchronized (tally) {
+            for (int i = 0; i < 4; i++) {
+                int side = i % 2 == 0 ? 1 : 2;
+                record(glass[i], ps[i], brains[i], result == side ? 1 : result == 3 - side ? -1 : 0, map);
+            }
+            int da = Math.min(a1, a2) * 10 + Math.max(a1, a2), db = Math.min(b1, b2) * 10 + Math.max(b1, b2);
+            duoGames[da]++;
+            duoGames[db]++;
+            if (result == 1) duoWins[da] += 2;
+            else if (result == 2) duoWins[db] += 2;
+            else { duoWins[da]++; duoWins[db]++; }
+        }
+    }
+
+    static void reportDuos() {
+        System.out.println("\nsides (2 characters)          win%    +-  games  passive");
+        List<Integer> duos = new ArrayList<>();
+        for (int d = 0; d < 100; d++) if (duoGames[d] > 0) duos.add(d);
+        duos.sort((x, y) -> Double.compare(duoWins[y] * 1.0 / duoGames[y], duoWins[x] * 1.0 / duoGames[x]));
+        for (int d : duos) {
+            double p = 50.0 * duoWins[d] / duoGames[d];
+            double ci = 196 * Math.sqrt(Math.max(p, 1) * Math.max(100 - p, 1) / 10000.0 / duoGames[d]);
+            int x = d / 10, y = d % 10;
+            String pact = "";
+            for (int g = 0; g < SetTeam.GROUPS.length; g++) {
+                boolean hx = false, hy = false;
+                for (int k : SetTeam.GROUPS[g]) { hx |= k == x; hy |= k == y; }
+                if (hx && hy) pact = SetTeam.NAMES[g];
+            }
+            if ((x == 3 && y == 7)) pact = "Khế ước rừng xanh";
+            System.out.printf(Locale.ROOT, "%-12s + %-12s %5.1f  %4.1f  %5d  %s%n", NAMES[x], NAMES[y], p, ci, duoGames[d], pact);
+        }
+    }
+
     static void record(int hero, Player p, Brain brain, int result, MapData map) {
         Tally t = tally[hero];
         t.games++;
@@ -285,7 +367,8 @@ import sun.misc.Unsafe;
 
     /** One side's bot. */
     static final class Brain {
-        final Player me, foe;
+        final Player me;
+        Player foe;
         long shots, hits, eggsLaid, pows, powDealt, shotDealt, teleports;
         int seenX, seenY;
         boolean seen;
@@ -297,6 +380,7 @@ import sun.misc.Unsafe;
 
         void act() {
             MapData map = this.me.mapData;
+            this.retarget();
             // Far away on a big map he teleports nearer this turn (one item a turn), keeping his POW for later.
             boolean far = useTeleport && Math.abs(this.foe.x - this.me.x) > TELEPORT_FAR && this.me.teleportCooldown == 0;
             if (usePow && this.me.angry >= 100 && !far) map.useItem(this.me.index, (byte) 100);
@@ -359,6 +443,18 @@ import sun.misc.Unsafe;
             this.teleports++;
             map.shoot(this.me.index, -1, best.ang, best.force, 0);
             return true;
+        }
+
+        /** 2v2: the nearest living opponent (a new one when his falls; where he was last seen is forgotten). */
+        void retarget() {
+            Player best = this.foe != null && !this.foe.isDie ? this.foe : null;
+            for (int i = 0; i < 4; i++) {
+                Player p = this.me.mapData.players[i];
+                if (p == null || p.isDie || p.team == this.me.team) continue;
+                if (best == null || Math.abs(p.x - this.me.x) < Math.abs(best.x - this.me.x)) best = p;
+            }
+            if (best != null && best != this.foe) this.seen = false;
+            if (best != null) this.foe = best;
         }
 
         /** An opponent's flying UFO (Magenta's passive), or null. */
@@ -505,7 +601,7 @@ import sun.misc.Unsafe;
         boolean timed = bulletId == 17 || bulletId == 19; // the shot's force2 matters: find the path without it first
         Tracer gun = new Tracer(me.mapData, me.index, me.isPow);
         // Electrician's shock: slowed, no aim below 60 degrees; locked, only the angle of his last shot.
-        if (me.paralyzed >= 1) minAng = Math.max(minAng, SetPassive.ELECTRICIAN_MIN_ANGLE);
+        if (me.paralyzed >= 1) minAng = Math.min(90, minAng + SetPassive.ELECTRICIAN_RAISE);
         if (me.paralyzed == 2 && me.lastAng != Integer.MIN_VALUE) {
             for (int force = 1; force <= 30; force++) {
                 if (trace(gun, me, bulletId, me.lastAng, force, 30, land, bx, by, bw, bh) > 0) return new Shot(me.lastAng, force, 30);
@@ -650,6 +746,8 @@ import sun.misc.Unsafe;
             m.indexTurnPlayer = -1;
             m.indexTurnBoss = -1;
             m.indexBoss = Room.INDEX_START;
+            m.trexTeams = new java.util.HashSet<>();
+            m.trexPending = new java.util.ArrayList<>();
             m.typeComplete = -1;
             m.completeWar = -1;
             m.maxSecondTurn = 25;

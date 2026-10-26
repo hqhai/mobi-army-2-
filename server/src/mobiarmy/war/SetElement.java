@@ -19,7 +19,7 @@ public final class SetElement {
     public static final int FIRST_PLUS = 15, TOP_PLUS = 16;
     /** Chance in percent that a shot strikes an opponent it hurt with the element, at +15 and +16. */
     public static final int[] CHANCE = {10, 15}; // (20 and 35 until 26/10/2026)
-    /** Lightning: his next turn he walks LIGHTNING_SLOW percent less and aims no lower than SetPassive.ELECTRICIAN_MIN_ANGLE. */
+    /** Lightning: his next turn he walks LIGHTNING_SLOW percent less and aims ELECTRICIAN_RAISE degrees higher at the lowest (SetPassive). */
     public static final int LIGHTNING_SLOW = 30;
     /** Fire: he takes FIRE_MORE percent more damage until the end of his next turn. */
     public static final int[] FIRE_MORE = {15, 25};

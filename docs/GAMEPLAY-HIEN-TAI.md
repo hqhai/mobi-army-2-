@@ -52,7 +52,7 @@ Tài liệu tổng hợp từ code ở commit `9ad6a0e` (25/10/2026). Mọi con 
 | Trạng thái | Nguồn | Tác dụng |
 |---|---|---|
 | Độc | Cơn mưa độc | Hồi máu chỉ còn một nửa trong 3 lượt của mình |
-| Choáng (Tê liệt) | Electrician trúng đủ 3 tia | Mất lượt kế tiếp |
+| Tê liệt | Electrician trúng đạn điện | Lượt kế tiếp: góc thấp nhất bị nâng lên 30° (Chicky -45° thành -15°); trúng 1 viên đi ít hơn 30%, trúng 2–3 viên đi ít hơn 70%; trúng 3 viên thì phát đó là sát thương chuẩn |
 | Tàng hình | Vật phẩm, nội tại Apache | Đối thủ không thấy, đường ngắm không dừng ở người đó |
 | Đóng băng, mù, tơ nhện… | Vật phẩm gốc của game | Như game gốc |
 
@@ -123,7 +123,7 @@ Các con số dưới đây là ở bộ vàng (100%). Bộ thấp hơn nhân th
 - Cứ **phát trúng thứ 3** thì bỏ qua toàn bộ phòng thủ và chí mạng **x1,5**.
 
 ### Electrician — "Tê liệt"
-- Đối thủ trúng **cả 3 tia** trong một phát sẽ bị **choáng, mất lượt kế tiếp**.
+- Đối thủ trúng **2–3 tia** trong một phát: lượt sau chỉ đi được 30% số bước và góc thấp nhất bị nâng lên 30°; trúng **cả 3 tia** thì phát đó còn là **sát thương chuẩn**.
 
 ### King Kong — "Bàn thạch"
 - Mỗi vòng **đứng yên**: giảm **10%** sát thương nhận, tối đa **20%**.
@@ -262,7 +262,7 @@ Giả lập 20.000 trận 1v1 trên code ngày 24/10 (cùng điều kiện, bot 
 ### Gợi ý lối chơi theo meta
 - **Gunner**: tích nộ nhanh, giữ POW thần công làm đòn kết liễu, nhưng cẩn thận phản chấn 20% khi máu thấp. Nội tại tắt may mắn khắc chế build may mắn của đối thủ.
 - **Miss 6**: đếm phát trúng; phát thứ 3 nên nhắm mục tiêu nhiều giáp.
-- **Electrician**: bắn gần để cả 3 tia cùng trúng → khóa lượt đối thủ; rất mạnh trong đấu đội.
+- **Electrician**: bắn gần để cả 3 tia cùng trúng → sát thương chuẩn + làm đối thủ gần như đứng yên; rất mạnh trong đấu đội.
 - **King Kong**: chọn chỗ đứng tốt rồi **không di chuyển**; từ vòng 2 nền thành đá và giảm 20% sát thương. Ghép với Tarzan cùng phe.
 - **Rocketer**: POW pháo hiệu không chịu gió nên chính xác nhất game; đứng xa vụ nổ > 90 để tránh phóng xạ.
 - **Granos**: bắn dưới chân đối thủ ở mép bản đồ để làm rơi.

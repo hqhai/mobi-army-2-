@@ -362,7 +362,7 @@ public class User {
                         return;
                     }
                 }
-                if (this.equips.size() >= 120) {
+                if (this.equips.size() >= ClientVersion.BAG_LIMIT) {
                     if (this.session != null) this.session.sessionHandler.log(__("Rương đã đầy."));
                     return;
                 }

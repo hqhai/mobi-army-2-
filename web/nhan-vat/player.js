@@ -373,8 +373,8 @@
         }},
         2: {name: 'Tê liệt', detail: function (s) {
             return 'Đạn điện to hơn ' + scaledText(15, s) + '%: nổ rộng hơn và đục hố to hơn chừng ấy. Đối thủ trúng đạn điện trong một phát bắn thì ở lượt kế tiếp của mình: '
-                + 'trúng cả 3 viên thì mất lượt (chữ "Choáng" trên đầu); trúng 2 viên thì không đi được và không đổi được góc bắn; '
-                + 'trúng 1 viên thì đi ít hơn ' + scaledText(30, s) + '% và không ngắm thấp hơn 60 độ, kể cả bằng lệnh "g" (chữ "Tê liệt" trên đầu).';
+                + 'trúng 2–3 viên thì chỉ đi được ' + (100 - scaledText(70, s)) + '% số bước; trúng cả 3 viên thì cả phát đó còn là sát thương chuẩn (bỏ qua phòng thủ, may mắn); '
+                + 'trúng 1 viên thì đi ít hơn ' + scaledText(30, s) + '%. Bị tê liệt thì góc thấp nhất của nhân vật bị nâng lên 30 độ (Chicky -45 thành -15), kể cả bằng lệnh "g" (chữ "Tê liệt" trên đầu).';
         }},
         3: {name: 'Bàn thạch', detail: function (s) {
             return 'Mỗi vòng đứng yên một chỗ King Kong to thêm ' + scaledText(25, s) + '%, tối đa ' + (100 + scaledText(200, s))

@@ -866,7 +866,7 @@ public class MessageHandler implements IMessageHandler {
                         }
                         // Then items waiting before they work again, {player, item id, turns left}: the Teleport.
                         if (msg.reader().available() > 0) {
-                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.teleportCooldown = 0;
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) { p.teleportCooldown = 0; p.concreteCooldown = 0; }
                             int cooling = msg.reader().readUnsignedByte();
                             for (int s = 0; s < cooling; s++) {
                                 int who = msg.reader().readUnsignedByte();
@@ -874,6 +874,8 @@ public class MessageHandler implements IMessageHandler {
                                 int turns = msg.reader().readUnsignedByte();
                                 if (itemId == Item.ITEM_TELEPORT && PM.p != null && who < PM.p.length && PM.p[who] != null) {
                                     PM.p[who].teleportCooldown = turns;
+                                } else if (itemId == Item.CONCRETE && PM.p != null && who < PM.p.length && PM.p[who] != null) {
+                                    PM.p[who].concreteCooldown = turns;
                                 }
                             }
                         }
@@ -1580,7 +1582,7 @@ public class MessageHandler implements IMessageHandler {
                         CRes.out("=====> Cmd_Server2Client.INVENTORY: 101");
                         Vector<Equip> inventory = new Vector<Equip>();
                         CRes.out("=======>Cmd_Server2Client.INVENTORY: TerrainMidlet.myInfo == null " + (TerrainMidlet.myInfo == null));
-                        int lenI = msg.reader().readByte();
+                        int lenI = msg.reader().readUnsignedByte();
                         short[] idI = new short[lenI];
                         String[] name = new String[lenI];
                         int[] dbKey = new int[lenI];

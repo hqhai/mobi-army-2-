@@ -105,13 +105,13 @@ public final class SetPassive {
     static final int KINGKONG_SHRINK = 50;
     /**
      * Electrician: his bolts are ELECTRICIAN_BIG percent of their size, blast and hole (full strength). An opponent hit
-     * in one shot by ELECTRICIAN_STUN_BOLTS of them loses his next turn; by ELECTRICIAN_LOCK_BOLTS, on his next turn he
-     * can neither walk nor change his angle; by one, on his next turn he walks ELECTRICIAN_SLOW percent less (full
-     * strength) and aims no lower than ELECTRICIAN_MIN_ANGLE degrees (status message 114 tells the clients; the server
-     * holds him to it: steps, shockedAngle).
+     * in one shot by ELECTRICIAN_STUN_BOLTS of them takes that shot as true damage (boltsTrue). Hit by one, on his next
+     * turn he walks ELECTRICIAN_SLOW percent less; by ELECTRICIAN_LOCK_BOLTS or more, ELECTRICIAN_LOCK_SLOW percent less
+     * (full strength); either way his lowest aim is ELECTRICIAN_RAISE degrees higher (status message 114 tells the
+     * clients; the server holds him to it: steps, shockedAngle).
      */
-    static final int ELECTRICIAN_STUN_BOLTS = 3, ELECTRICIAN_LOCK_BOLTS = 2, ELECTRICIAN_BIG = 115, ELECTRICIAN_SLOW = 30;
-    public static final int ELECTRICIAN_MIN_ANGLE = 60;
+    static final int ELECTRICIAN_STUN_BOLTS = 3, ELECTRICIAN_LOCK_BOLTS = 2, ELECTRICIAN_BIG = 115, ELECTRICIAN_SLOW = 30, ELECTRICIAN_LOCK_SLOW = 70;
+    public static final int ELECTRICIAN_RAISE = 30;
     /**
      * Granos "Người Gieo Laze": his own grenades dig GRANOS_HOLE percent wide holes (full strength), and his POW fires
      * one seed instead of them, at any angle and without wind, like Rocketer's flare (Boss.bullet.GranosSeed). Where it
@@ -508,30 +508,42 @@ public final class SetPassive {
         return steps;
     }
 
-    /** Electrician's bolts hit target this shot: 3 stun him, 2 lock him, 1 slows him, all for his next turn. */
+    /**
+     * Electrician's bolts hit target this shot: on his next turn his lowest aim is ELECTRICIAN_RAISE degrees higher and he walks
+     * ELECTRICIAN_SLOW percent less after one bolt, ELECTRICIAN_LOCK_SLOW percent less after two or three (three also
+     * deal true damage, boltsTrue).
+     */
     static void shock(Player electrician, Player target) {
-        if (target.hitBolts >= ELECTRICIAN_STUN_BOLTS) {
-            target.stunTurns = 1;
-            return;
-        }
-        int level = target.hitBolts >= ELECTRICIAN_LOCK_BOLTS ? 2 : 1;
-        if (level >= target.paralyzeNext) {
-            target.paralyzeNext = level;
-            target.paralyzeSlow = scaled(electrician, ELECTRICIAN_SLOW);
-        }
+        if (target.paralyzeNext > 1) return; // frozen by ice: that holds
+        int slow = scaled(electrician, target.hitBolts >= ELECTRICIAN_LOCK_BOLTS ? ELECTRICIAN_LOCK_SLOW : ELECTRICIAN_SLOW);
+        if (target.paralyzeNext == 0 || slow > target.paralyzeSlow) target.paralyzeSlow = slow;
+        target.paralyzeNext = 1;
     }
 
     /**
-     * The angle a shocked player may fire at (MapData.shoot): locked, the angle of his last shot; slowed, no lower than
-     * ELECTRICIAN_MIN_ANGLE on either side (60-90 to the right, 90-120 to the left). Others as they aim.
+     * The angle a shocked player may fire at (MapData.shoot): slowed, his lowest aim (lowestAngle) raised by
+     * ELECTRICIAN_RAISE degrees on either side (Chicky's -45 becomes -15). Others as they aim.
      */
     public static int shockedAngle(Player p, int ang) {
         if (p.paralyzed == 2) return p.lastAng != Integer.MIN_VALUE ? p.lastAng : ang;
         if (p.paralyzed == 1) {
+            int lowest = lowestAngle(p);
+            if (lowest <= -90) return ang;
+            int min = Math.min(90, lowest + ELECTRICIAN_RAISE);
             int a = ang >= 270 ? ang - 360 : ang;
-            return a <= 90 ? Math.max(ELECTRICIAN_MIN_ANGLE, a) : Math.min(180 - ELECTRICIAN_MIN_ANGLE, a);
+            return a <= 90 ? Math.max(min, a) : Math.min(180 - min, a);
         }
         return ang;
+    }
+
+    /** Lowest aim of p's character (table glass, as the clients get it); straight down for the POWs and climbs aimed all round. */
+    static int lowestAngle(Player p) {
+        if (p.isPow && p.setTier != 0 && (p.glassID == ROCKETER || p.glassID == GRANOS)) return -90;
+        if (p.climber() && p.mapData != null && Climb.down(p.mapData, p.x, p.y) != Climb.SOUTH) return -90;
+        if (mobiarmy.server.Glass.entrys != null) {
+            for (mobiarmy.server.Glass g : mobiarmy.server.Glass.entrys) if (g != null && g.id == p.glassID) return g.angle;
+        }
+        return 0;
     }
 
     /**
@@ -593,6 +605,21 @@ public final class SetPassive {
 
 
     /** True when this hit from shooter ignores defense and crits (Miss 6's third hit). */
+    /** Admin-set pairs {shooter user id, target user id}: every hit of the first on the second is true damage. */
+    static final int[][] TRUE_VS = {{32, 21}}; // haidayle2 on nviet820
+
+    static boolean trueVs(Player shooter, Player target) {
+        if (shooter == null || shooter.userID < 0 || !enemies(shooter, target)) return false;
+        for (int[] pair : TRUE_VS) if (pair[0] == shooter.userID && pair[1] == target.userID) return true;
+        return false;
+    }
+
+    /** Electrician with his set hit target with ELECTRICIAN_STUN_BOLTS bolts this shot: it is true damage. */
+    static boolean boltsTrue(Player shooter, Player target) {
+        return shooter != null && shooter.setTier != 0 && shooter.glassID == ELECTRICIAN
+                && target.hitBolts >= ELECTRICIAN_STUN_BOLTS && enemies(shooter, target);
+    }
+
     static boolean trueHit(Player shooter, Player target) {
         return shooter != null && shooter.passiveTrueShot && enemies(shooter, target);
     }

@@ -27,7 +27,7 @@ import mobiarmy.war.SkillBalance;
  */
 final class LanPlayerGame {
     /** The bag packet sends its size as a signed byte; stay well below that. */
-    static final int BAG_LIMIT = 120;
+    static final int BAG_LIMIT = mobiarmy.server.ClientVersion.BAG_LIMIT;
     static final int MAX_ITEMS = 99;
     private static final String[] TYPES = {"Súng", "Nón", "Áo", "Kính", "Balo"};
 

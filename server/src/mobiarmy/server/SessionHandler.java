@@ -293,8 +293,20 @@ public class SessionHandler {
     public void updateRuong() {
         try {
             Message message = new Message(101);
-            message.writer().writeByte(this.session.user.equips.size());
-            for (Equip equip : this.session.user.equips) {
+            java.util.List<Equip> shown = this.session.user.equips;
+            if (this.session.build < ClientVersion.BIG_BAG_BUILD && shown.size() > ClientVersion.OLD_BAG_SHOWN) {
+                // An old client reads a signed byte: the worn pieces, then the first others up to OLD_BAG_SHOWN.
+                java.util.Set<Integer> worn = new java.util.HashSet<>();
+                for (int key : this.session.user.glass().dbKey) worn.add(key);
+                shown = new java.util.ArrayList<>();
+                for (Equip equip : this.session.user.equips) if (worn.contains(equip.dbKey)) shown.add(equip);
+                for (Equip equip : this.session.user.equips) {
+                    if (shown.size() >= ClientVersion.OLD_BAG_SHOWN) break;
+                    if (!worn.contains(equip.dbKey)) shown.add(equip);
+                }
+            }
+            message.writer().writeByte(shown.size());
+            for (Equip equip : shown) {
                 message.writer().writeInt(equip.dbKey|0x10000);
                 message.writer().writeByte(equip.glassID);
                 message.writer().writeByte(equip.type);
@@ -1394,13 +1406,24 @@ public class SessionHandler {
             }
             // Client build 7: items waiting before they work again, as {player, item id, turns left}: the Teleport.
             int cooling = 0;
-            for (mobiarmy.war.Player player : players) if (player != null && player.teleportCooldown > 0) cooling++;
+            // Build 11 also reads item 37 (Bê tông cốt thép); older ones skip ids they do not know.
+            for (mobiarmy.war.Player player : players) {
+                if (player != null && player.teleportCooldown > 0) cooling++;
+                if (player != null && player.concreteCooldown > 0) cooling++;
+            }
             message.writer().writeByte(cooling);
             for (mobiarmy.war.Player player : players) {
-                if (player == null || player.teleportCooldown <= 0) continue;
-                message.writer().writeByte(player.index);
-                message.writer().writeByte(mobiarmy.war.Player.TELEPORT_ITEM);
-                message.writer().writeByte(player.teleportCooldown);
+                if (player == null) continue;
+                if (player.teleportCooldown > 0) {
+                    message.writer().writeByte(player.index);
+                    message.writer().writeByte(mobiarmy.war.Player.TELEPORT_ITEM);
+                    message.writer().writeByte(player.teleportCooldown);
+                }
+                if (player.concreteCooldown > 0) {
+                    message.writer().writeByte(player.index);
+                    message.writer().writeByte(37);
+                    message.writer().writeByte(player.concreteCooldown);
+                }
             }
             // And how many times bigger the maps are (Map.SCALE): walking climbs steps that much higher (Player.CLIMB).
             message.writer().writeByte(Map.SCALE);

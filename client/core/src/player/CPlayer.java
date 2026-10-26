@@ -233,13 +233,13 @@ public class CPlayer {
 
     /**
      * Lowest aim of this character (angleLock), or straight down for Rocketer's WorldWar POW and Granos's seed; no
-     * lower than 60 degrees while Electrician's shock slows him (build 7, the server holds him to it too).
+     * lower than SHOCK_RAISE degrees above it while Electrician's shock slows him (the server holds him to it too).
      */
     public int angleLimit() {
         // (Tarzan climbing off the floor aims all round: his body is turned, build 8.)
         boolean turned = this.climber() && !this.falling && Climb.down(this.x, this.y) != Climb.SOUTH;
         int limit = this.worldWarPow() || this.laserSeedPow() || turned ? -90 : angleLock[this.gun];
-        return this.paralyzed == 1 ? Math.max(limit, SHOCK_MIN_ANGLE) : limit;
+        return this.paralyzed == 1 && limit > -90 ? Math.min(90, limit + SHOCK_RAISE) : limit;
     }
 
     /** Steps a turn: 60, twice as many for Tarzan with his set passive; Electrician's shock sets fewer (Player.theluc). */
@@ -250,14 +250,15 @@ public class CPlayer {
 
     /**
      * Electrician's shock this turn (status message 114, build 7): 2 locked, no walking and no new angle (frozenAngle,
-     * the angle he had when it began); 1 slowed, fewer steps and no aim below SHOCK_MIN_ANGLE; 0 none.
+     * the angle he had when it began); 1 slowed, fewer steps and aim SHOCK_RAISE degrees higher at the lowest; 0 none.
      */
     public int paralyzed, paralyzedSteps, frozenAngle;
     /** Server build 8: paralyzed by the ice of a +15 set (SetElement): no walking, any angle. */
     public static final int FROZEN = 3;
     /** Server build 8: the +15 set elements on him (status 114): 1 burning (takes more damage), 2 poisoned (loses HP). */
     public int elementFlags;
-    public static final int SHOCK_MIN_ANGLE = 60;
+    /** Electrician's shock raises the lowest aim by this many degrees (build 11). */
+    public static final int SHOCK_RAISE = 30;
     public boolean active;
     boolean isSendM_autoDie;
     public int hp;
@@ -282,10 +283,11 @@ public class CPlayer {
      * LAN: turns of this player left before his Teleport works again (status message 114, build 7): it is never used
      * up, but waits 3 of his turns between uses. Practice has no wait.
      */
-    public int teleportCooldown;
+    public int teleportCooldown, concreteCooldown;
 
     public boolean itemCooling(int itemID) {
-        return itemID == Item.ITEM_TELEPORT && this.teleportCooldown > 0 && !GameScr.trainingMode;
+        if (GameScr.trainingMode) return false;
+        return (itemID == Item.ITEM_TELEPORT && this.teleportCooldown > 0) || (itemID == Item.CONCRETE && this.concreteCooldown > 0);
     }
 
     /**
@@ -1301,7 +1303,7 @@ public class CPlayer {
             }
             if (this.itemCooling(itemID)) {
                 if (CCanvas.gameScr != null && coreLG.TerrainMidlet.myInfo != null) {
-                    CCanvas.gameScr.showChat(coreLG.TerrainMidlet.myInfo.IDDB, "Dịch chuyển: chờ " + this.teleportCooldown + " lượt nữa", 90);
+                    CCanvas.gameScr.showChat(coreLG.TerrainMidlet.myInfo.IDDB, (itemID == Item.CONCRETE ? "Bê tông cốt thép: chờ " + this.concreteCooldown : "Dịch chuyển: chờ " + this.teleportCooldown) + " lượt nữa", 90);
                 }
                 return;
             }
