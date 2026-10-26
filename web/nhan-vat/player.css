@@ -791,7 +791,7 @@ dialog#confirm::backdrop {
     max-width: 100%;
 }
 
-/* --- Upgrade +1..+14: blue 1-4, purple 5-7, gold 8-10, red 11-12, platinum 13, chaos 14 ------------------------- */
+/* --- Upgrade +1..+14: blue 1-4, purple 5-7, gold 8-10, red 11-12, platinum 13, chaos 14, diamond 15-16 ------------------------- */
 .tier-1 { --tier: #2f8cff; --tier-2: #8fd0ff; --tier-dark: #0b4fa8; }
 .tier-2 { --tier: #9b45ff; --tier-2: #e0b8ff; --tier-dark: #5a1aa8; }
 .tier-3 { --tier: #ffb400; --tier-2: #fff27a; --tier-dark: #a86400; }
@@ -831,8 +831,8 @@ dialog#confirm::backdrop {
 .aura.tier-2 { box-shadow: 0 0 0 2px var(--tier), 0 0 12px var(--tier); animation: aura-breathe 2.4s ease-in-out infinite; }
 
 /* Gold and red: a light band runs around the frame. */
-.aura.tier-3, .aura.tier-4, .aura.tier-5, .aura.tier-6 { padding: 3px; overflow: visible; }
-.aura.tier-3::before, .aura.tier-4::before, .aura.tier-5::before, .aura.tier-6::before {
+.aura.tier-3, .aura.tier-4, .aura.tier-5, .aura.tier-6, .aura.tier-7 { padding: 3px; overflow: visible; }
+.aura.tier-3::before, .aura.tier-4::before, .aura.tier-5::before, .aura.tier-6::before, .aura.tier-7::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -892,7 +892,7 @@ dialog#confirm::backdrop {
 .card.upgrade-card.tier-3 { border-color: var(--tier); box-shadow: 0 0 12px rgba(255, 180, 0, .45); background: linear-gradient(180deg, #fffbe6, #ffe9a8); }
 .card.upgrade-card.tier-4 { border-color: var(--tier); box-shadow: 0 0 14px rgba(255, 46, 46, .5); background: linear-gradient(180deg, #fff1ea, #ffd0b8); }
 .card.upgrade-card.tier-5 { border-color: var(--tier); box-shadow: 0 0 16px rgba(54, 201, 232, .6), 0 0 30px rgba(255, 143, 216, .3); background: linear-gradient(180deg, #f4feff, #d6f3ff 60%, #f6e4ff); }
-.card.upgrade-card.tier-3 .card-name, .card.upgrade-card.tier-4 .card-name, .card.upgrade-card.tier-5 .card-name, .card.upgrade-card.tier-6 .card-name {
+.card.upgrade-card.tier-3 .card-name, .card.upgrade-card.tier-4 .card-name, .card.upgrade-card.tier-5 .card-name, .card.upgrade-card.tier-6 .card-name, .card.upgrade-card.tier-7 .card-name {
     background: linear-gradient(90deg, var(--tier-dark), var(--tier), var(--tier-dark));
     -webkit-background-clip: text;
     background-clip: text;
@@ -909,7 +909,7 @@ dialog#confirm::backdrop {
 }
 .warn-text { color: #b3261e; font-weight: 700; }
 .max-line { color: #8e0000; font-weight: 800; }
-.upgrade-btn.tier-1, .upgrade-btn.tier-2, .upgrade-btn.tier-3, .upgrade-btn.tier-4, .upgrade-btn.tier-5, .upgrade-btn.tier-6 {
+.upgrade-btn.tier-1, .upgrade-btn.tier-2, .upgrade-btn.tier-3, .upgrade-btn.tier-4, .upgrade-btn.tier-5, .upgrade-btn.tier-6, .upgrade-btn.tier-7 {
     background: linear-gradient(180deg, var(--tier-2), var(--tier) 60%, var(--tier-dark));
     border-color: var(--tier-dark);
     color: #fff;
@@ -1012,11 +1012,12 @@ dialog#confirm::backdrop {
 .rules-box li + li { margin-top: 3px; }
 .rules-box .rules-default { margin: 6px 0 0; font-weight: bold; }
 
-/* --- Lucky chests: bronze, silver, gold, platinum --------------------------------------------------- */
+/* --- Lucky chests: bronze, silver, gold, platinum, diamond --------------------------------------------------- */
 .chest-bronze { --chest: #cd7f32; --chest-light: #f0a860; --chest-bg: #fff3e4; }
 .chest-silver { --chest: #8a97a8; --chest-light: #e6edf6; --chest-bg: #f1f5fa; }
 .chest-gold { --chest: #e0a400; --chest-light: #fff3a0; --chest-bg: #fff8d6; }
 .chest-platinum { --chest: #36c9e8; --chest-light: #f2feff; --chest-bg: #eefbff; }
+.chest-diamond { --chest: #7fdcff; --chest-light: #ffffff; --chest-bg: #f2fcff; }
 .chest-hint { grid-column: 1 / -1; margin: 0; }
 .chest-card {
     align-items: center;
@@ -1026,6 +1027,7 @@ dialog#confirm::backdrop {
 }
 .chest-card.chest-gold { box-shadow: 0 0 12px rgba(255, 196, 0, .45); }
 .chest-card.chest-platinum { box-shadow: 0 0 14px rgba(54, 201, 232, .55), 0 0 26px rgba(255, 143, 216, .25); }
+.chest-card.chest-diamond { box-shadow: 0 0 16px rgba(127, 220, 255, .8), 0 0 30px rgba(255, 214, 245, .45); }
 .chest-card .card-actions { width: 100%; }
 .chest-stage {
     display: grid;
@@ -1111,6 +1113,22 @@ dialog.chest-dialog::backdrop { background: rgba(10, 14, 40, .65); }
     background: linear-gradient(180deg, #f3e6ff, #d9b8ff 55%, #b98af0);
 }
 @keyframes chaos-pulse { 50% { filter: drop-shadow(0 0 6px #8a2be2) saturate(1.3); } }
+
+/* --- +15/+16 Kim cương (diamond): icy white facets with a rainbow glint --------------------- */
+.tier-7 { --tier: #7fdcff; --tier-2: #ffffff; --tier-dark: #1b4f72; }
+.aura.tier-7::before {
+    background: conic-gradient(from var(--spin, 0deg), #ffffff, #b9f1ff, #7fdcff, #ffffff, #ffd6f5, #c8f7ff, #fff7c2, #ffffff);
+    animation-duration: 1.2s;
+    box-shadow: 0 0 18px #9be7ff, 0 0 40px rgba(200, 245, 255, .8);
+}
+.aura.tier-7 { animation: diamond-glint 1.6s ease-in-out infinite; }
+.aura.tier-7 .spark { background: #fff; box-shadow: 0 0 8px #7fdcff, 0 0 3px #fff; animation-duration: 1.4s; }
+.card.upgrade-card.tier-7 {
+    border-color: var(--tier);
+    box-shadow: 0 0 18px rgba(127, 220, 255, .75), 0 0 36px rgba(255, 214, 245, .4);
+    background: linear-gradient(180deg, #ffffff, #e2f8ff 55%, #f6e9ff);
+}
+@keyframes diamond-glint { 50% { filter: drop-shadow(0 0 7px #bff2ff) brightness(1.15) saturate(1.2); } }
 
 /* --- Upgrade focus: everything is sucked into the item, then bursts out with the result --------
    (the new level's colour on success, grey on failure). */
@@ -1263,3 +1281,16 @@ dialog.chest-dialog::backdrop { background: rgba(10, 14, 40, .65); }
 .match-row .table-scroll { margin-top: 6px; }
 .res { display: inline-block; min-width: 44px; text-align: center; border-radius: 6px; padding: 1px 6px; color: #fff; }
 .res1 { background: #2e9e4f; } .res0 { background: #888; } .res-1 { background: #d62d2d; }
+
+/* --- +15/+16 element tag (SetElement): Lôi, Hỏa, Băng, Độc ----------------------------------- */
+.element-badge { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: bold; color: #fff; }
+.element-1 { background: linear-gradient(90deg, #6a4cff, #b388ff); box-shadow: 0 0 6px rgba(140, 100, 255, .6); }
+.element-2 { background: linear-gradient(90deg, #e2401b, #ffa63a); box-shadow: 0 0 6px rgba(255, 110, 40, .6); }
+.element-3 { background: linear-gradient(90deg, #1b8fd6, #7fdcff); box-shadow: 0 0 6px rgba(80, 190, 255, .6); }
+.element-4 { background: linear-gradient(90deg, #2f8a2f, #9be15d); box-shadow: 0 0 6px rgba(100, 200, 80, .6); }
+
+/* --- Links with other characters (Chỉ số tab, under the passive) ----------------------------- */
+.link-box { margin-top: 12px; }
+.link-box .link-item + .link-item { margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(106, 0, 200, .25); }
+.link-box .link-title { margin: 0 0 4px; }
+.link-box .link-with { color: #7a6a90; font-weight: 700; }

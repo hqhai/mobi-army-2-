@@ -565,6 +565,11 @@ public class BM {
    /** Granos's POW with his set passive (server GranosSeed): the seed of his lasers, drawn as a flare (build 7). */
    public static final byte GRANOS_SEED = 62;
    private int worldWarBomb;
+   /**
+    * LAN build 8, per path of the last shot: the time bomb id a late WorldWar bomb becomes where it lands (server
+    * WorldWarFlare.Bomb.lateId), -1 for the bombs that go off as they land.
+    */
+   public static int[] lateNukes;
    private final java.util.HashSet<Integer> kindsCutting = new java.util.HashSet<Integer>();
 
    /** The character whose bullet sheet these bullet types use, or -1. */
@@ -681,6 +686,7 @@ public class BM {
                while (this.worldWarBomb < this.xPaint.length
                        && (airPlaneX >= this.xPaint[this.worldWarBomb][0] - 25 || airPlaneX >= MM.mapWidth)) {
                   Bullet bomb = new Bullet(WORLDWAR_BOMB, this.xPaint[this.worldWarBomb], this.yPaint[this.worldWarBomb], this.whoShot);
+                  if (lateNukes != null && this.worldWarBomb < lateNukes.length) bomb.lateNuke = lateNukes[this.worldWarBomb];
                   this.bullets.addElement(bomb);
                   GameScr.cam.setBulletMode(bomb);
                   ++this.worldWarBomb;

@@ -63,13 +63,9 @@ public class MirrorBullet extends Bullet {
             this.frames.add(new Bullet.Frame(this.frame, this.bX, this.bY, this.bX - this.xOld, this.bY - this.yOld)); 
            
             int ang = GameData.getArg(super.lastX - super.frames.get(0).fX, super.frames.get(0).fY - super.lastY);
-            int vx0 = super.vx = (gun.force * GameData.cos(ang) >> 10);
-            int vy0 = super.vy = (gun.force * GameData.sin(ang) >> 10);
-            if (super.vx == 0 && super.vy == 0) {
-                // Force 0 or 1 leaves the laser no direction and the loop below would never end: aim it as force 15.
-                vx0 = super.vx = 15 * GameData.cos(ang) >> 10;
-                vy0 = super.vy = 15 * GameData.sin(ang) >> 10;
-            }
+            // The beam's step, along ang whatever the force (from the force, 1 to 5 rounded it off its angle, or to nothing).
+            int vx0 = super.vx = 60 * GameData.cos(ang) >> 10;
+            int vy0 = super.vy = 60 * GameData.sin(ang) >> 10;
             if (super.vx != 0) {
                 while (Math.abs(super.vx) < 15) {
                     super.vx += super.vx;
@@ -98,7 +94,10 @@ public class MirrorBullet extends Bullet {
                 }
             }
 //            g.drawLine(super.lastX, super.lastY + offsetY, super.bX, super.bY + offsetY);
-            super.frames.add(new Bullet.Frame(super.frame, super.bX, super.bY, vx0, -vy0));
+            // The clients draw the beam only when both steps are non-zero (Bullet.fixedUpdate) and read them as bytes: from
+            // the force they were 0 on one axis at force 1 to 5, and the beam vanished. Its direction, never 0 on either axis.
+            int dx = vx0 != 0 ? vx0 : 1, dy = vy0 != 0 ? vy0 : 1;
+            super.frames.add(new Bullet.Frame(super.frame, super.bX, super.bY, dx, -dy));
             super.collect = true;
             if(super.isCanCollision) {
                 super.collision();

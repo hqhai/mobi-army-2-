@@ -459,9 +459,7 @@ public class RoomWait {
             try {
                 byte mapIDLoad = this.mapID;
                 if (mapIDLoad == 27) {
-                    do {
-                        mapIDLoad = this.maps.get(Util.nextInt(this.maps.size()));
-                    } while (mapIDLoad == 27);
+                    mapIDLoad = this.nextRandomMap();
                     for (User player : this.players) {
                         if (player != null && player.session != null) {
                             player.session.sessionHandler.changeMap(mapIDLoad);
@@ -476,6 +474,22 @@ public class RoomWait {
         }
     }
     
+    /**
+     * The random map (27): the room's maps dealt from a shuffled deck, so every one comes up once before any comes up
+     * again (a fresh draw each match kept landing on the same few).
+     */
+    private final java.util.ArrayDeque<Byte> randomMaps = new java.util.ArrayDeque<>();
+
+    byte nextRandomMap() {
+        if (this.randomMaps.isEmpty()) {
+            java.util.List<Byte> deck = new ArrayList<>();
+            for (byte id : this.maps) if (id != 27) deck.add(id);
+            java.util.Collections.shuffle(deck);
+            this.randomMaps.addAll(deck);
+        }
+        return this.randomMaps.isEmpty() ? 0 : this.randomMaps.poll();
+    }
+
     public void chat(User user, String str) {
         if (!this.started) {
             for (User player : this.players) {

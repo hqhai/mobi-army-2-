@@ -9,12 +9,12 @@ package mobiarmy.server;
  */
 public final class ClientVersion {
     /**
-     * The oldest build that may log in: 7, which shows no aim guide unless item 36 is on (older builds would still
-     * show theirs, to their players' advantage).
+     * The oldest build that may log in: 8, which walks Tarzan's climb the server's way (Climb), keeps Rocketer's late
+     * WorldWar bombs on the ground and puts gift box items in their slots (7 showed no aim guide unless item 36 is on).
      */
-    public static final int REQUIRED = 7;
+    public static final int REQUIRED = 8;
     /** Must equal GameMidlet.LAN_BUILD of the client built from the same code (scripts/tests/ClientVersionCheck). */
-    public static final int LATEST = 7;
+    public static final int LATEST = 9; // 9 draws the GunBound-style angle arc; 8 still plays
     /**
      * From this build the client plays Tarzan's kick (message KICK_MESSAGE: the kicked players fly where they land);
      * older ones get each landing spot as message 53 and show the player there at once.
@@ -36,7 +36,7 @@ public final class ClientVersion {
             return null;
         }
         String which = build > 0 ? "Bản game của bạn đã cũ (LAN " + build + "), " : "Bản game của bạn đã cũ, ";
-        return which + "máy chủ cần bản LAN " + required + " trở lên. Hãy tắt game rồi mở lại MobiArmy2 để tự cập nhật, "
-                + "hoặc tải bản mới ở trang chủ của máy chủ (cổng 8123).";
+        // Only the restart: the launcher (MobiArmy2.cmd) updates itself, nobody needs to download the game again.
+        return which + "máy chủ cần bản LAN " + required + " trở lên. Hãy tắt hẳn game rồi mở lại MobiArmy2, game sẽ tự cập nhật.";
     }
 }

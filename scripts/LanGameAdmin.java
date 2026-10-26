@@ -35,8 +35,6 @@ public final class LanGameAdmin {
     static final String[] EQUIP_TYPES = {"Súng", "Nón", "Áo", "Kính", "Balo"};
     /** Items cap at 99 in the bag, like the shop; a super-admin gift never exceeds it. */
     static final int ITEM_MAX = 99;
-    /** Largest hidden damage bonus (percent) a super-admin may attach to a gifted rare set. */
-    static final int MAX_HIDDEN_ATT = 100;
     private static final Gson GSON = new Gson();
 
     private final LanWeb.Database database;
@@ -637,9 +635,21 @@ public final class LanGameAdmin {
 
     // --- Super-admin gifts (LanAdmin.superOnly restricts the routes; the role is re-checked per request) ---
 
-    Map<String, Object> giftSet(int userId, int glassId, int tier, boolean wear, int hiddenAtt) throws Exception {
+    /**
+     * A set of the character's five pieces at +plus (14 to 16; from +15 with one element for all, SetElement), each
+     * hole filled with the gem (special item below 50, its stats added as when socketing it), or none (-1).
+     */
+    Map<String, Object> giftSet(int userId, int glassId, int tier, boolean wear, int plus, int element, int gem) throws Exception {
         if (tier < 1 || tier > SetPassive.SETS.length) throw new LanApi.BadRequest("Bộ đồ không hợp lệ.");
-        if (hiddenAtt < 0 || hiddenAtt > MAX_HIDDEN_ATT) throw new LanApi.BadRequest("Sát thương ẩn từ 0 đến " + MAX_HIDDEN_ATT + "%.");
+        if (plus < SetPassive.SET_PLUS || plus > LanPlayerGame.MAX_PLUS) {
+            throw new LanApi.BadRequest("Cấp cường hóa từ +" + SetPassive.SET_PLUS + " đến +" + LanPlayerGame.MAX_PLUS + ".");
+        }
+        boolean elemental = plus >= mobiarmy.war.SetElement.FIRST_PLUS;
+        if (elemental && (element < 1 || element >= mobiarmy.war.SetElement.NAMES.length)) {
+            throw new LanApi.BadRequest("Bộ +" + plus + " cần chọn hệ: Lôi, Hỏa, Băng hoặc Độc.");
+        }
+        LinhTinh gemItem = gem < 0 ? null : gem < 50 ? LinhTinh.get(gem) : null;
+        if (gem >= 0 && gemItem == null) throw new LanApi.BadRequest("Không có viên ngọc này.");
         String username = username(userId);
         return game.call(() -> {
             User user = SessionManager.findUserById(userId);
@@ -652,7 +662,8 @@ public final class LanGameAdmin {
             if (user.roomWait != null) {
                 throw new LanApi.ApiError(409, username + " đang ở trong phòng chờ hoặc trận đấu. Đợi người chơi rời phòng rồi tặng lại.");
             }
-            String set = "bộ " + SetPassive.SETS[tier - 1] + " +" + SetPassive.SET_PLUS;
+            String set = "bộ " + SetPassive.SETS[tier - 1] + " +" + plus
+                    + (elemental ? " hệ " + mobiarmy.war.SetElement.NAMES[element] : "") + (gemItem != null ? ", khảm full " + gemItem.name : "");
             Equip[] entries = new Equip[EQUIP_TYPES.length];
             for (Equip entry : ShopEquipment.generate((byte) glassId)) {
                 if (setPiece(entry) && SetPassive.setOf(entry) == tier - 1) entries[entry.type] = entry;
@@ -669,13 +680,27 @@ public final class LanGameAdmin {
             List<Equip> pieces = new ArrayList<>();
             int need = 0;
             for (Equip entry : entries) {
-                Equip piece = LanPlayerGame.upgradedCopy(entry, SetPassive.SET_PLUS);
+                Equip piece = LanPlayerGame.upgradedCopy(entry, plus);
+                if (gemItem != null) {
+                    for (int hole = 0; hole < piece.slot.length; hole++) {
+                        piece.slot[hole] = (short) gemItem.id;
+                        for (int i = 0; i < gemItem.ability.length && i < piece.inv_ability.length; i++) {
+                            piece.inv_ability[i] = (byte) Math.min(Byte.MAX_VALUE, piece.inv_ability[i] + gemItem.ability[i]);
+                        }
+                    }
+                }
                 user.addEquip(piece);
                 pieces.add(piece);
                 need = Math.max(need, piece.level);
             }
             try {
-                saveHiddenAtt(userId, pieces, hiddenAtt);
+                saveHiddenAtt(userId, pieces, 0); // (a reused key keeps no hidden bonus of an old piece)
+                if (elemental) {
+                    for (Equip piece : pieces) {
+                        Server.dbManager.update("INSERT INTO lan_equip_element (user_id, db_key, element) VALUES (?, ?, ?)"
+                                + " ON DUPLICATE KEY UPDATE element = VALUES(element)", userId, piece.dbKey, element);
+                    }
+                }
             } catch (SQLException | RuntimeException e) {
                 user.equips.removeAll(pieces);
                 LanPlayerGame.syncGame(user);
@@ -692,13 +717,11 @@ public final class LanGameAdmin {
             Server.requestSave();
             LanPlayerGame.syncGame(user);
             LanPlayerGame.notifyGame(user, "Bạn được tặng " + set + " cho " + glass.name + (worn ? ", đã mặc sẵn." : ". Vào Rương đồ để mặc."));
-            System.out.printf("Admin: gave %s %s for %s%s%s%n", username, set, glass.name, worn ? ", worn" : "",
-                    hiddenAtt > 0 ? ", hidden damage +" + hiddenAtt + "%" : "");
+            System.out.printf("Admin: gave %s %s for %s%s%n", username, set, glass.name, worn ? ", worn" : "");
             String message = "Đã tặng " + username + " " + set + " cho " + glass.name
                     + (worn ? ", đã mặc sẵn (nội tại " + SetPassive.STRENGTH[tier] + "%)."
                     : wear ? " vào rương đồ. Chưa mặc được: " + glass.name + " cần cấp " + need + ", đang cấp " + glass.level + "."
-                    : " vào rương đồ.")
-                    + (hiddenAtt > 0 ? " Sát thương ẩn +" + hiddenAtt + "% khi mặc đủ 5 món." : "");
+                    : " vào rương đồ.");
             Map<String, Object> result = view(user, username, true);
             result.put("message", message);
             result.put("worn", worn);
@@ -766,6 +789,7 @@ public final class LanGameAdmin {
         return entry != null && entry.vip == 0 && !ThorSkin.is(entry) && entry.type >= 0 && entry.type < EQUIP_TYPES.length;
     }
 
+    /** Hidden damage bonus of the pieces (lan_hidden_bonus); gifts now clear it (0). */
     private void saveHiddenAtt(int userId, List<Equip> pieces, int percent) throws SQLException {
         write(conn -> {
             try (PreparedStatement clear = conn.prepareStatement("DELETE FROM lan_hidden_bonus WHERE user_id = ? AND db_key = ?");

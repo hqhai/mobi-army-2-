@@ -23,6 +23,11 @@ public class ShopItem extends TabScreen {
    Command cmdBatDauMua;
    public static MyItemIcon ItemIcon;
    static Vector sellItem = new Vector();
+
+   /** How many items the shop lists (LAN: PrepareScr checks saved item slots against it). */
+   public static int itemCount() {
+      return sellItem.size();
+   }
    static final int maxItemBuy = 99;
    boolean isChooseAItem = false;
    static int numItemMua;

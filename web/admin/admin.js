@@ -400,29 +400,42 @@
         });
         if (state.sets.length) setSelect.value = String(state.sets[state.sets.length - 1].tier); // the gold set, the usual gift
         var wear = el('input', {id: 'set-wear', type: 'checkbox', checked: true});
-        var hidden = el('input', {id: 'set-hidden', className: 'cell', type: 'number', min: 0, max: 100, step: 1, inputmode: 'numeric', value: 0});
+        var plusSelect = el('select', {id: 'set-plus', 'aria-label': 'Cấp cường hóa'});
+        [14, 15, 16].forEach(function (plus) { plusSelect.append(el('option', {value: plus, text: '+' + plus})); });
+        var elementSelect = el('select', {id: 'set-element', 'aria-label': 'Hệ của bộ +15/+16'});
+        [[1, 'Hệ Lôi'], [2, 'Hệ Hỏa'], [3, 'Hệ Băng'], [4, 'Hệ Độc']].forEach(function (k) {
+            elementSelect.append(el('option', {value: k[0], text: k[1]}));
+        });
+        var gemSelect = el('select', {id: 'set-gem', 'aria-label': 'Ngọc khảm vào mọi lỗ'});
+        gemSelect.append(el('option', {value: -1, text: 'Không khảm ngọc'}));
+        ['Lục bảo ngọc', 'Hồng ngọc', 'Lam ngọc', 'Hoàng ngọc', 'Thạch anh tím'].forEach(function (name, colour) {
+            for (var level = 10; level >= 1; level--) {
+                gemSelect.append(el('option', {value: colour * 10 + level - 1, text: 'Khảm full ' + name + ' cấp ' + level}));
+            }
+        });
+        function showElement() { elementSelect.style.display = Number(plusSelect.value) < 15 ? 'none' : ''; }
+        plusSelect.addEventListener('change', showElement);
+        showElement();
         var button = el('button', {type: 'submit', className: 'btn primary', text: 'Tặng', disabled: !open.length || !state.sets.length});
         var form = el('form', {novalidate: true}, [
-            el('label', {for: 'set-glass', text: 'Tặng bộ +14'}),
+            el('label', {for: 'set-glass', text: 'Tặng bộ đồ'}),
             el('div', {className: 'row'}, [glassSelect, setSelect]),
+            el('div', {className: 'row'}, [plusSelect, elementSelect, gemSelect]),
             el('label', {className: 'check', for: 'set-wear'}, [wear, 'Mặc luôn nếu đủ cấp']),
-            el('div', {className: 'row'}, [el('label', {for: 'set-hidden', text: 'Sát thương ẩn (%)'}), hidden, button]),
+            el('div', {className: 'row'}, [button]),
             el('p', {className: 'hint', text: !open.length ? 'Người chơi chưa mở nhân vật nào.'
-                : 'Súng, nón, áo, kính, balo cùng bộ, đã cường hóa +14: mặc đủ 5 món thì có nội tại. Hạn dùng như đồ mua ở cửa hàng. '
-                + 'Sát thương ẩn chỉ tính khi mặc đủ 5 món này và người chơi không thấy; để 0 nếu không cần.'})
+                : 'Súng, nón, áo, kính, balo cùng bộ, cường hóa +14, +15 hoặc +16: mặc đủ 5 món thì có nội tại +14; +15/+16 cùng một hệ thì có thêm hiệu ứng của hệ. '
+                + 'Ngọc chọn ở đây được khảm vào mọi lỗ của cả 5 món (cộng chỉ số như khi gắn ngọc). Hạn dùng như đồ mua ở cửa hàng.'})
         ]);
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
             if (button.disabled) return;
-            var percent = hidden.value.trim() === '' ? 0 : Number(hidden.value);
-            if (!Number.isInteger(percent) || percent < 0) {
-                renderPanel({kind: 'error', text: 'Sát thương ẩn là số nguyên, để 0 nếu không cần.'});
-                return;
-            }
             button.disabled = true;
             try {
                 var result = await api('POST', 'players/' + player.id + '/set', {
-                    glassId: Number(glassSelect.value), tier: Number(setSelect.value), wear: wear.checked ? 1 : 0, hiddenAtt: percent
+                    glassId: Number(glassSelect.value), tier: Number(setSelect.value), wear: wear.checked ? 1 : 0,
+                    plus: Number(plusSelect.value), element: Number(plusSelect.value) >= 15 ? Number(elementSelect.value) : 0,
+                    gem: Number(gemSelect.value)
                 });
                 updatePlayer(result);
                 renderPanel({kind: 'ok', text: result.message});

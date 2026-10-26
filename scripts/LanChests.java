@@ -26,8 +26,10 @@ final class LanChests {
         SILVER(82, "silver", "Rương bạc", "Mở ra 1 trang phục (skin) ngẫu nhiên của nhân vật đang chọn. Đã có skin đó thì được cộng thêm ngày.", -1, 30, 1.0, 0, true),
         /** Any weapon or gear, already upgraded to +10. */
         GOLD(83, "gold", "Rương vàng", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +10.", 3_000_000, 300, 0.25, 10, false),
-        /** Any weapon or gear, already upgraded to the top level +14. */
-        PLATINUM(84, "platinum", "Rương bạch kim", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +14, cấp cao nhất.", 30_000_000, 3000, 0.25, 14, false);
+        /** Any weapon or gear, already upgraded to +14. */
+        PLATINUM(84, "platinum", "Rương bạch kim", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +14.", 30_000_000, 3000, 0.25, 14, false),
+        /** Any weapon or gear at the top level +16, with an element (LanPlayerGame.chestElement). */
+        DIAMOND(85, "diamond", "Rương kim cương", "Mở ra 1 vũ khí hoặc trang bị ngẫu nhiên đã cường hóa +16, cấp cao nhất, theo hệ bộ đồ +15 bạn đang có nhiều nhất (chưa có thì ngẫu nhiên).", 100_000_000, 10000, 0.25, 16, false);
 
         final int id;
         final String key;

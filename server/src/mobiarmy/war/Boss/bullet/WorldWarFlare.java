@@ -37,7 +37,7 @@ public class WorldWarFlare extends Bullet {
         this.dropped = true;
         MapData map = super.gun.mapData;
         if (super.bX < 0 || super.bX > map.width || super.bY > map.height) return; // lost off the map: no bomber
-        int bombs = SetPassive.WORLDWAR_BOMBS, spacing = SetPassive.WORLDWAR_SPACING;
+        int bombs = SetPassive.WORLDWAR_BOMBS + mobiarmy.war.SetTeam.extraBullets(super.gun.shooter()), spacing = SetPassive.WORLDWAR_SPACING;
         int half = bombs / 2 * spacing + 10;
         int center = half * 2 < map.width ? Math.max(half, Math.min(map.width - half, super.bX)) : map.width / 2;
         int altitude = super.bY - ALTITUDE;
@@ -72,7 +72,10 @@ public class WorldWarFlare extends Bullet {
         spots.sort((a, b) -> Integer.compare(a[0], b[0])); // the order the bomber passes them
         for (int[] spot : spots) {
             int top = Math.min(altitude, spot[1] - 60);
-            super.gun.bullets.add(new Bomb(super.gun, super.att, path(spot[0] - LEAD, top, spot[0], spot[1])));
+            Bomb bomb = new Bomb(super.gun, super.att, path(spot[0] - LEAD, top, spot[0], spot[1]));
+            // Each bomb may lie where it lands and go off a round later (SetPassive.WORLDWAR_LATE percent).
+            if (mobiarmy.Util.nextInt(100) < SetPassive.worldWarLate) bomb.lateId = map.nextLateNuke();
+            super.gun.bullets.add(bomb);
         }
         super.gun.worldWarShock = SetPassive.worldWarShock(super.gun.shooter(), super.att);
         super.gun.worldWarX = super.bX;
@@ -111,10 +114,15 @@ public class WorldWarFlare extends Bullet {
         return points;
     }
 
-    /** One nuclear bomb: follows its path a point a frame and goes off where it ends. */
-    static class Bomb extends Bullet {
+    /**
+     * One nuclear bomb: follows its path a point a frame and goes off where it ends, or, late (lateId, a time bomb id
+     * of MapData.nextLateNuke, -1 for the others), lies there as a time bomb that goes off a round later
+     * (MapData.layLateNuke); the shot tells the clients which (SessionHandler.shoot).
+     */
+    public static class Bomb extends Bullet {
         private final int[][] path;
         private int step;
+        public int lateId = -1;
 
         Bomb(Gun gun, int att, int[][] path) {
             super(gun, BOMB_ID, att, path[0][0], path[0][1], 0, 0, 0, 0, 0);
@@ -135,7 +143,11 @@ public class WorldWarFlare extends Bullet {
             super.frames.add(new Bullet.Frame(super.frame, super.bX, super.bY, super.bX - super.xOld, super.bY - super.yOld));
             if (this.step + 1 >= this.path.length) {
                 super.collect = true;
-                if (super.isCanCollision) super.collision();
+                if (this.lateId >= 0) {
+                    super.gun.mapData.layLateNuke(this.lateId, super.gun.index, super.att, super.bX, super.bY);
+                } else if (super.isCanCollision) {
+                    super.collision();
+                }
                 return;
             }
             super.xOld = super.bX;

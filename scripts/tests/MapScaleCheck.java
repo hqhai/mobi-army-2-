@@ -19,7 +19,8 @@ public class MapScaleCheck {
     static int checks;
 
     public static void main(String[] args) throws Exception {
-        check(Map.SCALE == 2 && Map.INFO_VERSION == 13, "maps are twice as big by default; clients get a new map list (13)");
+        // The default is the original size (1) since 25/10/2026; run this with -Darmy.map.scale=2 to check the x2 maps.
+        check(Map.SCALE == 2 && Map.INFO_VERSION == 13, "maps twice as big with -Darmy.map.scale=2; clients get a new map list (13)");
         check(Player.CLIMB == 8, "a walker climbs 8 px steps (4 on the original maps)");
 
         // Scale2x on a little picture: a diagonal edge comes out smooth, a flat area stays as it was.

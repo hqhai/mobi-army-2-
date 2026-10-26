@@ -87,9 +87,14 @@ public class Player {
     public int setTier;
     /** SetPassive state: shots fired, shots that hit, rounds stood still. */
     int passiveShots, passiveHits, passiveStill;
+    /** King Kong (SetPassive.growHP): the part of hpMax he has grown standing still. */
+    int grownHP;
     /** Where the player stood at the start of its last turn; -1 before the first one. */
     int passiveX = -1, passiveY = -1;
     boolean passiveHit, passiveTrueShot;
+    /** Team passives of his side (SetTeam flags); this POW of an Outsider deals true damage (SetTeam.beforeShot). */
+    public int teamPacts;
+    boolean outsiderTrue;
     /** This shot so far (SetPassive.bulletHit): hit by Chicky's chicken, by her egg, by how many Electrician bolts. */
     boolean hitChicken, hitEgg;
     int hitBolts;
@@ -124,6 +129,8 @@ public class Player {
      * player's turns (3, 2, 1) and works again at 0 (MapData.useItem), so once every 3 turns.
      */
     public static final int TELEPORT_ITEM = 1, TELEPORT_COOLDOWN = 3;
+    /** LAN: the HP item heals HEAL_PERCENT of the user's max HP; the team HP item TEAM_HEAL_PERCENT of it to each. */
+    public static final int HEAL_PERCENT = 35, TEAM_HEAL_PERCENT = 40;
     /**
      * How high a step a walker climbs (4 px on the original maps); higher is a wall. The maps are Map.SCALE times
      * bigger, their slopes too, so the step is as well; the clients get the scale in status message 114.
@@ -139,13 +146,24 @@ public class Player {
     public int paralyzed, paralyzeNext, paralyzeSlow;
     public int lastAng = Integer.MIN_VALUE;
     public int teleportCooldown;
+    /** LAN: one of the gift boxes floating over a match (MapData.dropGift); nobody's opponent or ally. */
+    public boolean gift;
+    /**
+     * LAN: the element of his full +15/+16 set (SetElement, NONE without one) and 0 for +15, 1 for +16; and the
+     * elements striking him: burning (burnTurns, taking burnPercent more), poisoned (elementPoisonTurns starts of turn
+     * losing elementPoisonHP percent, for elementPoisonBy). Ice and lightning use paralyzeNext.
+     */
+    public int element, elementLevel;
+    public int burnTurns, burnPercent, elementPoisonTurns, elementPoisonHP, elementPoisonBy = -1;
 
 
     public class Item {
         
         public int itemId;
         public boolean isUse;
-        
+        /** LAN: from a gift box (MapData.openGift): free, it takes nothing from the user's items when used. */
+        public boolean gift;
+
         public Item(int itemId) {
             this.itemId = itemId;
             this.isUse = false;
@@ -277,8 +295,10 @@ public class Player {
     }
 
     public void die() {
+        boolean was = this.isDie;
         this.hp = 0;
         this.isDie = true;
+        if (!was) SetTeam.died(this); // the first Scientist of a side to fall calls a T-rex
         this.countInvisible = 0;
         this.countInvisible2 = 0;
         this.huntHidden = false;
@@ -286,8 +306,20 @@ public class Player {
         this.isRunSpeed = false;
     }
     
+    /** Tarzan with his set passive climbs (Climb): he stands on an anchor, an air pixel next to the ground. */
+    public boolean climber() {
+        return this.typePlayer == 0 && SetPassive.pactTarzan(this);
+    }
+
     public void chuanHoaXY() {
         if (this.isFly) {
+            return;
+        }
+        if (this.climber()) {
+            // He holds on to any ground around him; with none left he falls until he can hold on again.
+            int[] at = Climb.settle(this.mapData, this.x, this.y);
+            this.x = (short) at[0];
+            this.y = (short) at[1];
             return;
         }
         while(this.y < this.mapData.height + 200) {
@@ -307,14 +339,15 @@ public class Player {
         if (!this.isCollision(x, y, d)) {
             return 0;
         }
-        int dX = Math.abs(x - this.x);
-        int dY = Math.abs(y - (this.y - (this.bodyHeight() / 2)));
+        int[] box = this.bodyBox(); // (turned with a climber on a wall)
+        int dX = Math.abs(x - (box[0] + box[2] / 2));
+        int dY = Math.abs(y - (box[1] + box[3] / 2));
 
-        int pX = (int) (100F / (float) (d + this.bodyWidth()) * (float)dX);
+        int pX = (int) (100F / (float) (d + box[2]) * (float)dX);
         if (pX > 100) {
             pX = 100;
         }
-        int pY = (int) (100F / (float) (d + this.bodyHeight()) * (float)dY);
+        int pY = (int) (100F / (float) (d + box[3]) * (float)dY);
         if (pY > 100) {
             pY = 100;
         }
@@ -362,13 +395,21 @@ public class Player {
 //        }
         
         if (this.attAffect > 0 || this.y > this.mapData.height + 100) {
+            // True damage ignores defense and luck, both the shooter's (no double) and the target's (no save), and the
+            // target's passives that take damage off (Tarzan, King Kong): SetPassive.taken is skipped too.
+            boolean trueDamage = false;
             if (this.y > this.mapData.height + 100) {
                 this.attAffect = this.hp;
             } else if (SetPassive.trueHit(player, this)) {
-                // Miss 6's third hit: true damage (no defense, no luck save) and a sure crit.
+                // Miss 6's third hit: true damage and a sure crit.
                 this.attAffect = this.attAffect * SetPassive.trueHitCrit(player) / 100;
+                trueDamage = true;
             } else if (player.laserStrike) {
-                // Granos's lasers (MapData.granosStrike): true damage as they dealt it, no defense, no luck save.
+                // Granos's lasers (MapData.granosStrike): true damage as they dealt it.
+                trueDamage = true;
+            } else if (player.outsiderTrue && SetPassive.enemies(player, this)) {
+                // An Outsider's POW (SetTeam "Kẻ Ngoại Lai"): true damage.
+                trueDamage = true;
             } else if (this.mapData.skillRules) {
                 int def = this.def + (this.lucky ? 3000 : 0);
                 boolean direct = this.attDirect > 0;
@@ -392,12 +433,13 @@ public class Player {
                     this.attAffect = this.hp - 10;
                 }
             }
-            if (this.y <= this.mapData.height + 100) {
+            if (this.y <= this.mapData.height + 100 && !trueDamage) {
                 this.attAffect = SetPassive.taken(this, this.attAffect);
             }
             this.mapData.addTimeUntilAction(1000);
             this.updateHP(-this.attAffect);
             if (this.y <= this.mapData.height + 100) SetPassive.afterHit(player, this, this.attAffect);
+            if (this.attAffect > 0 && this.mapData.elementShot && this.y <= this.mapData.height + 100) SetElement.hit(player, this);
             if (this.attAffect > 0) SetPassive.hurt(this);
             
             this.mapData.updateHP(this.index, this.hp, this.pixel);
@@ -409,6 +451,7 @@ public class Player {
         if (this instanceof mobiarmy.war.Boss.AlienUfo ufo) SetPassive.alienShot(ufo, player, hpOld - this.hp);
         // A summon's damage (the UFOs) counts for whoever called it; damage to a summon counts for nobody.
         Player credit = player.caller() != null ? player.caller() : player;
+        if (this.gift && this.isDie && hpOld > 0) this.mapData.openGift(credit, this); // shot down: its gift is his
         if (credit != null && this.typePlayer == 0 && SetPassive.enemies(credit, this) && hpOld > this.hp) {
             credit.statDealt += hpOld - this.hp;
             if (this.isDie) {
@@ -444,7 +487,28 @@ public class Player {
         }
     }
 
+    /**
+     * A climber's walk (Climb): straight to where his client says, if that is an anchor he can reach along the ground
+     * with the steps he has left (two pixels a step with the speed item or Apache's hunt); otherwise he stays.
+     */
+    private void climbTo(int x, int y) {
+        if (this.countFreeze > 0 || this.paralyzed >= 2) return; // frozen or locked: not one step
+        int stride = this.isRunSpeed || this.huntRun ? 2 : 1;
+        int left = Math.max(0, this.theluc + 1 - this.buocdi);
+        int dist = Climb.reach(this.mapData, this.x, this.y, x, y, left * stride);
+        if (dist <= 0) return;
+        this.buocdi += (dist + stride - 1) / stride;
+        this.mapData.addTimeUntilAction(50 * dist / stride);
+        this.x = (short) x;
+        this.y = (short) y;
+        this.mapData.changeLocation(this.index, this.x, this.y);
+    }
+
     public void updateXY(int x, int y) {
+        if (this.climber()) {
+            this.climbTo(x, y);
+            return;
+        }
         while(x != this.x || y != this.y) {
             int preX = this.x;
             int preY = this.y;
@@ -474,7 +538,7 @@ public class Player {
     }
     
     private void move(boolean addX) {
-        if (this.countFreeze > 0 || this.paralyzed == 2) { // frozen, or locked by Electrician's shock: not one step
+        if (this.countFreeze > 0 || this.paralyzed >= 2) { // frozen (item or ice element), or locked by Electrician's shock: not one step
             return;
         }
         byte step = (byte) (this.isRunSpeed || this.huntRun ? 2 : 1);
@@ -506,13 +570,27 @@ public class Player {
     }
 
     public boolean isCollision(int x, int y) {
-        int w = this.bodyWidth(), h = this.bodyHeight();
-        return this.mapData.inRegion(x, y, this.x - w / 2, this.y - h, w, h);
+        return this.isCollision(x, y, 0);
     }
 
     public boolean isCollision(int x, int y, int d) {
+        int[] box = this.bodyBox();
+        return this.mapData.inRegion(x, y, box[0] - d, box[1] - d, box[2] + 2 * d, box[3] + 2 * d);
+    }
+
+    /**
+     * {left, top, width, height} of the body bullets hit: above the feet, or for a climber (Climb) on a wall or upside
+     * down, turned with him, away from the ground he holds on to.
+     */
+    public int[] bodyBox() {
         int w = this.bodyWidth(), h = this.bodyHeight();
-        return this.mapData.inRegion(x, y, this.x - w / 2 - d, this.y - h - d, w + 2 * d, h + 2 * d);
+        int down = this.climber() && this.mapData != null ? Climb.down(this.mapData, this.x, this.y) : Climb.SOUTH;
+        return switch (down) {
+            case Climb.NORTH -> new int[] {this.x - w / 2, this.y + 1, w, h};
+            case Climb.EAST -> new int[] {this.x - h, this.y - w / 2, h, w};
+            case Climb.WEST -> new int[] {this.x + 1, this.y - w / 2, h, w};
+            default -> new int[] {this.x - w / 2, this.y - h, w, h};
+        };
     }
 
     /** The body bullets hit, around the feet: King Kong grows while he stands still (SetPassive.bodyPercent). */
@@ -598,6 +676,7 @@ public class Player {
         if (this.antiHealTurns > 0) this.antiHealTurns--;
         if (this.teleportCooldown > 0) this.teleportCooldown--;
         SetPassive.newTurn(this);
+        SetElement.newTurn(this); // the fire burns out, the poison bites
         this.buocdi = 0;
         this.nTest = 0;
         this.isUseItem = false;

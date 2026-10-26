@@ -515,6 +515,7 @@ public class GameScr extends CScreen {
 
         cantSee = false;
         Bullet.webId = 200;
+        player.DebugLog.players("start");
     }
 
     private void onDragCamera(int xDrag, int yDrag, int index) {
@@ -966,6 +967,14 @@ public class GameScr extends CScreen {
     }
 
     private final java.util.HashSet<Integer> desktopKeys = new java.util.HashSet<Integer>();
+    /**
+     * Keys physically held now, whatever the game allowed when they went down: libGDX sends one keyDown per press and no
+     * repeats, so Space pressed a moment before the player may act (turn just starting, the last shot still flying, a
+     * dialog closing) was dropped and holding it on charged nothing. fireArmed: Space was pressed since the last shot,
+     * so a Space still held from the last shot does not start charging again.
+     */
+    private final java.util.HashSet<Integer> desktopDown = new java.util.HashSet<Integer>();
+    private boolean fireArmed;
     private long nextDesktopAngleAt;
     private boolean desktopCameraMode;
     private boolean desktopCameraToggleHeld;
@@ -975,6 +984,7 @@ public class GameScr extends CScreen {
 
     public void clearDesktopKeys() {
         desktopKeys.clear();
+        desktopDown.clear();
         nextDesktopAngleAt = 0L;
         desktopCameraToggleHeld = false;
         if (PM.getMyPlayer() != null) {
@@ -1032,6 +1042,12 @@ public class GameScr extends CScreen {
     }
 
     public boolean desktopKeyDown(int key) {
+        if (key == com.badlogic.gdx.Input.Keys.F9) {
+            player.DebugLog.players("F9"); // the player saw something wrong: what every player looks like now
+            return true;
+        }
+        desktopDown.add(key);
+        if (key == com.badlogic.gdx.Input.Keys.SPACE) fireArmed = true;
         if (key == com.badlogic.gdx.Input.Keys.R) {
             if (!desktopCameraToggleHeld && desktopCameraCanAct()) {
                 toggleDesktopCamera();
@@ -1039,7 +1055,8 @@ public class GameScr extends CScreen {
             desktopCameraToggleHeld = true;
             return true;
         }
-        if ((key == com.badlogic.gdx.Input.Keys.C || key == com.badlogic.gdx.Input.Keys.CONTROL_LEFT || key == com.badlogic.gdx.Input.Keys.CONTROL_RIGHT) && !isChat && CCanvas.currentDialog == null && !isShowPausemenu) {
+        // Enter (also C, Ctrl) opens the chat; Space charges and fires, Tab the POW.
+        if ((key == com.badlogic.gdx.Input.Keys.ENTER || key == com.badlogic.gdx.Input.Keys.C || key == com.badlogic.gdx.Input.Keys.CONTROL_LEFT || key == com.badlogic.gdx.Input.Keys.CONTROL_RIGHT) && !isChat && CCanvas.currentDialog == null && !isShowPausemenu) {
             this.isChat = true;
             tfChat.doChangeToTextBox();
             return true;
@@ -1089,7 +1106,7 @@ public class GameScr extends CScreen {
             }
             return true;
         }
-        if (key == com.badlogic.gdx.Input.Keys.SPACE) {
+        if (key == com.badlogic.gdx.Input.Keys.TAB) {
             if (desktopCanAct() && PM.getMyPlayer().isAngry && !PM.getMyPlayer().isUsedItem) {
                 activateSpecial();
             }
@@ -1109,7 +1126,7 @@ public class GameScr extends CScreen {
         }
         if (key == com.badlogic.gdx.Input.Keys.LEFT || key == com.badlogic.gdx.Input.Keys.RIGHT
                 || key == com.badlogic.gdx.Input.Keys.A || key == com.badlogic.gdx.Input.Keys.D
-                || key == com.badlogic.gdx.Input.Keys.ENTER) {
+                || key == com.badlogic.gdx.Input.Keys.SPACE) {
             if (desktopCanAct()) desktopKeys.add(key);
             return true;
         }
@@ -1117,20 +1134,22 @@ public class GameScr extends CScreen {
     }
 
     public boolean desktopKeyUp(int key) {
+        desktopDown.remove(key);
         if (key == com.badlogic.gdx.Input.Keys.R) {
             desktopCameraToggleHeld = false;
             return true;
         }
-        if (desktopKeys.remove(key) && key == com.badlogic.gdx.Input.Keys.ENTER && desktopCanAct()
+        if (desktopKeys.remove(key) && key == com.badlogic.gdx.Input.Keys.SPACE && desktopCanAct()
                 && !PM.getMyPlayer().falling) {
+            fireArmed = false;
             PM.getMyPlayer().fire();
         }
         return key == com.badlogic.gdx.Input.Keys.LEFT || key == com.badlogic.gdx.Input.Keys.RIGHT
                 || key == com.badlogic.gdx.Input.Keys.UP || key == com.badlogic.gdx.Input.Keys.DOWN
                 || key == com.badlogic.gdx.Input.Keys.W || key == com.badlogic.gdx.Input.Keys.S
                 || key == com.badlogic.gdx.Input.Keys.A || key == com.badlogic.gdx.Input.Keys.D
-                || key == com.badlogic.gdx.Input.Keys.ENTER || key == com.badlogic.gdx.Input.Keys.ESCAPE
-                || key == com.badlogic.gdx.Input.Keys.SPACE || key == com.badlogic.gdx.Input.Keys.Q
+                || key == com.badlogic.gdx.Input.Keys.SPACE || key == com.badlogic.gdx.Input.Keys.ESCAPE
+                || key == com.badlogic.gdx.Input.Keys.TAB || key == com.badlogic.gdx.Input.Keys.Q
                 || (key >= com.badlogic.gdx.Input.Keys.NUM_1 && key <= com.badlogic.gdx.Input.Keys.NUM_8);
     }
 
@@ -1147,7 +1166,7 @@ public class GameScr extends CScreen {
             } else if (movedPlayer != null && !movedPlayer.falling
                     && ((!desktopHeld(com.badlogic.gdx.Input.Keys.LEFT, com.badlogic.gdx.Input.Keys.A)
                             && !desktopHeld(com.badlogic.gdx.Input.Keys.RIGHT, com.badlogic.gdx.Input.Keys.D))
-                        || desktopKeys.contains(com.badlogic.gdx.Input.Keys.ENTER) || !desktopCanAct())) {
+                        || desktopKeys.contains(com.badlogic.gdx.Input.Keys.SPACE) || !desktopCanAct())) {
                 movedPlayer.syncMovementPosition();
                 desktopMovementPending = false;
             }
@@ -1167,19 +1186,21 @@ public class GameScr extends CScreen {
             return;
         }
         if (!desktopCanAct()) {
+            if (desktopKeys.contains(com.badlogic.gdx.Input.Keys.SPACE)) fireArmed = false; // charging ended by the shot
             desktopKeys.clear();
             nextDesktopAngleAt = 0L;
             return;
         }
         CPlayer player = PM.getMyPlayer();
         if (player.falling) return;
+        if (fireArmed && desktopDown.contains(com.badlogic.gdx.Input.Keys.SPACE)) desktopKeys.add(com.badlogic.gdx.Input.Keys.SPACE);
         int angleDirection = desktopAngleDirection();
         long now = mSystem.currentTimeMillis();
         if (angleDirection != 0 && now >= nextDesktopAngleAt) {
             changeDesktopAngle(angleDirection);
             nextDesktopAngleAt = now + DESKTOP_ANGLE_REPEAT_MS;
         }
-        if (desktopKeys.contains(com.badlogic.gdx.Input.Keys.ENTER)) {
+        if (desktopKeys.contains(com.badlogic.gdx.Input.Keys.SPACE)) {
             player.holdFire();
         } else {
             boolean left = desktopHeld(com.badlogic.gdx.Input.Keys.LEFT, com.badlogic.gdx.Input.Keys.A);
@@ -1665,6 +1686,7 @@ public class GameScr extends CScreen {
 
                 onDrawAngleBar(g, Camera.x + (w >> 1), Camera.y + h - 25 + 8, PM.getMyPlayer().angle);
             }
+            if (!CPlayer.isShooting && Camera.mode != 0) PM.getMyPlayer().drawAngleArc(g); // GunBound-style angle arc
             PM.getMyPlayer().drawKegoc(g);
         }
 
@@ -1698,6 +1720,7 @@ public class GameScr extends CScreen {
             }
         }
 
+        this.drawMyHP(g);
         this.drawWind(g);
         if (Camera.mode == 0) {
             this.drawWhenFreeCam(g);
@@ -1777,6 +1800,25 @@ public class GameScr extends CScreen {
         windy = NextWindY;
         windAngle = CRes.fixangle(CRes.angle(windx, -windy));
         windPower = CRes.sqrt(windx * windx + windy * windy);
+    }
+
+    /**
+     * The player's own HP in the top left corner of the screen: the bar over his head hides under a body lying on him
+     * (and off screen).
+     */
+    private void drawMyHP(mGraphics g) {
+        CPlayer me = PM.getMyPlayer();
+        if (me == null || me.maxhp <= 0 || trainingMode) return;
+        int x = 6, y = 6 + (CCanvas.isTouch ? 25 : 0), w = 120, h = 9;
+        int hp = Math.max(0, Math.min(me.hp, me.maxhp));
+        int fill = (w - 2) * hp / me.maxhp;
+        g.setColor(0x1a1a1a);
+        g.fillRect(x, y, w, h, false);
+        g.setColor(hp * 2 > me.maxhp ? 0x3ccf4e : hp * 4 > me.maxhp ? 0xf2c230 : 0xe8402a);
+        g.fillRect(x + 1, y + 1, fill, h - 2, false);
+        g.setColor(0xffffff);
+        g.drawRect(x, y, w, h, false);
+        Font.smallFontYellow.drawString(g, "HP " + hp + "/" + me.maxhp, x, y + h + 2, 0);
     }
 
     public void drawWind(mGraphics g) {

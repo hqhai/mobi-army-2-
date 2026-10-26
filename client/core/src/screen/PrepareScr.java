@@ -197,6 +197,48 @@ public class PrepareScr extends CScreen {
         this.itemCur[3] = 1;
     }
 
+    /** LAN: the account whose saved item slots (saveItems) were last put back, once per login. */
+    private String itemsRestoredFor;
+
+    /** LAN: remembers the item slots sent to the server, per account, for the next login (RMS "lanItems_<name>"). */
+    public static void saveItems(int[] items) {
+        if (TerrainMidlet.myInfo == null || TerrainMidlet.myInfo.name == null || items == null) return;
+        StringBuilder s = new StringBuilder();
+        for (int i = 0; i < items.length; i++) s.append(i == 0 ? "" : ",").append(items[i]);
+        CLib.RMS.saveRMSString("lanItems_" + TerrainMidlet.myInfo.name.toLowerCase(), s.toString());
+    }
+
+    /**
+     * LAN: puts back the item slots saved at the last login (saveItems), the first time a room is shown after logging
+     * in; an item the account no longer has, or has too many of, leaves its slot empty (locked slots are left to
+     * resetItemEquip).
+     */
+    private void restoreSavedItems() {
+        if (TerrainMidlet.myInfo == null || TerrainMidlet.myInfo.name == null) return;
+        String name = TerrainMidlet.myInfo.name.toLowerCase();
+        if (name.equals(this.itemsRestoredFor)) return;
+        this.itemsRestoredFor = name;
+        String saved = CLib.RMS.loadRMSString("lanItems_" + name);
+        if (saved == null || saved.length() == 0) return;
+        try {
+            String[] parts = saved.split(",");
+            int[] items = new int[this.itemCur.length];
+            java.util.Arrays.fill(items, -2);
+            for (int i = 0; i < items.length && i < parts.length; i++) {
+                int type = Integer.parseInt(parts[i].trim());
+                if (type < 0 || type >= ShopItem.itemCount()) continue;
+                Item item = ShopItem.getI(type);
+                if (item.isPassive_Item || (item.num <= 0 && !item.isFreeItem)) continue;
+                ShopItem.checkItemWhenChose(items);
+                if (item.numUsed >= item.nCurMaxUsed || (!item.isFreeItem && item.numUsed >= item.num)) continue;
+                items[i] = type;
+            }
+            this.itemCur = items;
+        } catch (Exception e) {
+            // a broken save: keep the slots as they are
+        }
+    }
+
     /** Practice item slots (LAN): any items, free and never used up; chat "item 21 19 28" changes them. */
     public static int[] trainingItems = {2, 21, 19, 28, 36, 37, 38, 16};
 
@@ -1247,6 +1289,7 @@ public class PrepareScr extends CScreen {
                 PrepareScr.this.doChooseItemEquip();
             }
         });
+        this.restoreSavedItems();
         this.resetItemEquip();
         this.resetReady();
         prepareScrItemIcon.titleTem = Language.chonItem();

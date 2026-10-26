@@ -18,6 +18,8 @@ public class TimeBomb {
     public boolean egg;
     /** One of Granos's grenades (SetPassive "Người Gieo Laze"): negative ids, owner in leadIndex, att a laser's damage. */
     public boolean grenade;
+    /** One of Rocketer's late WorldWar bombs (MapData.layLateNuke): ids LATE_NUKE_FIRST and up, it spares its owner. */
+    public boolean nuke;
     
     public TimeBomb(MapData mapData, int id, int leadIndex, int att, int x, int y, int count, int radius) {
         this.id = id;

@@ -34,8 +34,13 @@ public final class SetPassive {
      * of the damage it dealt (all at full strength).
      */
     static final int GUNNER_POW_DAMAGE = 150, GUNNER_CANNON_HOLE = 200, GUNNER_RAGE = 150, GUNNER_RECOIL = 20;
-    /** Miss 6: every third hit ignores all defense and crits for this multiplier (percent, full strength). */
-    static final int MISS6_EVERY = 3, MISS6_CRIT = 150;
+    /** Gunner's cannonball also knocks every opponent it hurt GUNNER_KNOCK px away from the blast (as Tarzan's kick). */
+    public static final int GUNNER_KNOCK = 40;
+    /**
+     * Miss 6: every third hit ignores all defense and crits for this multiplier (percent, full strength); her Teleport
+     * waits MISS6_TELEPORT fewer of her turns between uses than everyone else's.
+     */
+    static final int MISS6_EVERY = 3, MISS6_CRIT = 150, MISS6_TELEPORT = 1;
     /**
      * Rocketer "WorldWar": his POW fires no rockets but a flare the wind does not move (at any angle: the client lifts
      * his aim limit for it). Where it lands a bomber flies over and drops WORLDWAR_BOMBS nuclear bombs WORLDWAR_SPACING
@@ -46,6 +51,13 @@ public final class SetPassive {
      */
     public static final int WORLDWAR_BOMBS = 3, WORLDWAR_SPACING = 30, WORLDWAR_RADIUS = 70, WORLDWAR_SHOCK = 10;
     static final int WORLDWAR_RAGE = 140;
+    /**
+     * Chance in percent that a WorldWar bomb does not go off as it lands but lies there and goes off WORLDWAR_LATE_ROUNDS
+     * later, as a time bomb (sparing Rocketer too); each of the bombs is drawn on its own.
+     */
+    public static final int WORLDWAR_LATE = 0, WORLDWAR_LATE_ROUNDS = 1; // off since 26/10/2026: late bombs dropped clients (was 50)
+    /** The chance in use (WORLDWAR_LATE; checks set it to 0 or 100). */
+    public static int worldWarLate = WORLDWAR_LATE;
     /** How far the WorldWar radiation reaches (it fades to nothing here), and how close it still catches Rocketer. */
     public static final int RADIATION_FAR = 450, RADIATION_NEAR = 90;
     /**
@@ -69,6 +81,8 @@ public final class SetPassive {
      */
     public static final int TARZAN_LESS = 8, TARZAN_RADIUS = 150, TARZAN_RETURN = 20, TARZAN_STEPS = 120;
     public static final int TARZAN_KICK = 60;
+    /** Tarzan pulls an opponent no closer than this to himself. */
+    public static final int TARZAN_PULL_GAP = 20;
     /** A kicked player flies over a bump up to KICK_CLIMB px high per px forward; anything steeper is a wall. */
     static final int KICK_CLIMB = 12;
     /** Time the clients take to play the kick (ms), and the yell they show over Tarzan. */
@@ -78,12 +92,17 @@ public final class SetPassive {
     /** Steps a turn without Tarzan's passive (Player.theluc). */
     static final int STEPS = 60;
     /**
-     * King Kong: each round he stands still takes KINGKONG_STEP percent off damage he takes, up to KINGKONG_MAX, and
-     * makes him KINGKONG_GROW percent bigger, up to KINGKONG_BIGGEST (bodyPercent: 125%, 150%... 300% after 8 rounds),
-     * much easier to hit; his banana leaves from his grown body (MapData.shoot). His POW grows with him: its bananas
-     * are as much bigger and stronger (powGrowth), and dig no ground (holeScale 0).
+     * King Kong: each round he stands still makes him KINGKONG_GROW percent bigger, up to KINGKONG_BIGGEST
+     * (bodyPercent: 125%, 150%... 300% after KINGKONG_ROUNDS rounds), much easier to hit; his banana leaves from his
+     * grown body (MapData.shoot). Growing he gets tougher, in step with his size up to the full KINGKONG_ROUNDS: up to
+     * KINGKONG_LESS percent less damage taken and KINGKONG_HP percent more max HP (growHP: the HP he gains with it).
+     * His POW grows with him: its bananas are as much bigger (powGrowth) but hit at most KINGKONG_POW percent harder,
+     * at full size (powDamage); they dig no ground (holeScale 0).
      */
-    static final int KINGKONG_STEP = 10, KINGKONG_MAX = 20, KINGKONG_GROW = 25, KINGKONG_BIGGEST = 300;
+    static final int KINGKONG_GROW = 25, KINGKONG_BIGGEST = 300, KINGKONG_ROUNDS = (KINGKONG_BIGGEST - 100) / KINGKONG_GROW;
+    static final int KINGKONG_LESS = 20, KINGKONG_HP = 20, KINGKONG_POW = 30;
+    /** King Kong's usual bananas shrink as he grows: KINGKONG_SHRINK percent smaller (and their holes) at full size. */
+    static final int KINGKONG_SHRINK = 50;
     /**
      * Electrician: his bolts are ELECTRICIAN_BIG percent of their size, blast and hole (full strength). An opponent hit
      * in one shot by ELECTRICIAN_STUN_BOLTS of them loses his next turn; by ELECTRICIAN_LOCK_BOLTS, on his next turn he
@@ -91,7 +110,7 @@ public final class SetPassive {
      * strength) and aims no lower than ELECTRICIAN_MIN_ANGLE degrees (status message 114 tells the clients; the server
      * holds him to it: steps, shockedAngle).
      */
-    static final int ELECTRICIAN_STUN_BOLTS = 3, ELECTRICIAN_LOCK_BOLTS = 2, ELECTRICIAN_BIG = 130, ELECTRICIAN_SLOW = 30;
+    static final int ELECTRICIAN_STUN_BOLTS = 3, ELECTRICIAN_LOCK_BOLTS = 2, ELECTRICIAN_BIG = 115, ELECTRICIAN_SLOW = 30;
     public static final int ELECTRICIAN_MIN_ANGLE = 60;
     /**
      * Granos "Người Gieo Laze": his own grenades dig GRANOS_HOLE percent wide holes (full strength), and his POW fires
@@ -181,10 +200,16 @@ public final class SetPassive {
         shooter.eggsLanded.clear();
         shooter.lastEggTarget = null;
         shooter.dealtBeforeShot = shooter.statDealt;
+        SetTeam.beforeShot(shooter);
         if (shooter.setTier == 0) return;
         shooter.passiveShots++;
         shooter.passiveHit = false;
         shooter.passiveTrueShot = shooter.glassID == MISS6 && shooter.passiveHits % MISS6_EVERY == MISS6_EVERY - 1;
+    }
+
+    /** Turns the player's Teleport waits after a use: Player.TELEPORT_COOLDOWN, MISS6_TELEPORT fewer for Miss 6's set. */
+    public static int teleportCooldown(Player p) {
+        return Player.TELEPORT_COOLDOWN - (p.setTier != 0 && p.glassID == MISS6 ? MISS6_TELEPORT : 0);
     }
 
     /** Gunner's shots: nobody is lucky, himself included (call before the luck roll). */
@@ -223,6 +248,7 @@ public final class SetPassive {
      */
     public static void afterShot(Player shooter) {
         if (shooter.setTier != 0 && shooter.passiveHit) shooter.passiveHits++;
+        shooter.outsiderTrue = false;
         shooter.passiveTrueShot = false;
         if (shooter.headGuideShots > 0) shooter.headGuideShots--;
         if (shooter.setTier == 0) return;
@@ -283,29 +309,42 @@ public final class SetPassive {
         shooter.huntHammers.clear();
     }
 
-    /** Tarzan's POW boomerang (bullet 21) hurt an opponent: kicked once the damage is in, away from this blast. */
+    /**
+     * Tarzan's POW boomerang (bullet 21) or Gunner's cannonball (bullet 0) hurt an opponent: kicked (knocked away) once
+     * the damage is in, away from this blast.
+     */
     static void kickHit(Player shooter, Player target, Bullet bullet) {
-        if (shooter == null || shooter.setTier == 0 || shooter.glassID != TARZAN || !shooter.isPow || bullet.bulletId != 21
+        boolean tarzan = shooter != null && shooter.glassID == TARZAN && bullet.bulletId == 21;
+        boolean gunner = cannon(shooter) && bullet.bulletId == 0;
+        if (shooter == null || shooter.setTier == 0 || !shooter.isPow || !(tarzan || gunner)
                 || target.typePlayer != 0 || !enemies(shooter, target)) return;
         shooter.kicks.putIfAbsent(target, bullet.bX);
     }
 
     /**
-     * Right after the damage of a shot (MapData.updateAffect): Tarzan's kick. With a yell, every opponent his POW
-     * boomerang hurt and who still stands flies TARZAN_KICK px away from the blast; one who falls off the map dies by
-     * his hand, before the shot's experience is counted.
+     * Right after the damage of a shot (MapData.updateAffect): Tarzan's pull and Gunner's knock. With a yell Tarzan
+     * pulls every opponent his POW boomerang hurt and who still stands TARZAN_KICK px toward himself (never past
+     * TARZAN_PULL_GAP px from him); Gunner's cannonball knocks them GUNNER_KNOCK px away from its blast. One who falls
+     * off the map dies by the shooter's hand, before the shot's experience is counted.
      */
     static void kick(Player shooter) {
         if (shooter == null || shooter.kicks.isEmpty()) return;
         MapData map = shooter.mapData;
-        int dist = scaled(shooter, TARZAN_KICK);
+        int dist = scaled(shooter, shooter.glassID == GUNNER ? GUNNER_KNOCK : TARZAN_KICK);
         java.util.List<Player> kicked = new java.util.ArrayList<>();
         for (java.util.Map.Entry<Player, Integer> hit : shooter.kicks.entrySet()) {
             Player target = hit.getKey();
             if (target.isDie || target.isFly) continue;
-            int dir = Integer.signum(target.x - hit.getValue());
-            if (dir == 0) dir = target.x < shooter.x ? -1 : 1; // hit dead centre: away from Tarzan
-            int[] spot = kickSpot(map, target.x, target.y, dir, dist);
+            int dir, far = dist;
+            if (shooter.glassID == TARZAN) {
+                dir = Integer.signum(shooter.x - target.x); // toward Tarzan
+                far = Math.min(dist, Math.abs(shooter.x - target.x) - TARZAN_PULL_GAP);
+                if (dir == 0 || far <= 0) continue; // already next to him
+            } else {
+                dir = Integer.signum(target.x - hit.getValue());
+                if (dir == 0) dir = target.x < shooter.x ? -1 : 1; // hit dead centre: away from the shooter
+            }
+            int[] spot = kickSpot(map, target.x, target.y, dir, far);
             if (spot[0] == target.x && spot[1] == target.y) continue;
             target.x = (short) spot[0];
             target.y = (short) spot[1];
@@ -464,7 +503,7 @@ public final class SetPassive {
     /** Steps the player may walk a turn (Player.theluc). */
     public static int steps(Player p) {
         int steps = pactTarzan(p) ? TARZAN_STEPS : STEPS;
-        if (p.paralyzed == 2) return 0; // Electrician's shock: two bolts, no walking this turn
+        if (p.paralyzed >= 2) return 0; // Electrician's shock (two bolts) or the ice element: no walking this turn
         if (p.paralyzed == 1) return steps * (100 - p.paralyzeSlow) / 100;
         return steps;
     }
@@ -495,9 +534,40 @@ public final class SetPassive {
         return ang;
     }
 
-    /** King Kong's POW with his set passive: his bananas as big and strong as he has grown (percent), else 100. */
+    /**
+     * How big King Kong's bananas are with his set passive (percent, else 100): his POW's as big as he has grown, his
+     * usual ones as much smaller, down to KINGKONG_SHRINK percent less at full size (holes too: holeScale).
+     */
     public static int powGrowth(Player shooter, boolean pow) {
-        return pow && shooter != null && shooter.setTier != 0 && shooter.glassID == KINGKONG ? bodyPercent(shooter) : 100;
+        if (shooter == null || shooter.setTier == 0 || shooter.glassID != KINGKONG) return 100;
+        return pow ? bodyPercent(shooter) : 100 - growth(shooter, KINGKONG_SHRINK);
+    }
+
+    /** How hard King Kong's POW bananas hit (percent): up to KINGKONG_POW more at full size, else 100. */
+    public static int powDamage(Player shooter, boolean pow) {
+        return pow && shooter != null && shooter.setTier != 0 && shooter.glassID == KINGKONG ? 100 + growth(shooter, KINGKONG_POW) : 100;
+    }
+
+    /** Part of full (percent, at the player's strength) King Kong has grown into: all of it after KINGKONG_ROUNDS. */
+    static int growth(Player p, int full) {
+        return scaled(p, full) * Math.min(KINGKONG_ROUNDS, p.passiveStill) / KINGKONG_ROUNDS;
+    }
+
+    /**
+     * King Kong's max HP follows his size (KINGKONG_HP percent more at full size): growing he gains the HP he grows by,
+     * shrinking (he moved) he loses it again, but never below 10 HP to it.
+     */
+    static void growHP(Player p) {
+        if (p.glassID != KINGKONG || p.isDie) return;
+        int base = p.hpMax - p.grownHP;
+        int grown = base * growth(p, KINGKONG_HP) / 100;
+        if (grown == p.grownHP) return;
+        int change = grown - p.grownHP;
+        p.grownHP = grown;
+        p.hpMax = base + grown;
+        p.hp = Math.max(Math.min(p.hp, 10), Math.min(p.hpMax, p.hp + change));
+        p.pixel = p.hp * 25 / p.hpMax;
+        p.mapData.updateHP(p.index, p.hp, p.pixel);
     }
 
     /** Share of the wind Tarzan's boomerang feels (usual: 10 percent), none with his passive. */
@@ -529,6 +599,7 @@ public final class SetPassive {
 
     /** Opponents: different teams, or anyone else in a free-for-all room (everyone is team 3 there). */
     public static boolean enemies(Player a, Player b) {
+        if (a.gift || b.gift) return false; // the floating gift boxes (MapData.dropGift) are no one's
         return a != b && (a.team != b.team || a.team == 3);
     }
 
@@ -540,12 +611,14 @@ public final class SetPassive {
     /** Damage the target takes after its own passive. */
     static int taken(Player target, int damage) {
         if (damage <= 0) return damage;
+        damage = SetElement.taken(target, damage); // burning: more
         Player pact = pactAlly(target);
         if (pact != null) damage -= damage * scaled(pact, PACT_LESS) / 100;
+        damage = SetTeam.taken(target, damage); // the Privates' side: less a round, less below half HP
         if (target.setTier == 0) return damage;
         int less = switch (target.glassID) {
             case TARZAN -> TARZAN_LESS;
-            case KINGKONG -> Math.min(KINGKONG_MAX, KINGKONG_STEP * target.passiveStill);
+            case KINGKONG -> growth(target, KINGKONG_LESS);
             default -> 0;
         };
         return damage - damage * scaled(target, less) / 100;
@@ -586,6 +659,7 @@ public final class SetPassive {
         player.passiveStill = still ? player.passiveStill + 1 : 0;
         player.passiveX = player.x;
         player.passiveY = player.y;
+        growHP(player);
     }
 
     /**
@@ -599,7 +673,7 @@ public final class SetPassive {
             case GUNNER -> shooter.isPow ? 100 + scaled(shooter, GUNNER_CANNON_HOLE - 100) : 100;
             case GRANOS -> 100 + scaled(shooter, GRANOS_HOLE - 100);
             case ELECTRICIAN -> 100 + scaled(shooter, ELECTRICIAN_BIG - 100);
-            case KINGKONG -> shooter.isPow ? 0 : 100; // his POW digs no ground
+            case KINGKONG -> shooter.isPow ? 0 : powGrowth(shooter, false); // his POW digs no ground, his usual bananas less
             default -> 100;
         };
     }

@@ -108,9 +108,14 @@ public class Bullet {
         }
     }
 
-    /** Whether this bullet's blast hurts the player; WorldWar's bombs spare the Rocketer who called them. */
+    /**
+     * Whether this bullet's blast hurts the player; WorldWar's bombs spare the Rocketer who called them, and a summon's
+     * shots (the Scientists' T-rex, SetTeam) spare the side of whoever called it.
+     */
     protected boolean hurts(Player player) {
-        return true;
+        Player shooter = this.gun.shooter();
+        Player caller = shooter == null ? null : shooter.caller();
+        return caller == null || mobiarmy.war.SetPassive.enemies(caller, player);
     }
 
     public void nextXY() {

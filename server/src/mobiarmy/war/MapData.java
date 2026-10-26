@@ -65,11 +65,18 @@ public class MapData {
     public int nPlayer;
     public long timeUntilAction2;
     public boolean disableLuck;
+    /** While a player's own shot does its damage (shoot): what may strike with his set's element (SetElement). */
+    public boolean elementShot;
+    /** Where a climber stands while his shot leaves from his turned body (MapData.shoot, Climb), or null. */
+    int[] shotFrom;
     /** RoomRules picked by the room owner, fixed when the match starts. */
     public byte rules = RoomRules.FREE;
     /** SkillBalance damage for this match (balanced rooms). */
     public boolean skillRules;
     public ArrayList<Player> choses = null;
+    /** Sides whose Scientists already called their T-rex, and the Scientists who just fell (SetTeam). */
+    java.util.Set<Integer> trexTeams = new java.util.HashSet<>();
+    java.util.List<Player> trexPending = new java.util.ArrayList<>();
 
     public MapData(RoomWait roomWait, byte mapID) throws IOException {
         this.roomWait = roomWait;
@@ -103,6 +110,8 @@ public class MapData {
         this.wager = this.roomWait.getWager();
         this.roomWait.started = true;
         this.isWar = true;
+        this.round = 1;
+        this.giftRound = 0;
         this.rules = this.roomWait.rules;
         this.skillRules = this.rules == RoomRules.BALANCED;
         //Đặt vị trí của người chơi
@@ -118,6 +127,7 @@ public class MapData {
                 player.theluc = SetPassive.steps(player); // Tarzan's passive walks farther
                 player.baseAtt = user.glass().att;
                 player.hiddenAtt = SetPassive.hiddenAtt(user, user.glass().id);
+                SetElement.apply(player, user, user.glass().id, this.rules == RoomRules.BASE);
                 player.isBoss = false;
                 player.isFly = false;
                 player.team = this.roomWait.type == 5 ? 3 : user.team;
@@ -125,6 +135,7 @@ public class MapData {
                 Map.Point point = points.remove(Util.nextInt(points.size()));
                 player.x = point.x;
                 player.y = point.y;
+                if (player.climber()) player.chuanHoaXY(); // (Tarzan climbing: onto the anchor his client finds too)
                 //tui dung item
                 if (user.setItems[4] != -1) {
                     user.addItem(12, -1);
@@ -163,6 +174,9 @@ public class MapData {
                 player.user.session.sessionHandler.loadInfoMap(this);
             }
         }
+        SetTeam.apply(this, this.rules == RoomRules.BASE);
+        this.trexTeams.clear();
+        this.trexPending.clear();
         this.setBoss();
         if (!this.isFightBoss) {
             this.nGift = 2;
@@ -554,7 +568,7 @@ public class MapData {
         this.makeHole(timeBomb.x, timeBomb.y, 57);
         
         for (Player player : this.players) {
-            if (player != null && !player.isDie) {
+            if (player != null && !player.isDie && !(timeBomb.nuke && player.index == timeBomb.leadIndex)) { // late nukes spare Rocketer
                 if (player.isCollision(timeBomb.x, timeBomb.y, timeBomb.radius)) {
                     player.attAffect = player.calcAtt(timeBomb.x, timeBomb.y, timeBomb.radius, timeBomb.att);
                 }
@@ -599,6 +613,28 @@ public class MapData {
     ArrayList<TimeBomb> pendingEggs = new ArrayList<>();
     private int countEgg;
     private int countGrenade;
+    private int countLateNuke;
+    /** Time bomb ids of Rocketer's late nuclear bombs (client build 8 draws ids in this range as one). */
+    public static final int LATE_NUKE_FIRST = 70, LATE_NUKES = 30;
+
+    /** A time bomb id for one of Rocketer's late WorldWar bombs. */
+    public int nextLateNuke() {
+        return LATE_NUKE_FIRST + this.countLateNuke++ % LATE_NUKES;
+    }
+
+    /**
+     * One of Rocketer's WorldWar bombs landed at x, y without going off (WorldWarFlare.Bomb.lateId): it lies there and
+     * goes off SetPassive.WORLDWAR_LATE_ROUNDS rounds later like a time bomb, sparing its owner. The clients put it
+     * there themselves where the shot says the bomb ends, so it is not announced.
+     */
+    public void layLateNuke(int id, int owner, int att, int x, int y) {
+        int fighters = 0;
+        for (Player p : this.players) if (p != null && !p.isDie && p.isTurn) fighters++;
+        TimeBomb nuke = new TimeBomb(this, id, owner, att, x, y, SetPassive.WORLDWAR_LATE_ROUNDS * Math.max(1, fighters),
+                SetPassive.WORLDWAR_RADIUS);
+        nuke.nuke = true;
+        this.timeBombs.add(nuke);
+    }
 
     /**
      * Granos's seed landed at x, y (SetPassive "Người Gieo Laze"): a row of SetPassive.GRANOS_SEEDS grenades
@@ -611,8 +647,9 @@ public class MapData {
         int count = SetPassive.GRANOS_ROUNDS * Math.max(1, fighters);
         int laser = SetPassive.granosLaser(owner);
         int sky = Math.max(0, y - SetPassive.GRANOS_DROP);
-        for (int k = 0; k < SetPassive.GRANOS_SEEDS; k++) {
-            int gx = x + (k - SetPassive.GRANOS_SEEDS / 2) * SetPassive.GRANOS_SPACING;
+        int seeds = SetPassive.GRANOS_SEEDS + SetTeam.extraBullets(owner); // one more for a Scientist
+        for (int k = 0; k < seeds; k++) {
+            int gx = x + (k - seeds / 2) * SetPassive.GRANOS_SPACING;
             if (gx < 0 || gx >= this.width) continue;
             TimeBomb grenade = new TimeBomb(this, -1 - this.countGrenade++ % 120, owner.index, laser, gx, sky, count,
                     SetPassive.GRANOS_LASER_RADIUS);
@@ -751,6 +788,106 @@ public class MapData {
     /** Most the wind changes from one round to the next. */
     public static final int WIND_DRIFT = 20;
     private int roundWind;
+    /** The round of the match (windForTurn counts them, from 1), and the last one a gift box came down in. */
+    public int round = 1;
+    private int giftRound;
+    /** From this round on a gift box floats in every round, as long as there are fewer of them than players fighting. */
+    public static final int GIFT_ROUND = 10;
+    /** Shot down, a gift box gives a random item from these into a free slot, or GIFT_HEAL percent of max HP. */
+    static final int[] GIFT_ITEMS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29,
+            30, 31, 32, 33, 34, 35, 36, 37, 38};
+    /**
+     * Items that end a match sooner come GIFT_LIKELY times as often: 8 "Bom hủy diệt", 23 and 26 "Khoang đất",
+     * 31 "Bom hẹn giờ", 36 "Chỉ kẻ đầu" (each 8.5% of the gifts, about 43% together; the others 2% each).
+     */
+    static final int[] GIFT_FAVOURED = {8, 23, 26, 31, 36};
+    static final int GIFT_LIKELY = 4;
+
+    /** A random gift item, GIFT_FAVOURED ones GIFT_LIKELY times as likely. */
+    static int giftItem() {
+        int total = 0;
+        for (int id : GIFT_ITEMS) total += giftWeight(id);
+        int roll = Util.nextInt(total);
+        for (int id : GIFT_ITEMS) {
+            roll -= giftWeight(id);
+            if (roll < 0) return id;
+        }
+        return GIFT_ITEMS[0];
+    }
+
+    private static int giftWeight(int id) {
+        for (int favoured : GIFT_FAVOURED) if (favoured == id) return GIFT_LIKELY;
+        return 1;
+    }
+    static final int GIFT_HEAL = 20;
+    public static final String GIFT_HEAL_TEXT = "+" + GIFT_HEAL + "% HP";
+
+    /**
+     * Once a round from GIFT_ROUND on (a match, not a boss fight): a gift box (Boss.GiftBox2) floats somewhere the
+     * fighters can see it, between the leftmost and the rightmost of them and above the ground, unless there are
+     * already as many as players still fighting.
+     */
+    void dropGift() {
+        if (!this.isWar || this.isFightBoss || this.round < GIFT_ROUND || this.giftRound == this.round) return;
+        this.giftRound = this.round;
+        int fighters = 0, gifts = 0, left = Integer.MAX_VALUE, right = Integer.MIN_VALUE;
+        for (Player p : this.players) {
+            if (p == null || p.isDie) continue;
+            if (p.gift) gifts++;
+            if (p.typePlayer != 0) continue;
+            fighters++;
+            left = Math.min(left, p.x);
+            right = Math.max(right, p.x);
+        }
+        if (fighters == 0 || gifts >= fighters || this.indexBoss >= this.players.length) return;
+        left = Math.max(24, left - 80);
+        right = Math.min(this.width - 24, right + 80);
+        for (int tries = 0; tries < 60; tries++) {
+            int x = right > left ? Util.nextInt(left, right + 1) : left;
+            int ground = 0;
+            while (ground < this.height && !this.isCollisionMap(x, ground)) ground++;
+            int y = Math.max(40, Math.min(ground, this.height) - Util.nextInt(40, 110)); // low enough to hit easily
+            if (this.isCollisionMap(x, y) || this.isCollisionMap(x, y - 24) || this.isCollisionPlayer(x, y - 12)) continue;
+            Player box = new GiftBox2(x, y);
+            box.gift = true;
+            this.addBoss(box);
+            return;
+        }
+    }
+
+    /**
+     * Who shot the gift box down gets a random GIFT_ITEMS item in his first free item slot (empty, or used up; the
+     * Teleport and the bag slots he has no bag for are not free), for nothing; with none free he heals GIFT_HEAL
+     * percent of his max HP instead. Everyone sees what he got (message 119), he the item in its slot (message -128).
+     */
+    void openGift(Player who, Player box) {
+        if (who == null || who.isDie || who.typePlayer != 0) return;
+        int slot = -1;
+        for (int i = 0; i < who.items.length && slot < 0; i++) {
+            Player.Item item = who.items[i];
+            boolean bag = i < 4 || (who.user != null && who.user.getItem(12 + i - 4) != null);
+            if (bag && (item.itemId < 0 || (item.isUse && item.itemId != Player.TELEPORT_ITEM))) slot = i;
+        }
+        if (slot >= 0) {
+            Player.Item item = who.new Item(giftItem());
+            item.gift = true;
+            who.items[slot] = item;
+            if (who.user != null && who.user.session != null) who.user.session.sessionHandler.giftItem(slot, item.itemId);
+            for (Player p : this.players) {
+                if (p != null && p.user != null && p.user.session != null) p.user.session.sessionHandler.giftShown(who.index, who.name, item.itemId);
+            }
+        } else {
+            who.updateHP(who.hpMax * GIFT_HEAL / 100);
+            this.updateHP(who.index, who.hp, who.pixel);
+            this.updateAngry(who.index, who.angry);
+            for (Player p : this.players) {
+                if (p != null && p.user != null && p.user.session != null) {
+                    p.user.session.sessionHandler.giftShown(who.index, who.name, -1);
+                }
+            }
+        }
+        this.addTimeUntilAction(800);
+    }
     private boolean windStarted;
     /** Players (not bosses) who have had their turn in the current round. */
     private boolean[] shotThisRound;
@@ -771,6 +908,7 @@ public class MapData {
         if (!this.players[idTurn].isBoss) {
             if (this.shotThisRound[idTurn]) {
                 Arrays.fill(this.shotThisRound, false);
+                this.round++;
                 this.roundWind = Math.max(-WIND_MAX, Math.min(WIND_MAX, this.roundWind + Util.nextInt(-WIND_DRIFT, WIND_DRIFT + 1)));
             }
             this.shotThisRound[idTurn] = true;
@@ -891,7 +1029,7 @@ public class MapData {
         for (Player player : this.players) {
             if (player == null || player.user == null || player.user.session == null) continue;
             mobiarmy.server.SessionHandler handler = player.user.session.sessionHandler;
-            if (tarzan.user != null) handler.chat(tarzan.user.id, SetPassive.TARZAN_YELL);
+            if (tarzan.user != null && tarzan.glassID == SetPassive.TARZAN) handler.chat(tarzan.user.id, SetPassive.TARZAN_YELL);
             if (player.user.session.build >= mobiarmy.server.ClientVersion.KICK_BUILD) {
                 handler.kick(kicked);
             } else {
@@ -943,8 +1081,23 @@ public class MapData {
             ang = SetPassive.shockedAngle(player, ang); // Electrician's shock holds his aim
             player.lastAng = ang;
             // The shot leaves from his body as big as it is (King Kong grown standing still), not from inside it.
-            this.shootBullet(player.index, player.isPow, bulletID, player.x, player.y, player.bodyWidth(), player.bodyHeight(), ang, force, force2, player.nshoot, att, -1);
-            this.updateAffect(index);
+            // A climber on a wall or upside down (Climb) shoots from the middle of his body as it is turned; the clients
+            // still get where he stands (shotFrom).
+            int fromX = player.x, fromY = player.y;
+            int down = player.climber() ? Climb.down(this, player.x, player.y) : Climb.SOUTH;
+            if (down != Climb.SOUTH) {
+                int[] mid = Climb.middle(player.x, player.y, down, player.bodyHeight());
+                fromX = mid[0];
+                fromY = mid[1] + player.bodyHeight() / 2;
+                this.shotFrom = new int[] {player.x, player.y};
+            }
+            this.shootBullet(player.index, player.isPow, bulletID, fromX, fromY, player.bodyWidth(), player.bodyHeight(), ang, force, force2, player.nshoot, att, -1);
+            this.elementShot = true; // the shot's own damage may strike with his set's element (SetElement.hit)
+            try {
+                this.updateAffect(index);
+            } finally {
+                this.elementShot = false;
+            }
             SetPassive.afterShot(player);
             this.sendStatus();
             this.isTurn = true;
@@ -966,6 +1119,11 @@ public class MapData {
                 Gun gun = new Gun(MapData.this, index, isPow);
 //                gun.typeshoot = 1;
                 gun.shootBullet(bulletId, x, y, width, height, ang, force, force2, nshoot, att, radius);
+                if (this.shotFrom != null) { // (a climber: the bullets leave from his turned body, he stands here)
+                    gun.gunX = this.shotFrom[0];
+                    gun.gunY = this.shotFrom[1];
+                    this.shotFrom = null;
+                }
                 gun.fillXY();
                 for (Bullet bullet : gun.bullets) {
                     this.addTimeUntilAction(50 * bullet.frames.size());
@@ -1095,19 +1253,19 @@ public class MapData {
             }
             if (item == null) return;
             if (item.itemId == Player.TELEPORT_ITEM) {
-                player.teleportCooldown = Player.TELEPORT_COOLDOWN;
+                player.teleportCooldown = SetPassive.teleportCooldown(player); // Miss 6 with her set: one turn less
                 this.sendStatus(); // the clients count it down on the item
             } else {
                 item.isUse = true;
             }
-            if (item.itemId != 0 && item.itemId != 1 && player.user != null) {
+            if (item.itemId != 0 && item.itemId != 1 && !item.gift && player.user != null) { // (a gift box's item is free)
                 Item item2 = player.user.getItem(item.itemId);
                 if (item2.num == 0) return;
                 player.user.addItem(item.itemId, -1);
             }
-            //Phuc hoi hp
+            //Phuc hoi hp (LAN: HEAL_PERCENT of his max HP, was 350 HP)
             if(item.itemId == 0) {
-                player.updateHP(350);
+                player.updateHP(player.hpMax * Player.HEAL_PERCENT / 100);
                 this.updateHP(player.index, player.hp, player.pixel);
                 this.updateAngry(player.index, player.angry);
             }
@@ -1150,11 +1308,12 @@ public class MapData {
             if (item.itemId == 9) {
                 player.bulletId = 8;
             }
-            //Hp dong doi
+            //Hp dong doi (LAN: each of his team, himself included, heals TEAM_HEAL_PERCENT of the user's max HP, was 300)
             if (item.itemId == 10) {
+                int heal = player.hpMax * Player.TEAM_HEAL_PERCENT / 100;
                 for (Player player2 : this.players) {
                     if (player2 != null && !player2.isDie && player2.isFaction && player2.team == player.team) {
-                        player2.updateHP(300);
+                        player2.updateHP(heal);
                         this.updateHP(player2.index, player2.hp, player2.pixel);
                         this.updateAngry(player2.index, player2.angry);
                     }
@@ -1376,6 +1535,7 @@ public class MapData {
         if (!this.isWar) {
             return;
         }
+        SetTeam.callTrex(this); // a Scientist fell: his side's T-rex, before the match may end without it
         if (this.updateComplete()) {
             return;
         }
@@ -1488,6 +1648,7 @@ public class MapData {
                 this.windX = this.windForTurn(idTurn);
                 this.windY = 0;
                 this.setWind(this.windX, this.windY);
+                this.dropGift(); // from round GIFT_ROUND on, one a round
                 //reset power
                 for (Player player2 : this.players) {
                     if (player2 != null) {

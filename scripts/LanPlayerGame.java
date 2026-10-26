@@ -241,7 +241,13 @@ final class LanPlayerGame {
                 reward.renewalDate = System.currentTimeMillis();
                 if (chest.plus > 0) setPlus(reward, upgradeStats(reward), chest.plus);
                 user.addEquip(reward);
-                message = "Bạn nhận được " + displayName(reward) + (reward.level2 > 0 ? " +" + reward.level2 : "") + "!";
+                int element = chest.plus >= mobiarmy.war.SetElement.FIRST_PLUS ? chestElement(user, reward) : 0;
+                if (element > 0) {
+                    Server.dbManager.update("INSERT INTO lan_equip_element (user_id, db_key, element) VALUES (?, ?, ?)"
+                            + " ON DUPLICATE KEY UPDATE element = VALUES(element)", userId, reward.dbKey, element);
+                }
+                message = "Bạn nhận được " + displayName(reward) + (reward.level2 > 0 ? " +" + reward.level2 : "")
+                        + (element > 0 ? ", hệ " + mobiarmy.war.SetElement.NAMES[element] : "") + "!";
             }
             Server.requestSave();
             syncGame(user);
@@ -261,6 +267,23 @@ final class LanPlayerGame {
             result.put("prize", won);
             return result;
         });
+    }
+
+    /**
+     * Element of a chest prize at +15 or more: the one most of the character's other +15 pieces have, so it can
+     * join their set (SetElement.of), else a random one.
+     */
+    static int chestElement(User user, Equip prize) {
+        Map<Integer, Integer> elements = mobiarmy.war.SetElement.elements(user);
+        int[] count = new int[mobiarmy.war.SetElement.NAMES.length];
+        for (Equip equip : user.equips) {
+            Integer element = elements.get(equip.dbKey);
+            if (equip != prize && equip.glassID == prize.glassID && equip.level2 >= mobiarmy.war.SetElement.FIRST_PLUS
+                    && element != null && element > 0 && element < count.length) count[element]++;
+        }
+        int best = 0;
+        for (int e = 1; e < count.length; e++) if (count[e] > count[best]) best = e;
+        return best > 0 ? best : Util.nextInt(1, count.length);
     }
 
     Map<String, Object> buyEquipment(int userId, String username, int equipId, boolean luong) throws Exception {
@@ -502,22 +525,22 @@ final class LanPlayerGame {
         });
     }
 
-    // --- upgrade (+1 to +14) -------------------------------------------------------------------
+    // --- upgrade (+1 to +16; +15 picks the element of the set, SetElement) ----------------------
 
-    static final int MAX_PLUS = 14;
+    static final int MAX_PLUS = 16;
     /** Special item used as upgrade stone; its icon is server/res/icon/item/80.png. */
     static final int STONE_ID = 80;
     /** Index = target level, in tenths of a percent. Money is plentiful on the LAN server, so the rate is what makes the top levels rare. */
-    static final int[] UPGRADE_RATE = {0, 1000, 900, 800, 700, 600, 500, 400, 320, 250, 180, 120, 80, 2, 1};
+    static final int[] UPGRADE_RATE = {0, 1000, 900, 800, 700, 600, 500, 400, 320, 250, 180, 120, 80, 2, 1, 1, 1};
     /** Success chance is UPGRADE_RATE[level] out of this many. */
     static final int RATE_SCALE = 1000;
-    /** +13 and +14 never take more than this many tries in a row: the last one always succeeds. */
-    static final int[] UPGRADE_PITY = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 500, 1000};
-    static final int[] UPGRADE_XU = {0, 5_000, 9_000, 16_000, 29_000, 52_000, 94_000, 170_000, 306_000, 551_000, 992_000, 1_785_000, 3_213_000, 5_784_000, 10_411_000};
-    static final int[] UPGRADE_LUONG = {0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320, 640, 1280};
-    static final int[] UPGRADE_STONES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
+    /** +13 to +16 never take more than this many tries in a row: the last one always succeeds. */
+    static final int[] UPGRADE_PITY = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 500, 1000, 1500, 2000};
+    static final int[] UPGRADE_XU = {0, 5_000, 9_000, 16_000, 29_000, 52_000, 94_000, 170_000, 306_000, 551_000, 992_000, 1_785_000, 3_213_000, 5_784_000, 10_411_000, 18_740_000, 33_730_000};
+    static final int[] UPGRADE_LUONG = {0, 0, 0, 0, 0, 0, 0, 0, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120};
+    static final int[] UPGRADE_STONES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     /** Total points added to each stat the item has at a given level (stored in level2). */
-    static final int[] UPGRADE_BONUS = {0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26, 31, 37};
+    static final int[] UPGRADE_BONUS = {0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 22, 26, 31, 37, 43, 50};
     /** From this level a failed try drops the item one level. */
     static final int DROP_FROM = 7;
 
@@ -525,7 +548,7 @@ final class LanPlayerGame {
     enum Insurance {
         BASIC(88, "Bảo hiểm sơ cấp", 9, 50_000, 20),
         MEDIUM(89, "Bảo hiểm trung cấp", 12, 300_000, 100),
-        HIGH(90, "Bảo hiểm cao cấp", 14, 2_000_000, 500);
+        HIGH(90, "Bảo hiểm cao cấp", 16, 2_000_000, 500);
 
         final int id;
         final String name;
@@ -627,20 +650,28 @@ final class LanPlayerGame {
         try (java.sql.Statement create = conn.createStatement()) {
             create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_upgrade_pity (user_id INT NOT NULL, db_key INT NOT NULL,"
                     + " level TINYINT NOT NULL, fails INT NOT NULL, PRIMARY KEY (user_id, db_key, level))");
+            // The element a piece took at +15 (SetElement: Lôi 1, Hỏa 2, Băng 3, Độc 4).
+            create.executeUpdate("CREATE TABLE IF NOT EXISTS lan_equip_element (user_id INT NOT NULL, db_key INT NOT NULL,"
+                    + " element TINYINT NOT NULL, PRIMARY KEY (user_id, db_key))");
         }
         try (java.sql.PreparedStatement item = conn.prepareStatement(
                 "INSERT INTO linhtinh (id, name, detail, ability, xu, luong, date) SELECT ?, ?, ?, '[0,0,0,0,0]', ?, ?, 0"
                         + " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM linhtinh WHERE id = ?)");
+             java.sql.PreparedStatement detail = conn.prepareStatement("UPDATE linhtinh SET detail = ? WHERE id = ?");
              java.sql.PreparedStatement shop = conn.prepareStatement(
                 "INSERT INTO shop_linhtinh (id, isSelectNum) SELECT ?, 1 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM shop_linhtinh WHERE id = ?)")) {
             for (Insurance insurance : Insurance.values()) {
+                String text = "Nâng cấp tới +" + insurance.upTo + " thất bại không bị tụt cấp. Mất 1 cái mỗi lần nâng cấp có dùng.";
                 item.setInt(1, insurance.id);
                 item.setString(2, insurance.name);
-                item.setString(3, "Nâng cấp tới +" + insurance.upTo + " thất bại không bị tụt cấp. Mất 1 cái mỗi lần nâng cấp có dùng.");
+                item.setString(3, text);
                 item.setInt(4, insurance.xu);
                 item.setInt(5, insurance.luong);
                 item.setInt(6, insurance.id);
                 item.executeUpdate();
+                detail.setString(1, text); // (the top one covers +16 since the +15/+16 upgrade)
+                detail.setInt(2, insurance.id);
+                detail.executeUpdate();
                 shop.setInt(1, insurance.id);
                 shop.setInt(2, insurance.id);
                 shop.executeUpdate();
@@ -648,7 +679,7 @@ final class LanPlayerGame {
         }
     }
 
-    Map<String, Object> upgrade(int userId, String username, int dbKey, int insuranceId) throws Exception {
+    Map<String, Object> upgrade(int userId, String username, int dbKey, int insuranceId, int element) throws Exception {
         return game.call(() -> {
             User user = player(userId, username);
             requireFree(user);
@@ -670,6 +701,10 @@ final class LanPlayerGame {
             if (!any(stats)) throw new LanApi.BadRequest(displayName(equip) + " không có chỉ số để nâng cấp.");
             if (equip.date() <= 0 && !ThorSkin.is(equip)) throw new LanApi.BadRequest(displayName(equip) + " đã hết hạn.");
             int next = plus + 1;
+            boolean pickElement = next == mobiarmy.war.SetElement.FIRST_PLUS;
+            if (pickElement && (element < 1 || element >= mobiarmy.war.SetElement.NAMES.length)) {
+                throw new LanApi.BadRequest("Lên +" + next + " cần chọn hệ cho bộ: Lôi, Hỏa, Băng hoặc Độc.");
+            }
             LinhTinh stones = user.getLinhTinh(STONE_ID);
             int haveStones = stones == null ? 0 : stones.num;
             if (haveStones < UPGRADE_STONES[next]) {
@@ -690,13 +725,19 @@ final class LanPlayerGame {
             nextUpgradeAt.put(userId, now + spin);
             int target = success ? next : plus >= DROP_FROM && insurance == null ? plus - 1 : plus;
             setPlus(equip, stats, target);
+            if (success && pickElement) {
+                // The element of the set (SetElement): the five pieces must share it for it to work.
+                Server.dbManager.update("INSERT INTO lan_equip_element (user_id, db_key, element) VALUES (?, ?, ?)"
+                        + " ON DUPLICATE KEY UPDATE element = VALUES(element)", userId, dbKey, element);
+            }
             if (online) user.session.sessionHandler.updateEquip(equip);
             Server.requestSave();
             syncGame(user);
             log(user, "upgrade " + displayName(equip) + " +" + plus + " -> +" + target + (success ? " (success)" : " (fail)")
                     + (insurance != null ? " with " + insurance.name : ""));
             Map<String, Object> result = done(user, success
-                    ? "Thành công! " + displayName(equip) + " đã lên +" + target + "."
+                    ? "Thành công! " + displayName(equip) + " đã lên +" + target
+                            + (pickElement ? ", hệ " + mobiarmy.war.SetElement.NAMES[element] : "") + "."
                     : target < plus ? "Thất bại, " + displayName(equip) + " bị tụt xuống +" + target + "."
                     : "Thất bại, " + displayName(equip) + " vẫn giữ +" + plus + (insurance != null && plus >= DROP_FROM ? " nhờ " + insurance.name : "") + ".");
             result.put("upgrade", Map.of("dbKey", dbKey, "success", success, "from", plus, "to", target, "spinMs", spin));
@@ -948,6 +989,7 @@ final class LanPlayerGame {
         view.put("rules", rulesInfo());
         view.put("baseStats", RoomRules.baseStats(glass));
         List<Map<String, Object>> bag = new ArrayList<>();
+        Map<Integer, Integer> elements = mobiarmy.war.SetElement.elements(user);
         user.equips.stream()
                 .filter(equip -> equip.glassID == user.selectGlass)
                 .sorted(Comparator.comparingInt((Equip equip) -> equip.vip != 0 ? 9 : equip.type).thenComparingInt(equip -> equip.dbKey))
@@ -966,11 +1008,13 @@ final class LanPlayerGame {
                     int plus = Math.max(0, Math.min(MAX_PLUS, equip.level2));
                     row.put("plus", plus);
                     row.put("upgradeable", any(upgradeStats(equip)));
+                    row.put("element", elements.getOrDefault(equip.dbKey, 0)); // SetElement, picked at +15
                     if (plus < MAX_PLUS) {
                         int next = plus + 1;
                         row.put("next", Map.of("rate", UPGRADE_RATE[next], "xu", UPGRADE_XU[next], "luong", UPGRADE_LUONG[next],
                                 "stones", UPGRADE_STONES[next], "bonus", UPGRADE_BONUS[next] - UPGRADE_BONUS[plus], "dropOnFail", plus >= DROP_FROM,
-                                "pity", UPGRADE_PITY[next], "fails", UPGRADE_PITY[next] > 0 ? shownPityFails(user.id, equip.dbKey, next) : 0));
+                                "pity", UPGRADE_PITY[next], "fails", UPGRADE_PITY[next] > 0 ? shownPityFails(user.id, equip.dbKey, next) : 0,
+                                "pickElement", next == mobiarmy.war.SetElement.FIRST_PLUS));
                     }
                     bag.add(row);
                 });

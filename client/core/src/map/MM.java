@@ -22,10 +22,11 @@ public class MM {
     public static int mapHeight;
     /**
      * LAN: how many times bigger the server's maps are than the game's own (status message 114, server Map.SCALE;
-     * 2 since build 7). The map itself comes scaled from the server; this only adjusts what depends on it: the step a
+     * 2 from build 7, 1 again since 25/10/2026; the first match of a session used to draw the water line for x2 before
+     * the first status came, high enough to hide everyone: setScale redraws it). The map itself comes scaled from the server; this only adjusts what depends on it: the step a
      * walker climbs (CPlayer.climb), and the water and background.
      */
-    public static int mapScale = 2;
+    public static int mapScale = 1;
     public static Vector<CMap> maps = new Vector();
     public static Vector<MapFile> mapFiles = new Vector();
     int index = 0;
@@ -54,6 +55,13 @@ public class MM {
         CRes.out("=====================> Create map = " + mapID);
         MM.mapID = mapID;
         this.loadMapFile(mapID);
+    }
+
+    /** The server's map scale (status 114): a change moves the water line of the map on screen (createBackGround). */
+    public static void setScale(int scale) {
+        if (scale == mapScale) return;
+        mapScale = scale;
+        if (GameScr.mm != null && Background.water != null && Background.inWater != null) GameScr.mm.createBackGround();
     }
 
     public void createBackGround() {

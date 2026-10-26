@@ -108,6 +108,34 @@ public class mGraphics {
         this.scaledAround = true;
     }
 
+    private final com.badlogic.gdx.math.Matrix4 transformBeforeTurn = new com.badlogic.gdx.math.Matrix4();
+    private final com.badlogic.gdx.math.Matrix4 transformTurned = new com.badlogic.gdx.math.Matrix4();
+    private boolean turnedAround;
+
+    /**
+     * Until endTurnAround(): every draw is turned by degrees around the point (x, y) of the current coordinates (the
+     * screen's y grows downward, so -90 turns what points down to point right), as Tarzan climbing a wall (build 8).
+     * Always pair it with endTurnAround(), in a finally.
+     */
+    public void beginTurnAround(int x, int y, int degrees) {
+        if (this.turnedAround || degrees == 0) {
+            return;
+        }
+        float px = x * zoomLevel + this.translateX, py = y * zoomLevel + this.translateY;
+        this.transformBeforeTurn.set(this.g.getTransformMatrix());
+        this.transformTurned.set(this.transformBeforeTurn).translate(px, py, 0).rotate(0, 0, 1, degrees).translate(-px, -py, 0);
+        this.g.setTransformMatrix(this.transformTurned);
+        this.turnedAround = true;
+    }
+
+    public void endTurnAround() {
+        if (!this.turnedAround) {
+            return;
+        }
+        this.g.setTransformMatrix(this.transformBeforeTurn);
+        this.turnedAround = false;
+    }
+
     public void endScaleAround() {
         if (!this.scaledAround) {
             return;

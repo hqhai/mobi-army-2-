@@ -61,7 +61,24 @@ public class TimeBomb {
       return kind > 0 && (kind + 1) * EGG_H <= eggs.image.getHeight() ? kind : 0;
    }
 
+   /** One of Rocketer's late WorldWar bombs (server MapData.LATE_NUKE_FIRST.., build 8): it goes off a round later. */
+   public boolean isLateNuke() {
+      return this.id >= 70 && this.id < 100;
+   }
+
    public void paint(mGraphics g) {
+      if (this.isLateNuke()) {
+         if (Bullet.bomb == null) return;
+         // The nuclear bomb lies on the ground, blinking red: it will go off.
+         boolean blink = CCanvas.gameTick % 20 < 4;
+         if (blink) g.tint = ARMED_RED;
+         try {
+            g.drawRegion(Bullet.bomb, 0, 0, 24, 24, 0, this.x, this.y, mGraphics.HCENTER | mGraphics.BOTTOM, false);
+         } finally {
+            g.tint = null;
+         }
+         return;
+      }
       if (this.isGrenade()) {
          if (Bullet.grenadeImg == null) return;
          // Blinks red now and then: armed, a laser will come down on it.

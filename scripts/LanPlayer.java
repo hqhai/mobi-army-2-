@@ -62,7 +62,8 @@ public final class LanPlayer implements HttpHandler {
                 case "GET stats" -> game.stats(id, name);
                 case "POST buy equipment" -> game.buyEquipment(id, name, LanApi.intField(body, "equipId"), luong(body));
                 case "POST buy item" -> game.buyItem(id, name, LanApi.intField(body, "id"), LanApi.intField(body, "amount"), luong(body));
-                case "POST upgrade" -> game.upgrade(id, name, LanApi.intField(body, "dbKey"), body.has("insurance") ? LanApi.intField(body, "insurance") : 0);
+                case "POST upgrade" -> game.upgrade(id, name, LanApi.intField(body, "dbKey"), body.has("insurance") ? LanApi.intField(body, "insurance") : 0,
+                        body.has("element") ? LanApi.intField(body, "element") : 0);
                 case "POST gem socket" -> game.socketGem(id, name, LanApi.intField(body, "dbKey"), LanApi.intField(body, "gemId"));
                 case "POST gem unsocket" -> game.unsocketGems(id, name, LanApi.intField(body, "dbKey"));
                 case "POST gem combine" -> game.combineGems(id, name, LanApi.intField(body, "gemId"), LanApi.intField(body, "amount"));

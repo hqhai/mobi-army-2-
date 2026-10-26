@@ -204,6 +204,8 @@ public class Bullet {
     public Vector postion;
     public mImage dan = null;
     private int idBullet;
+    /** LAN: a late WorldWar bomb (BM.lateNukes): lies where it lands as this time bomb id; -1 for the others. */
+    public int lateNuke = -1;
     int xLG;
     int yLG;
     int n1 = 10;
@@ -1382,6 +1384,11 @@ public class Bullet {
 
     public void explode(int index) {
         CRes.err("===> explode() = " + this.type + " ___  index " + index);
+        if (this.lateNuke >= 0) {
+            // A late WorldWar bomb: it lies there, digs nothing and goes off a round later (the server's time bomb).
+            GameScr.timeBombs.addElement(new model.TimeBomb(this.lateNuke, this.x, this.y));
+            return;
+        }
         if (this.type != 6 && this.type != 5 && this.type != 22 && this.type != 30) {
             for (int i = 0; i < PM.p.length; ++i) {
                 if (PM.p[i] != null) {
@@ -1748,9 +1755,9 @@ public class Bullet {
                         // Gunner's set passive: his POW is a giant cannonball, as much bigger as the hole it digs.
                         if (this.type == 0 && map.CMap.holeScaleBullet == 0 && map.CMap.holeScale > 100) g.drawScale = map.CMap.holeScale / 100f;
                         if (this.type == BM.WORLDWAR_BOMB) g.drawScale = 1.5f; // the nuclear bombs are big ones
-                        // King Kong's POW, as big as he has grown standing still (server SetPassive.powGrowth).
+                        // King Kong: his POW as big as he has grown standing still, his usual bananas as much smaller (server SetPassive.powGrowth).
                         if (this.type == 9 && this.whoShot >= 0 && this.whoShot < PM.p.length && PM.p[this.whoShot] != null
-                                && PM.p[this.whoShot].passiveBonus > 100) g.drawScale = PM.p[this.whoShot].passiveBonus / 100f;
+                                && PM.p[this.whoShot].passiveBonus > 0) g.drawScale = PM.p[this.whoShot].passiveBonus / 100f;
                         this.frmImg.drawFrame(this.curFrame, this.x, this.y, this.trans, 3, g, false);
                         g.drawScale = 1f;
                     } else if (this.type == 2) {

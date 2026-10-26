@@ -177,6 +177,50 @@ public class CPlayer {
         return this.gun == 7 && this.setTier > 0;
     }
 
+    /** Tarzan with his set passive climbs any ground (Climb, build 8): walls, and upside down under overhangs. */
+    public boolean climber() {
+        return this.pactTarzan() && !(this instanceof Boss);
+    }
+
+    /** How far to turn his drawing: by the ground he holds on to, while he climbs and is alive. */
+    public int climbTurn() {
+        return this.climber() && this.state != 5 && !this.falling ? Climb.turn(Climb.down(this.x, this.y)) : 0;
+    }
+
+    /** The middle of his body, where his shots leave from: 11 px over his feet, turned with a climber. */
+    public int[] aimCentre() {
+        int down = this.climber() && !this.falling ? Climb.down(this.x, this.y) : Climb.SOUTH;
+        if (down == Climb.SOUTH) return new int[] {this.x, this.y - Math.round(11 * this.grownScale())};
+        return new int[] {this.x - Climb.DIRS[down][0] * 12, this.y - Climb.DIRS[down][1] * 12};
+    }
+
+    /** A climber's way along the ground (Climb.step), -1 before his first step, and whether it keeps it on his right. */
+    private int climbHeading = -1;
+    private boolean climbRight;
+
+    /**
+     * One step of a climber (move): along the ground, runRange pixels, his way kept between steps so he goes round
+     * bumps instead of back and forth; false when he cannot go on that way.
+     */
+    private boolean climbStep(int directMove, int runRange) {
+        boolean right = directMove == 2;
+        if (this.climbHeading >= 0 && right != this.climbRight) this.climbHeading = (this.climbHeading + 2) % 4; // turned round
+        this.climbRight = right;
+        int[] p = {this.x, this.y, this.climbHeading};
+        boolean moved = false;
+        for (int i = 0; i < runRange; i++) {
+            if (!Climb.step(p, right)) break;
+            moved = true;
+        }
+        if (!moved) return false;
+        this.x = p[0];
+        this.y = p[1];
+        this.climbHeading = p[2];
+        this.nexty = this.y;
+        this.falling = false;
+        return true;
+    }
+
     /** Rocketer's POW with his set passive "WorldWar": a wind-free flare at any angle (server WorldWarFlare). */
     public boolean worldWarPow() {
         return this.gun == 4 && this.setTier > 0 && this.itemUsed == 100;
@@ -192,7 +236,9 @@ public class CPlayer {
      * lower than 60 degrees while Electrician's shock slows him (build 7, the server holds him to it too).
      */
     public int angleLimit() {
-        int limit = this.worldWarPow() || this.laserSeedPow() ? -90 : angleLock[this.gun];
+        // (Tarzan climbing off the floor aims all round: his body is turned, build 8.)
+        boolean turned = this.climber() && !this.falling && Climb.down(this.x, this.y) != Climb.SOUTH;
+        int limit = this.worldWarPow() || this.laserSeedPow() || turned ? -90 : angleLock[this.gun];
         return this.paralyzed == 1 ? Math.max(limit, SHOCK_MIN_ANGLE) : limit;
     }
 
@@ -207,6 +253,10 @@ public class CPlayer {
      * the angle he had when it began); 1 slowed, fewer steps and no aim below SHOCK_MIN_ANGLE; 0 none.
      */
     public int paralyzed, paralyzedSteps, frozenAngle;
+    /** Server build 8: paralyzed by the ice of a +15 set (SetElement): no walking, any angle. */
+    public static final int FROZEN = 3;
+    /** Server build 8: the +15 set elements on him (status 114): 1 burning (takes more damage), 2 poisoned (loses HP). */
+    public int elementFlags;
     public static final int SHOCK_MIN_ANGLE = 60;
     public boolean active;
     boolean isSendM_autoDie;
@@ -734,7 +784,15 @@ public class CPlayer {
                 this.setState((byte) 1);
             }
 
-            if (this.nextx < this.x && !this.falling) {
+            if (this.climber()) {
+                // Climbing Tarzan (build 8): the server sends each step of his, along walls too: he goes straight there.
+                if (this.nextx != this.x || this.nexty != this.y) {
+                    this.look = this.nextx < this.x ? 0 : this.nextx > this.x ? 2 : this.look;
+                    this.x = this.nextx;
+                    this.y = this.nexty;
+                    this.animMove();
+                }
+            } else if (this.nextx < this.x && !this.falling) {
                 this.move(0);
             } else if (this.nextx > this.x && !this.falling) {
                 this.move(2);
@@ -925,8 +983,13 @@ public class CPlayer {
             int nextFallY = this.y + this.vy;
             int h = Math.abs(nextFallY - this.y);
 
+            boolean climber = this.climber();
+            if (climber) {
+                while (this.y > 0 && GameScr.mm.isLand(this.x, this.y)) --this.y; // up out of the ground, onto his anchor
+            }
             for (int i = 0; i <= h; ++i) {
-                if (GameScr.mm.isLand(this.x, this.y)) {
+                // (A climber stops on the first air pixel next to any ground: the server's Climb.settle.)
+                if (climber ? Climb.attached(this.x, this.y) : GameScr.mm.isLand(this.x, this.y)) {
                     this.vy = 0;
                     this.falling = false;
                     if (this.isActiveFall) {
@@ -1500,6 +1563,7 @@ public class CPlayer {
                                     if (PrepareScr.currLevel != 7 || PrepareScr.currLevel == 7 && this.state != 5 && this.hp != 0) {
                                         // King Kong grows standing still (set passive): his whole body, around his feet.
                                         g.beginScaleAround(this.x, this.y, this.grownScale());
+                                        g.beginTurnAround(this.x, this.y, this.climbTurn()); // Tarzan on a wall or upside down
                                         try {
                                             if (this.equip != null) {
                                                 this.equip.paint(g, Look, this.curFrame, this.x, this.y);
@@ -1508,6 +1572,7 @@ public class CPlayer {
                                                     this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
                                             }
                                         } finally {
+                                            g.endTurnAround();
                                             g.endScaleAround();
                                         }
                                     }
@@ -1547,7 +1612,8 @@ public class CPlayer {
 
     private void paintCrosshair(mGraphics g) {
         if (!(this instanceof Boss)) {
-            g.drawImage(crosshair, this.x + this.dx, this.y - this.dy - Math.round(11 * this.grownScale()), mGraphics.HCENTER | mGraphics.VCENTER, false);
+            int[] centre = this.aimCentre(); // (turned with Tarzan climbing)
+            g.drawImage(crosshair, centre[0] + this.dx, centre[1] - this.dy, mGraphics.HCENTER | mGraphics.VCENTER, false);
             if (CCanvas.isDebugging()) {
                 String param = "a " + this.angle;
                 Font.smallFont.drawString(g, param, this.x + this.dx + 5, this.y - this.dy - 11 + 5, 2, false);
@@ -1604,7 +1670,17 @@ public class CPlayer {
                 y -= 13;
             }
             if (this.paralyzed > 0) {
-                Font.normalYFont.drawString(g, "Tê liệt", this.x, y, 2);
+                Font.normalYFont.drawString(g, this.paralyzed == FROZEN ? "Đóng băng" : "Tê liệt", this.x, y, 2);
+                y -= 13;
+            }
+            if ((this.elementFlags & 1) != 0) {
+                Font.normalYFont.drawString(g, "Bỏng", this.x, y, 2);
+                y -= 13;
+            }
+            if ((this.elementFlags & 2) != 0 && !this.poisoned) {
+                g.tint = POISON_PURPLE;
+                Font.borderFont.drawString(g, "Độc", this.x, y, 2);
+                g.tint = null;
                 y -= 13;
             }
             if (this.poisoned) {
@@ -1815,7 +1891,7 @@ public class CPlayer {
                 }
 
                 if (!this.isCom) {
-                    if (this.movePoint > this.maxMovePoint() || this.paralyzed == 2) { // (locked: not one step)
+                    if (this.movePoint > this.maxMovePoint() || this.paralyzed >= 2) { // (locked or frozen: not one step)
                         return;
                     }
 
@@ -1823,6 +1899,10 @@ public class CPlayer {
                 }
 
                 this.animMove();
+                if (this.climber()) { // Tarzan climbing (build 8): along the ground, walls and overhangs too
+                    if (!this.climbStep(directMove, runRange) && !this.isCom) --this.movePoint;
+                    return;
+                }
                 if (directMove == 0) {
                     this.x -= runRange;
                 } else if (directMove == 2) {
@@ -1900,7 +1980,7 @@ public class CPlayer {
                 }
 
                 if (!this.isCom) {
-                    if (this.movePoint > this.maxMovePoint() || this.paralyzed == 2) { // (locked: not one step)
+                    if (this.movePoint > this.maxMovePoint() || this.paralyzed >= 2) { // (locked or frozen: not one step)
                         return;
                     }
 
@@ -1908,6 +1988,15 @@ public class CPlayer {
                 }
 
                 this.animMove();
+                if (this.climber()) { // Tarzan climbing (build 8): along the ground, walls and overhangs too
+                    if (!this.climbStep(directMove, runRange)) {
+                        if (!this.isCom) --this.movePoint;
+                    } else if (GameScr.pm.isYourTurn() && !CCanvas.isPointerDown[this.index]) {
+                        this.resetLastUpdateXY(this.x, this.y);
+                        GameService.gI().move((short) this.x, (short) this.y);
+                    }
+                    return;
+                }
                 if (directMove == 0) {
                     this.x -= runRange;
                 } else if (directMove == 2) {
@@ -2359,14 +2448,68 @@ public class CPlayer {
         }
     }
     
+    /** GunBound-style angle arc (build 9): the angles he may aim at, dotted around his body, and where he aims. */
+    static final int ARC_RANGE = 0x9fd8ec, ARC_TICK = 0xffffff, ARC_NEEDLE = 0xffd23c;
+
+    public void drawAngleArc(mGraphics g) {
+        if (this != PM.getMyPlayer()) return;
+        int size = Math.round(24 * this.grownScale());
+        int cx = this.x, cy = this.y - size / 2;
+        boolean turned = this.climber() && !this.falling && Climb.down(this.x, this.y) != Climb.SOUTH;
+        if (turned) {
+            int[] centre = this.aimCentre();
+            cx = centre[0];
+            cy = centre[1];
+        }
+        int radius = size / 2 + 26;
+        // The range: facing right from his lowest aim up to straight up, facing left from straight up down to it.
+        int limit = this.angleLimit();
+        int from, to;
+        if (turned) {
+            from = 0;
+            to = 359;
+        } else if (this.look == 2) {
+            from = limit;
+            to = 90;
+        } else {
+            from = 90;
+            to = 180 - limit;
+        }
+        g.setColor(ARC_RANGE);
+        for (int a = from; a <= to; a += 4) {
+            g.fillRect(cx + (radius * cos(fixangle(a)) >> 10) - 1, cy - (radius * sin(fixangle(a)) >> 10) - 1, 2, 2, false);
+        }
+        // Ticks every 30 degrees, a little outside the arc.
+        g.setColor(ARC_TICK);
+        for (int a = -Math.floorDiv(-from, 30) * 30; a <= to; a += 30) {
+            int c = cos(fixangle(a)), s = sin(fixangle(a));
+            g.drawLine(cx + ((radius + 1) * c >> 10), cy - ((radius + 1) * s >> 10), cx + ((radius + 5) * c >> 10), cy - ((radius + 5) * s >> 10), false);
+        }
+        // The needle, from close to his body out past the arc, and the angle at its tip.
+        int angle = fixangle(this.angle), c = cos(angle), s = sin(angle);
+        g.setColor(ARC_NEEDLE);
+        for (int r = size / 2 + 6; r <= radius + 6; r += 2) {
+            g.fillRect(cx + (r * c >> 10) - 1, cy - (r * s >> 10) - 1, 3, 3, false);
+        }
+        int shown = this.angle >= 90 && this.angle <= 270 ? 180 - this.angle : this.angle > 270 ? this.angle - 360 : this.angle;
+        Font.smallFontYellow.drawString(g, "" + shown, cx + ((radius + 16) * c >> 10), cy - ((radius + 16) * s >> 10) - 5, 2);
+    }
+
     public void drawKegoc(mGraphics g) {
         if (!this.guideShown()) {
             return;
         }
         // From his body as big as it is, as the server fires it (MapData.shoot).
         int w = Math.round(24 * this.grownScale()), h = w, lent;
-        int x = this.x + ((w - 4) * cos(this.angle) >> 10);
-        int y = this.y -(h / 2) - ((h - 4) * sin(this.angle) >> 10);
+        int feetX = this.x, feetY = this.y;
+        if (this.climber() && !this.falling && Climb.down(this.x, this.y) != Climb.SOUTH) {
+            // Tarzan climbing: from the middle of his turned body, where the server fires it (MapData.shoot).
+            int[] centre = this.aimCentre();
+            feetX = centre[0];
+            feetY = centre[1] + h / 2;
+        }
+        int x = feetX + ((w - 4) * cos(this.angle) >> 10);
+        int y = feetY -(h / 2) - ((h - 4) * sin(this.angle) >> 10);
         int vx = this.maxforce * cos(this.angle) >> 10;
         int vy = -(this.maxforce * sin(this.angle) >> 10);
         this.guideColor = GUIDE_COLOR;

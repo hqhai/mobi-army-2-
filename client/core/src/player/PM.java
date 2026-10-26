@@ -298,6 +298,7 @@ public class PM {
     }
 
     public void setNextPlayer(byte whoNext) {
+        DebugLog.players("turn " + whoNext + " (before)");
         if (CRes.isNullOrEmpty(GameScr.res)) {
             int i;
             for (i = 0; i < p.length; ++i) {

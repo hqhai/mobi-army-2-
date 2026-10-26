@@ -78,7 +78,8 @@ public class Boss extends CPlayer {
 
     public Boss(int IDDB, byte index, int X, int Y, boolean isCom, int look, byte gunType, int maxHp) {
         super(IDDB, index, X, Y, isCom, look, gunType, (PlayerEquip) null, maxHp);
-        this.yGift_2 = MM.mapHeight + 30;
+        // The floating gift box rises into place (LAN build 8: from 300 px below it, not the bottom of the bigger maps).
+        this.yGift_2 = Math.min(MM.mapHeight + 30, Y + 300);
         this.wLazer = 8;
         this.deltaX1 = 0;
         this.deltaY1 = 0;

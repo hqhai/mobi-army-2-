@@ -643,6 +643,7 @@ public class GameService {
 
         this.session.sendMessage(m);
         m.cleanup();
+        screen.PrepareScr.saveItems(typeItem); // LAN: the same slots at the next login
         CRes.out("SendM changeGun " + typeItem.length);
     }
 

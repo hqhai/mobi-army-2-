@@ -130,12 +130,13 @@ public class Gun {
                 case 9 -> {
                     // Kingkong (his set passive: his POW as big and strong as he has grown standing still)
                     int grown = SetPassive.powGrowth(this.shooter(), this.isPow == 1);
+                    int harder = SetPassive.powDamage(this.shooter(), this.isPow == 1);
                     for (int i = this.ang - 6, j = 0; j < 4; i += 4, j++) {
                         int bxNew = this.gunX + ((width - 4) * GameData.cos(i) >> 10);
                         int byNew = this.gunY - (height / 2) - ((height - 4) * GameData.sin(i) >> 10);
                         int vxNew = force * GameData.cos(i) >> 10;
                         int vyNew = -(force * GameData.sin(i) >> 10);
-                        Bullet banana = new Bullet(this, 9, att / 4 * (this.isPow == 1 ? 2 : 1) * grown / 100, bxNew, byNew, vxNew, vyNew, this.windX * 40 / 100, this.windY * 40 / 100, 90);
+                        Bullet banana = new Bullet(this, 9, att / 4 * (this.isPow == 1 ? 2 : 1) * harder / 100, bxNew, byNew, vxNew, vyNew, this.windX * 40 / 100, this.windY * 40 / 100, 90);
                         banana.radius = banana.radius * grown / 100;
                         this.bullets.add(banana);
                     }
@@ -149,7 +150,7 @@ public class Gun {
                         this.bulletId = WorldWarFlare.ID;
                         this.bullets.add(new WorldWarFlare(this, att * 2, bx, by, vx, vy));
                     } else if (this.bulletId != WorldWarFlare.ID) {
-                        for (int i = 0; i < 3; i++) {
+                        for (int i = 0; i < 3 + SetTeam.extraBullets(this.shooter()); i++) { // (one more for a Scientist)
                             this.bullets.add(new Bullet(this, 10, att / 3 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 50 / 100, this.windY * 50 / 100, 80));
                         }
                     }
@@ -162,7 +163,7 @@ public class Gun {
                         this.bulletId = GranosSeed.ID;
                         this.bullets.add(new GranosSeed(this, att, bx, by, vx, vy));
                     } else if (this.bulletId != GranosSeed.ID) {
-                        for (int i = 0; i < 5; i++) {
+                        for (int i = 0; i < 5 + SetTeam.extraBullets(this.shooter()); i++) { // (one more for a Scientist)
                             this.bullets.add(new Bullet(this, 11, att / 5 * (this.isPow == 1 ? 2 : 1), bx, by, vx, vy, this.windX * 30 / 100, this.windY * 30 / 100, 90));
                         }
                     }

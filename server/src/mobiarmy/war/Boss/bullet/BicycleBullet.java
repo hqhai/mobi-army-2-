@@ -22,7 +22,7 @@ public class BicycleBullet extends Bullet {
             super.gun.mapData.makeHole(super.bX, super.bY, super.bulletId);
             for (Player player : super.gun.mapData.players) {
                 if (player != null && !player.isDie) {
-                    if (player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0 && player.typePlayer == 0) {
+                    if (player.isCollision(this.bX, this.bY, this.radius) && player.countInvisible2 == 0 && player.typePlayer == 0 && this.hurts(player)) {
                         this.gun.setEff.add(player);
                         player.attBullet(this);
                     }

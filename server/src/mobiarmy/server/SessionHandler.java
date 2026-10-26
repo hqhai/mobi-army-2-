@@ -1124,6 +1124,39 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
+    /**
+     * A gift box was shot down (MapData.openGift): message 119 as the game shows gifts, "+1x item" over the player at
+     * index, or, for itemId -1 (his item slots were full), the HP he healed.
+     */
+    public void giftShown(int index, String name, int itemId) {
+        try {
+            Message message = new Message(119);
+            message.writer().writeByte(0);
+            message.writer().writeByte(index);
+            if (itemId >= 0) {
+                message.writer().writeByte(1);
+                message.writer().writeByte(itemId);
+                message.writer().writeByte(1);
+            } else {
+                message.writer().writeByte(4);
+                message.writer().writeUTF(name + ": " + mobiarmy.war.MapData.GIFT_HEAL_TEXT);
+            }
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
+    /** Client build 8, message -128: the gift box's item lands in this item slot of the player's (MapData.openGift). */
+    public void giftItem(int slot, int itemId) {
+        try {
+            Message message = new Message(GIFT_ITEM_MESSAGE);
+            message.writer().writeByte(slot);
+            message.writer().writeByte(itemId);
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
+    public static final int GIFT_ITEM_MESSAGE = -128; // (128 as a byte)
+
     /** Chicky's egg hatches (client build 4+, type 2): it goes off without digging. */
     public void hatchEgg(int id) {
         try {
@@ -1286,10 +1319,22 @@ public class SessionHandler {
                 for (short value : rect) message.writer().writeShort(value);
             }
             // Was Gunner's stack bonus; now how big this shot's bullets are drawn (percent, 0 as usual): King Kong's
-            // POW as big as he has grown (client build 7).
+            // POW as big as he has grown (client build 7), his usual bananas as much smaller (build 8).
             int grownPow = mobiarmy.war.SetPassive.powGrowth(shooter, shooter != null && shooter.isPow);
-            message.writer().writeShort(grownPow > 100 ? grownPow : 0);
+            message.writer().writeShort(grownPow != 100 ? grownPow : 0);
             message.writer().writeByte(gun.poisonRain ? 1 : 0); // LAN item 38: the client paints the rain purple
+            // Client build 8: Rocketer's late WorldWar bombs, as {bullet index, time bomb id}: they lie where they land.
+            int late = 0;
+            for (mobiarmy.war.Boss.bullet.Bullet b : gun.bullets) {
+                if (b instanceof mobiarmy.war.Boss.bullet.WorldWarFlare.Bomb bomb && bomb.lateId >= 0) late++;
+            }
+            message.writer().writeByte(late);
+            for (int i = 0; i < gun.bullets.size(); i++) {
+                if (gun.bullets.get(i) instanceof mobiarmy.war.Boss.bullet.WorldWarFlare.Bomb bomb && bomb.lateId >= 0) {
+                    message.writer().writeByte(i);
+                    message.writer().writeByte(bomb.lateId);
+                }
+            }
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
@@ -1362,8 +1407,22 @@ public class SessionHandler {
                 message.writer().writeByte(player.paralyzed);
                 message.writer().writeByte(player.theluc);
             }
+            // Client build 8: who the +15 set elements strike (SetElement), {player, 1 burning + 2 poisoned}; the ice
+            // and lightning come above, as paralyzed 3 (frozen) and 1.
+            int struck = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && elementFlags(player) != 0) struck++;
+            message.writer().writeByte(struck);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null || elementFlags(player) == 0) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeByte(elementFlags(player));
+            }
             this.session.sendMessage(message);
         } catch (IOException ex){}
+    }
+
+    private static int elementFlags(mobiarmy.war.Player player) {
+        return (player.burnTurns > 0 ? 1 : 0) | (player.elementPoisonTurns > 0 ? 2 : 0);
     }
 
     public void useItem(int index, int itemId) {

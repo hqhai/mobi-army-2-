@@ -107,7 +107,7 @@ public final class LanAdmin implements HttpHandler {
                 case "POST players # password" -> game.resetPassword(id, LanApi.stringField(body, "password"));
                 case "POST players # name" -> game.rename(id, LanApi.stringField(body, "username"));
                 case "POST players # set" -> game.giftSet(id, LanApi.intField(body, "glassId"), LanApi.intField(body, "tier"),
-                        LanApi.intField(body, "wear") != 0, LanApi.intField(body, "hiddenAtt"));
+                        LanApi.intField(body, "wear") != 0, LanApi.intField(body, "plus"), LanApi.intField(body, "element"), LanApi.intField(body, "gem"));
                 case "POST players # items" -> game.giftItems(id, LanApi.intField(body, "itemId"), LanApi.intField(body, "amount"));
                 case "GET levels" -> game.levels();
                 case "GET sets" -> game.sets();

@@ -756,6 +756,17 @@ public class MessageHandler implements IMessageHandler {
                             if (msg.reader().available() >= 2) PM.p[whoFire].passiveBonus = msg.reader().readShort();
                             if (msg.reader().available() >= 1) CMap.poisonRain = msg.reader().readByte() == 1;
                         }
+                        // LAN build 8: Rocketer's late WorldWar bombs {bullet index, time bomb id}: they lie where they land.
+                        BM.lateNukes = new int[nBullet];
+                        java.util.Arrays.fill(BM.lateNukes, -1);
+                        if (msg.reader().available() >= 1) {
+                            int late = msg.reader().readUnsignedByte();
+                            for (int l = 0; l < late; l++) {
+                                int index = msg.reader().readUnsignedByte();
+                                int id = msg.reader().readByte();
+                                if (index < nBullet) BM.lateNukes[index] = id;
+                            }
+                        }
                         PM.p[whoFire].shoot(critical, whoFire, xS, yS, type, xArr, yArr, nShoot, force_2, angle, xHitArr, yHitArr, xSuper, ySuper);
                         if (CCanvas.curScr == CCanvas.gameScr) {
                             Session_ME.receiveSynchronized = 1;
@@ -773,6 +784,14 @@ public class MessageHandler implements IMessageHandler {
                         } else if (PM.findPlayerByIndex(whoUpdateHP) != null) {
                             PM.findPlayerByIndex(whoUpdateHP).updateHP(nextHP, pixel);
                         }
+                        break;
+                    }
+                    case -128: {
+                        // LAN build 8: a gift box I shot down put this item in this slot of mine (server MapData.openGift).
+                        int giftSlot = msg.reader().readUnsignedByte();
+                        int giftItem = msg.reader().readByte();
+                        CPlayer me = PM.getMyPlayer();
+                        if (me != null && me.item != null && giftSlot < me.item.length) me.item[giftSlot] = giftItem;
                         break;
                     }
                     case 127: {
@@ -860,7 +879,7 @@ public class MessageHandler implements IMessageHandler {
                         }
                         // And how many times bigger the maps are: walking climbs steps that much higher (CPlayer.climb).
                         if (msg.reader().available() > 0) {
-                            MM.mapScale = Math.max(1, msg.reader().readUnsignedByte());
+                            MM.setScale(Math.max(1, msg.reader().readUnsignedByte()));
                         }
                         // Then who is shocked by Electrician this turn: 2 locked, 1 slowed, and the steps he may walk.
                         if (msg.reader().available() > 0) {
@@ -876,6 +895,16 @@ public class MessageHandler implements IMessageHandler {
                                     p.paralyzed = level;
                                     p.paralyzedSteps = steps;
                                 }
+                            }
+                        }
+                        // Server build 8: who the +15 set elements strike, {player, 1 burning + 2 poisoned}.
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.elementFlags = 0;
+                            int struck = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < struck; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                int flags = msg.reader().readUnsignedByte();
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].elementFlags = flags;
                             }
                         }
                         break;

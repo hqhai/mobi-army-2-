@@ -45,9 +45,10 @@ public class Map {
      * loadMap multiplies sizes, brick places and start points, and brick() enlarges the brick images (Scale2x when
      * twice as big), for the matches and for the clients alike (they get the bricks' places in message 90 and their
      * images from message 126). Players, bullets and holes keep their size. -Darmy.map.scale=1 plays the original
-     * maps. (3 times was tried first: too far apart, and its blocky ground looked bad.)
+     * maps, the default again since 25/10/2026 (2 from build 7; 3 times was tried first: too far apart, and its blocky
+     * ground looked bad).
      */
-    public static final int SCALE = Math.max(1, Integer.getInteger("army.map.scale", 2));
+    public static final int SCALE = Math.max(1, Integer.getInteger("army.map.scale", 1));
     /** Version of the map list the clients keep (message 90 type 2): a new one when the scale changes. */
     public static final int INFO_VERSION = 12 + SCALE - 1;
 
