@@ -125,7 +125,7 @@ public class Background {
          });
          CPlayer.web = filePack.loadImage("web.png");
          co2 = filePack.loadImage("co2.png");
-         inWater = filePack.loadImage("inWater.png");
+         inWater = filePack.loadImage("inWater.png", (IAction2) null); // (its pixels kept for deepWater: the other loadImage frees them)
          may = new mImage[3];
          PrepareScr.imgSun = filePack.loadImage("sun0.png");
          PrepareScr.imgCloud = new mImage[3];
@@ -731,15 +731,20 @@ public class Background {
 
    private static int deepWater = -1;
 
-   /** The colour at the bottom of the water strip (RGB), read once from the image. */
+   /**
+    * The colour at the bottom of the water strip (RGB), read once from the image when it has loaded. Its pixels were
+    * freed with the image loaded as the others, and reading them, again at each frame while they read 0, closed the
+    * game at times (in native code).
+    */
    private static int deepWater() {
-      if (deepWater < 0) {
+      if (deepWater < 0 && inWater != null && inWater.image != null && inWater.image.texture != null) {
          try {
             int w = inWater.image.getWidth(), h = inWater.image.getHeight();
             int[] row = new int[w];
             inWater.image.getRGB(row, 0, w, 0, h - 1, w, 1);
-            if ((row[w / 2] & 0xFFFFFF) != 0) deepWater = row[w / 2] & 0xFFFFFF; // (0 while the image still loads)
+            deepWater = (row[w / 2] & 0xFFFFFF) != 0 ? row[w / 2] & 0xFFFFFF : 0x0F3A5C;
          } catch (Exception e) {
+            deepWater = 0x0F3A5C;
          }
       }
       return deepWater < 0 ? 0x0F3A5C : deepWater;

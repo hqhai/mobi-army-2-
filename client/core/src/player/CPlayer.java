@@ -253,12 +253,25 @@ public class CPlayer {
      * the angle he had when it began); 1 slowed, fewer steps and aim SHOCK_RAISE degrees higher at the lowest; 0 none.
      */
     public int paralyzed, paralyzedSteps, frozenAngle;
-    /** Server build 8: paralyzed by the ice of a +15 set (SetElement): no walking, any angle. */
+    /** Server build 8: paralyzed by the ice of a +15 set (SetElement): no walking, any angle ("Cóng"). */
     public static final int FROZEN = 3;
-    /** Server build 8: the +15 set elements on him (status 114): 1 burning (takes more damage), 2 poisoned (loses HP). */
+    /**
+     * The +15 set elements on him (status 114): 1 Thiêu (burning: loses HP at his turns, gains rage slower), 2 Độc
+     * (heals less, his items work less), from build 14 4 Cóng (his shots have less force).
+     */
     public int elementFlags;
-    /** Electrician's shock raises the lowest aim by this many degrees (build 11). */
-    public static final int SHOCK_RAISE = 30;
+    /** Build 14: the element of his own +15 set (1 Lôi, 2 Hỏa, 3 Băng, 4 Độc; 0 none) and its charge, 100: his next shot carries it. */
+    public int elementOwn, elementCharge;
+    /** Build 14: percent of force his shots lose this turn, chilled by the ice of a +15 set (the guide follows it). */
+    public int chillNow;
+    public static final String[] ELEMENT_NAMES = {"", "Lôi", "Hỏa", "Băng", "Độc"};
+    public static final int[] ELEMENT_COLORS = {0xffffff, 0xffe040, 0xff6a30, 0x7fd8ff, 0xcc66ff};
+    public static final com.badlogic.gdx.graphics.Color[] ELEMENT_TINTS = new com.badlogic.gdx.graphics.Color[ELEMENT_COLORS.length];
+    static {
+        for (int i = 0; i < ELEMENT_COLORS.length; i++) ELEMENT_TINTS[i] = new com.badlogic.gdx.graphics.Color(ELEMENT_COLORS[i] << 8 | 0xff);
+    }
+    /** Electrician's shock (and the lightning of a +15 set) raises the lowest aim by this many degrees (build 11; 30 until build 14). */
+    public static final int SHOCK_RAISE = 20;
     public boolean active;
     boolean isSendM_autoDie;
     public int hp;
@@ -689,6 +702,39 @@ public class CPlayer {
         return true;
     }
 
+    /**
+     * Tarzan's POW boomerang flying back to him after a hit (message -127, LAN build 14, server SetPassive
+     * "Vòng quanh thế giới"): BOOMERANG_TICKS ticks in an arc from where it hit; it only shows, nothing waits for it.
+     */
+    private static final int BOOMERANG_TICKS = 20;
+    private int boomerangTick = -1, boomerangFromX, boomerangFromY;
+
+    public void boomerangBack(int xFrom, int yFrom) {
+        this.boomerangFromX = xFrom;
+        this.boomerangFromY = yFrom;
+        this.boomerangTick = 0;
+    }
+
+    public boolean boomerangFlying() {
+        return this.boomerangTick >= 0;
+    }
+
+    private void paintBoomerang(mGraphics g) {
+        if (this.boomerangTick < 0 || GameScr.bm == null) {
+            return;
+        }
+        FrameImage picture = GameScr.bm.frameBulletSpecial[21][0];
+        if (picture == null || picture.nFrame <= 0) {
+            return;
+        }
+        float t = this.boomerangTick / (float) BOOMERANG_TICKS;
+        int toY = this.y - 20 - this.grownLift();
+        int peak = Math.max(40, Math.abs(this.x - this.boomerangFromX) / 4);
+        int xB = this.boomerangFromX + Math.round((this.x - this.boomerangFromX) * t);
+        int yB = this.boomerangFromY + Math.round((toY - this.boomerangFromY) * t - 4 * peak * t * (1 - t));
+        picture.drawFrame(this.boomerangTick % picture.nFrame, xB, yB, 0, 3, g, false);
+    }
+
     public void flyToPoint(int xT, int yT) {
         this.flyActive = true;
         this.xTo = xT;
@@ -736,6 +782,9 @@ public class CPlayer {
     }
 
     public void update() {
+        if (this.boomerangTick >= 0 && ++this.boomerangTick > BOOMERANG_TICKS) {
+            this.boomerangTick = -1; // back in his hand
+        }
         if (this.kickFly()) {
             return;
         }
@@ -1463,6 +1512,7 @@ public class CPlayer {
                 this.painthpChange(g);
                 this.paintExpChange(g);
                 this.paintCup(g);
+                this.paintBoomerang(g);
                 if (GameScr.pm.isYourTurn() && GameScr.myIndex == this.index && this.state != 8) {
                     this.paintCrosshair(g);
                 }
@@ -1635,6 +1685,16 @@ public class CPlayer {
         }
     }
 
+    /** Build 14: his set's element charging, a thin bar under his HP in its colour; full, it blinks: his next shot carries it. */
+    private void paintElementCharge(mGraphics g, int x, int y) {
+        g.setColor(0x1a1a1a);
+        g.fillRect(x, y, 25, 3, false);
+        if (this.elementCharge < 100 || CCanvas.gameTick % 10 > 3) {
+            g.setColor(ELEMENT_COLORS[Math.min(this.elementOwn, ELEMENT_COLORS.length - 1)]);
+            g.fillRect(x, y, 25 * Math.min(100, this.elementCharge) / 100, 3, false);
+        }
+    }
+
     void painthp(mGraphics g) {
         if (GameScr.res.equals("")) {
             if (this.gun != 15) {
@@ -1657,6 +1717,7 @@ public class CPlayer {
                     g.fillRect(this.x - 15, this.y + 5 - dy, this.hpRectW, 4, false);
                     g.setColor(0);
                     g.drawRect(this.x - 15, this.y + 5 - dy, 25, 4, false);
+                    if (this.elementOwn > 0) this.paintElementCharge(g, this.x - 15, this.y + 10 - dy);
                 }
 
             }
@@ -1678,11 +1739,15 @@ public class CPlayer {
                 y -= 13;
             }
             if (this.paralyzed > 0) {
-                Font.normalYFont.drawString(g, this.paralyzed == FROZEN ? "Đóng băng" : "Tê liệt", this.x, y, 2);
+                Font.normalYFont.drawString(g, this.paralyzed == FROZEN ? "Cóng" : this.paralyzed == 2 ? "Tê liệt" : "Tê", this.x, y, 2);
+                y -= 13;
+            }
+            if ((this.elementFlags & 4) != 0 && this.paralyzed != FROZEN) {
+                Font.normalYFont.drawString(g, "Cóng", this.x, y, 2);
                 y -= 13;
             }
             if ((this.elementFlags & 1) != 0) {
-                Font.normalYFont.drawString(g, "Bỏng", this.x, y, 2);
+                Font.normalYFont.drawString(g, "Thiêu", this.x, y, 2);
                 y -= 13;
             }
             if ((this.elementFlags & 2) != 0 && !this.poisoned) {
@@ -2518,8 +2583,9 @@ public class CPlayer {
         }
         int x = feetX + ((w - 4) * cos(this.angle) >> 10);
         int y = feetY -(h / 2) - ((h - 4) * sin(this.angle) >> 10);
-        int vx = this.maxforce * cos(this.angle) >> 10;
-        int vy = -(this.maxforce * sin(this.angle) >> 10);
+        int force = this.chillNow > 0 ? this.maxforce * (100 - this.chillNow) / 100 : this.maxforce; // chilled: as the server weakens it
+        int vx = force * cos(this.angle) >> 10;
+        int vy = -(force * sin(this.angle) >> 10);
         this.guideColor = GUIDE_COLOR;
         switch (this.itemUsed) {
             case 1:
@@ -2610,8 +2676,8 @@ public class CPlayer {
                     int i = this.angle + (j - lent / 2) * step;
                     x = this.x + ((w - 4) * cos(i) >> 10);
                     y = this.y - (h / 2) - ((h - 4) * sin(i) >> 10);
-                    vx = maxforce * cos(i) >> 10;
-                    vy = -(maxforce * sin(i) >> 10);
+                    vx = force * cos(i) >> 10;
+                    vy = -(force * sin(i) >> 10);
                     drawBullet(g, 56, x, y, vx, vy, this.guideWindX(70), this.guideWindY(70), 70);
                 }
                 break;
@@ -2635,8 +2701,8 @@ public class CPlayer {
                             int currentAngle = startAngle + i * 5;
                             x = this.x + ((w - 4) * cos(currentAngle) >> 10);
                             y = this.y -(h / 2) - ((h - 4) * sin(currentAngle) >> 10);
-                            vx = this.maxforce * cos(currentAngle) >> 10;
-                            vy = -(this.maxforce * sin(currentAngle) >> 10);
+                            vx = force * cos(currentAngle) >> 10;
+                            vy = -(force * sin(currentAngle) >> 10);
                             drawBullet(g, 2, x, y, vx, vy, this.guideWindX(80), this.guideWindY(80), 60);
                         }
                         break;
@@ -2644,8 +2710,8 @@ public class CPlayer {
                         for (int i = this.angle - 6, j = 0; j < 4; i += 4, j++) {
                             x = this.x + ((w - 4) * cos(i) >> 10);
                             y = this.y -(h / 2) - ((h - 4) * sin(i) >> 10);
-                            vx = this.maxforce * cos(i) >> 10;
-                            vy = -(this.maxforce * sin(i) >> 10);
+                            vx = force * cos(i) >> 10;
+                            vy = -(force * sin(i) >> 10);
                             drawBullet(g, 9, x, y, vx, vy, this.guideWindX(40), this.guideWindY(40), 90);
                         }
                         break;
@@ -2675,8 +2741,8 @@ public class CPlayer {
                         drawBullet(g, 17, x, y, vx, vy, this.guideWindX(30) , this.guideWindY(30), 100);
                         break;
                     case 9:
-                        vx = (this.maxforce + 5) * cos(this.angle) >> 10;
-                        vy = -((this.maxforce + 5) * sin(this.angle) >> 10);
+                        vx = (force + 5) * cos(this.angle) >> 10;
+                        vy = -((force + 5) * sin(this.angle) >> 10);
                         drawBullet(g, 49, x, y, vx, vy, this.guideWindX(40) , this.guideWindY(40), 70);
                         break;
                 }

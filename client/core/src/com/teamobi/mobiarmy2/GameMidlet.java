@@ -36,7 +36,7 @@ public class GameMidlet extends MIDlet implements IActionListener {
      * Raise both together when every player must have this client, then publish the client update. Build 7 shows
      * no aim guide unless item 36 is on (the server requires it) and plays Tarzan's kick (message 127).
      */
-    public static final int LAN_BUILD = 12;
+    public static final int LAN_BUILD = 14;
     public static short versionByte = 241;
     public static byte versioncode = 11;
     public static byte server = -2;

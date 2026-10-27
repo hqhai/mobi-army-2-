@@ -1262,6 +1262,23 @@ public class SessionHandler {
         } catch (IOException ex){}
     }
     
+    /** LAN build 14: Tarzan's POW boomerang flies back to him from where it hurt an opponent (SetPassive.boomerangBack). */
+    public void boomerangBack(int tarzan, int x, int y) {
+        try {
+            Message message = new Message(ClientVersion.BOOMERANG_MESSAGE);
+            message.writer().writeByte(tarzan);
+            message.writer().writeShort(x);
+            message.writer().writeShort(y);
+            this.session.sendMessage(message);
+        } catch (IOException ex){}
+    }
+
+    /** Paths repeated for this client: one per shot of Miss 6's and Electrician's POW before ClientVersion.PATHS_BUILD. */
+    private int repeatedPaths(Gun gun) {
+        boolean old = this.session.build < ClientVersion.PATHS_BUILD;
+        return old && gun.isPow == 1 && (gun.bulletId == 1 || gun.bulletId == 2) && !gun.bullets.isEmpty() ? gun.nshoot : 0;
+    }
+
     public void shoot(Gun gun) {
         try {
             Message message = new Message(22);
@@ -1290,9 +1307,11 @@ public class SessionHandler {
             }
             // So lan ban
             message.writer().writeByte(gun.nshoot);
-            // So dan
-            message.writer().writeByte(gun.bullets.size());
-            for (int i = 0; i < gun.bullets.size(); i++) {
+            // So dan (clients before PATHS_BUILD get the last path once more for Miss 6's and Electrician's POW)
+            int paths = gun.bullets.size() + this.repeatedPaths(gun);
+            message.writer().writeByte(paths);
+            for (int p = 0; p < paths; p++) {
+                int i = Math.min(p, gun.bullets.size() - 1);
                 message.writer().writeShort(gun.bullets.get(i).frames.size());
                 for (int j = 0; j < gun.bullets.get(i).frames.size(); j++) {
                     if (j == 0 || gun.typeshoot == 1) {
@@ -1437,8 +1456,8 @@ public class SessionHandler {
                 message.writer().writeByte(player.paralyzed);
                 message.writer().writeByte(player.theluc);
             }
-            // Client build 8: who the +15 set elements strike (SetElement), {player, 1 burning + 2 poisoned}; the ice
-            // and lightning come above, as paralyzed 3 (frozen) and 1.
+            // Client build 8: who the +15 set elements strike (SetElement), {player, 1 burning + 2 poisoned}; build 14
+            // also reads 4 chilled (less force). The ice's hold and the lightning come above, as paralyzed 3 and 1.
             int struck = 0;
             for (mobiarmy.war.Player player : players) if (player != null && elementFlags(player) != 0) struck++;
             message.writer().writeByte(struck);
@@ -1447,12 +1466,30 @@ public class SessionHandler {
                 message.writer().writeByte(player.index);
                 message.writer().writeByte(elementFlags(player));
             }
+            // Client build 14: the elements of the players' sets and the ice's chill, {player, element (0 none), charge
+            // percent (100: his next shot carries it), percent of force his shots lose this turn}.
+            int charging = 0;
+            for (mobiarmy.war.Player player : players) if (player != null && elementShown(player)) charging++;
+            message.writer().writeByte(charging);
+            for (mobiarmy.war.Player player : players) {
+                if (player == null || !elementShown(player)) continue;
+                message.writer().writeByte(player.index);
+                message.writer().writeByte(player.element);
+                message.writer().writeByte(Math.max(0, mobiarmy.war.SetElement.chargePercent(player)));
+                message.writer().writeByte(player.chilledNow ? player.chillForce : 0);
+            }
             this.session.sendMessage(message);
         } catch (IOException ex){}
     }
 
+    /** In the build 14 list: he has an element, or the ice takes force off his shots this turn. */
+    private static boolean elementShown(mobiarmy.war.Player player) {
+        return player.element != mobiarmy.war.SetElement.NONE || (player.chilledNow && player.chillForce > 0);
+    }
+
     private static int elementFlags(mobiarmy.war.Player player) {
-        return (player.burnTurns > 0 ? 1 : 0) | (player.elementPoisonTurns > 0 ? 2 : 0);
+        return (mobiarmy.war.SetElement.burning(player) ? 1 : 0) | (mobiarmy.war.SetElement.poisoned(player) ? 2 : 0)
+                | (mobiarmy.war.SetElement.chilled(player) ? 4 : 0);
     }
 
     public void useItem(int index, int itemId) {

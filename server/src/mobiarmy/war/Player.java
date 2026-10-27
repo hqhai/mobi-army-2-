@@ -95,9 +95,9 @@ public class Player {
     /** Where the player stood at the start of its last turn; -1 before the first one. */
     int passiveX = -1, passiveY = -1;
     boolean passiveHit, passiveTrueShot;
-    /** Team passives of his side (SetTeam flags); this POW of an Outsider deals true damage (SetTeam.beforeShot). */
+    /** Team passives of his side (SetTeam flags); this POW of an Outsider pierces defense (SetTeam.beforeShot). */
     public int teamPacts;
-    boolean outsiderTrue;
+    boolean outsiderPierce;
     /** This shot so far (SetPassive.bulletHit): hit by Chicky's chicken, by her egg, by how many Electrician bolts. */
     boolean hitChicken, hitEgg;
     int hitBolts;
@@ -113,8 +113,10 @@ public class Player {
     final java.util.Set<Object> huntHammers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     /** Magenta's POW laser hit this player in this shot (SetPassive: her UFO is called over him). */
     boolean hitLaser;
-    /** Tarzan's kick (SetPassive): opponents his POW boomerang hurt this shot, with the x of the blast that did. */
+    /** Gunner's knock (SetPassive.kick): opponents his POW cannonball hurt this shot, with the x of the blast that did. */
     final java.util.Map<Player, Integer> kicks = new java.util.LinkedHashMap<>();
+    /** Tarzan's "Vòng quanh thế giới" (SetPassive.boomerangBack): where his POW boomerang first hurt an opponent this shot. */
+    int[] boomerangAt;
     /**
      * Chicky's Easter eggs (SetPassive): her eggs that hit an opponent this shot (each counted once) and the last
      * opponent one hit, how many hit in the match toward the next Easter egg, and her damage dealt before this shot.
@@ -152,12 +154,17 @@ public class Player {
     /** LAN: one of the gift boxes floating over a match (MapData.dropGift); nobody's opponent or ally. */
     public boolean gift;
     /**
-     * LAN: the element of his full +15/+16 set (SetElement, NONE without one) and 0 for +15, 1 for +16; and the
-     * elements striking him: burning (burnTurns, taking burnPercent more), poisoned (elementPoisonTurns starts of turn
-     * losing elementPoisonHP percent, for elementPoisonBy). Ice and lightning use paralyzeNext.
+     * LAN: the element of his full +15/+16 set (SetElement, NONE without one) and 0 for +15, 1 for +16; the damage his
+     * shots dealt toward its charge, the charge ready for his next shot and the shot carrying it now. And the elements
+     * striking him, for turns of his to come and the "now" one: burning (burnTurns starts of turn losing burnHP percent,
+     * lit by burnBy), chilled (chillTurns turns of chillForce percent less force), poisoned (elementPoisonTurns turns
+     * healing poisonHeal and his items doing poisonItem percent less). Ice and lightning hold or slow him with paralyzeNext.
      */
-    public int element, elementLevel;
-    public int burnTurns, burnPercent, elementPoisonTurns, elementPoisonHP, elementPoisonBy = -1;
+    public int element, elementLevel, elementCharge;
+    public boolean elementReady, elementShotNow, burningNow, chilledNow, poisonedNow;
+    public int burnTurns, burnHP, burnBy = -1, chillTurns, chillForce, elementPoisonTurns, poisonHeal, poisonItem;
+    /** The lightning's turns still to come after the next one, slowing him shockSlow percent. */
+    public int shockTurns, shockSlow;
 
 
     public class Item {
@@ -267,6 +274,7 @@ public class Player {
 
     public void updateHP(int addHP) {
         if (addHP > 0 && this.antiHealTurns > 0) addHP /= 2; // poison rain: heals count half
+        addHP = SetElement.heal(this, addHP); // poisoned by the element: less
         int hpBefore = this.hp;
         this.hp += addHP;
         if(this.hp <= 0) {
@@ -287,7 +295,7 @@ public class Player {
     }
 
     public void updateAngry(int addAngry) {
-        addAngry = SetPassive.rage(this, addAngry);
+        addAngry = SetElement.rage(this, SetPassive.rage(this, addAngry)); // (burning: slower)
         this.angry += addAngry;
         if(this.angry < 0) {
             this.angry = 0;
@@ -416,11 +424,8 @@ public class Player {
             } else if (SetPassive.boltsTrue(player, this)) {
                 // Electrician's three bolts in one shot: true damage.
                 trueDamage = true;
-            } else if (player.outsiderTrue && SetPassive.enemies(player, this)) {
-                // An Outsider's POW (SetTeam "Kẻ Ngoại Lai"): true damage.
-                trueDamage = true;
             } else if (this.mapData.skillRules) {
-                int def = this.def + (this.lucky ? 3000 : 0);
+                int def = SetTeam.pierced(player, this, this.def) + (this.lucky ? 3000 : 0); // (an Outsider's POW goes through part of it)
                 boolean direct = this.attDirect > 0;
                 this.attAffect = SkillBalance.taken(this.attAffect, this.attDirect, player.lucky, this.hpMax, def);
                 // Luck still saves you from splash damage, never from a direct hit.
@@ -431,7 +436,7 @@ public class Player {
                 if(player.lucky) {
                     this.attAffect *= 2;
                 }
-                int def = this.def;
+                int def = SetTeam.pierced(player, this, this.def); // (an Outsider's POW goes through part of it)
                 if (this.lucky) {
                     def += 3000;
                 }
@@ -463,6 +468,7 @@ public class Player {
         if (this.gift && this.isDie && hpOld > 0) this.mapData.openGift(credit, this); // shot down: its gift is his
         if (credit != null && this.typePlayer == 0 && SetPassive.enemies(credit, this) && hpOld > this.hp) {
             credit.statDealt += hpOld - this.hp;
+            SetElement.dealt(credit, hpOld - this.hp); // what he deals charges his element (his summons' and time bombs' too)
             if (this.isDie) {
                 credit.statKills++;
                 SetPassive.killed(player, hpOld - this.hp);
@@ -642,7 +648,7 @@ public class Player {
             if (bullet.isSuper == 2) {
                 att = (int) (att + (att * 0.1F));
             }
-            att = SetPassive.dealt(shooterPlayer, this, att);
+            att = SetPassive.dealt(shooterPlayer, this, att, bullet.bulletId);
             if (att > 0) {
                 SetPassive.bulletHit(shooterPlayer, this, bullet.bulletId);
                 SetPassive.hammerHit(shooterPlayer, this, bullet);

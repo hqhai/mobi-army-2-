@@ -19,12 +19,23 @@ public final class ClientVersion {
      */
     public static final int BAG_LIMIT = 250, BIG_BAG_BUILD = 10, OLD_BAG_SHOWN = 127;
     /** Must equal GameMidlet.LAN_BUILD of the client built from the same code (scripts/tests/ClientVersionCheck). */
-    public static final int LATEST = 12; // 12 raises a shocked aim by 30 from his own lowest and stops the arrow keys at 90; 11 greys item 37 while it cools down; 10 reads 250-piece bags, waits for a new map's ground before anyone falls; 9 drew the angle arc; 8 still plays
+    public static final int LATEST = 14; // 14 flies Tarzan's boomerang back, shows the element charges and Thiêu/Cóng/Tê/Độc, a shocked aim 20 higher; 13 fires the bullets the server sent paths for (no stuck turn after Miss 6's or Electrician's POW); 12 raises a shocked aim by 30 from his own lowest and stops the arrow keys at 90; 11 greys item 37 while it cools down; 10 reads 250-piece bags, waits for a new map's ground before anyone falls; 9 drew the angle arc; 8 still plays
     /**
      * From this build the client plays Tarzan's kick (message KICK_MESSAGE: the kicked players fly where they land);
      * older ones get each landing spot as message 53 and show the player there at once.
      */
     public static final int KICK_BUILD = 7, KICK_MESSAGE = 127;
+    /**
+     * From this build the client fires as many bullets as a shot has paths. Older ones fire one more for the POW of
+     * Miss 6 (6 for the server's 5) and of Electrician (7 for 6), read past the paths and leave the next player unable
+     * to act for a whole turn, so they get the last path once more (SessionHandler.shoot): only the picture changes.
+     */
+    public static final int PATHS_BUILD = 13;
+    /**
+     * From this build the client flies Tarzan's POW boomerang back to him (message BOOMERANG_MESSAGE, SetPassive
+     * "Vòng quanh thế giới"); older ones only see the POW bar he gets back.
+     */
+    public static final int BOOMERANG_BUILD = 14, BOOMERANG_MESSAGE = -127;
 
     private ClientVersion() {
     }

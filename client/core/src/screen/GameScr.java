@@ -1821,6 +1821,13 @@ public class GameScr extends CScreen {
         g.drawRect(x, y, w, h, false);
         // (borderFont: the small fonts have no space nor slash, which came out as zeros, "HP0105001050")
         Font.borderFont.drawString(g, "HP " + hp + "/" + me.maxhp, x, y + h + 1, 0);
+        // Build 14: his +15 set's element charging with the damage his shots deal (server SetElement); full, his next shot carries it.
+        if (me.elementOwn > 0 && me.elementOwn < CPlayer.ELEMENT_NAMES.length) {
+            g.tint = CPlayer.ELEMENT_TINTS[me.elementOwn];
+            String name = CPlayer.ELEMENT_NAMES[me.elementOwn];
+            Font.borderFont.drawString(g, me.elementCharge >= 100 ? name + " đầy: phát tới kích hoạt" : name + " " + me.elementCharge + "%", x, y + h + 14, 0);
+            g.tint = null;
+        }
     }
 
     public void drawWind(mGraphics g) {

@@ -1021,20 +1021,33 @@ public class MapData {
     }
 
     /**
-     * Tarzan's kick (SetPassive.kick): he yells, and the kicked players, already moved, fly to where they landed;
-     * clients older than ClientVersion.KICK_BUILD just put them there.
+     * Gunner's knock (SetPassive.kick): the knocked players, already moved, fly to where they landed; clients older
+     * than ClientVersion.KICK_BUILD just put them there.
      */
-    public void kick(Player tarzan, java.util.List<Player> kicked) {
+    public void kick(Player shooter, java.util.List<Player> kicked) {
         this.addTimeUntilAction(SetPassive.KICK_TIME);
         for (Player player : this.players) {
             if (player == null || player.user == null || player.user.session == null) continue;
             mobiarmy.server.SessionHandler handler = player.user.session.sessionHandler;
-            if (tarzan.user != null && tarzan.glassID == SetPassive.TARZAN) handler.chat(tarzan.user.id, SetPassive.TARZAN_YELL);
             if (player.user.session.build >= mobiarmy.server.ClientVersion.KICK_BUILD) {
                 handler.kick(kicked);
             } else {
                 for (Player p : kicked) handler.setXY(p.index, p.x, p.y);
             }
+        }
+    }
+
+    /**
+     * Tarzan's POW boomerang hurt an opponent at (x, y) and flies back to him (SetPassive.boomerangBack): he yells, and
+     * clients from ClientVersion.BOOMERANG_BUILD on fly it back; older ones only see the POW bar he gets back.
+     */
+    public void boomerangBack(Player tarzan, int x, int y) {
+        this.addTimeUntilAction(SetPassive.BOOMERANG_TIME);
+        for (Player player : this.players) {
+            if (player == null || player.user == null || player.user.session == null) continue;
+            mobiarmy.server.SessionHandler handler = player.user.session.sessionHandler;
+            if (tarzan.user != null) handler.chat(tarzan.user.id, SetPassive.TARZAN_YELL);
+            if (player.user.session.build >= mobiarmy.server.ClientVersion.BOOMERANG_BUILD) handler.boomerangBack(tarzan.index, x, y);
         }
     }
     
@@ -1078,8 +1091,11 @@ public class MapData {
                 bulletID = player.bulletId;
             }
             SetPassive.beforeShot(player);
+            SetElement.beforeShot(player); // a charged element goes with this shot
             ang = SetPassive.shockedAngle(player, ang); // Electrician's shock holds his aim
             player.lastAng = ang;
+            force = SetElement.force(player, force); // chilled by the ice: less force
+            if (bulletID != player.bulletIdByGlassID()) att = SetElement.item(player, att); // an item's bullet, poisoned: weaker
             // The shot leaves from his body as big as it is (King Kong grown standing still), not from inside it.
             // A climber on a wall or upside down (Climb) shoots from the middle of his body as it is turned; the clients
             // still get where he stands (shotFrom).
@@ -1098,6 +1114,7 @@ public class MapData {
             } finally {
                 this.elementShot = false;
             }
+            SetElement.afterShot(player);
             SetPassive.afterShot(player);
             this.sendStatus();
             this.isTurn = true;
@@ -1270,9 +1287,10 @@ public class MapData {
                 if (item2.num == 0) return;
                 player.user.addItem(item.itemId, -1);
             }
+            // LAN: the items of a player poisoned by a +15 set work less (SetElement.item): the heals below, the bullets in shoot.
             //Phuc hoi hp (LAN: HEAL_PERCENT of his max HP, was 350 HP)
             if(item.itemId == 0) {
-                player.updateHP(player.hpMax * Player.HEAL_PERCENT / 100);
+                player.updateHP(SetElement.item(player, player.hpMax * Player.HEAL_PERCENT / 100));
                 this.updateHP(player.index, player.hp, player.pixel);
                 this.updateAngry(player.index, player.angry);
             }
@@ -1317,7 +1335,7 @@ public class MapData {
             }
             //Hp dong doi (LAN: each of his team, himself included, heals TEAM_HEAL_PERCENT of the user's max HP, was 300)
             if (item.itemId == 10) {
-                int heal = player.hpMax * Player.TEAM_HEAL_PERCENT / 100;
+                int heal = SetElement.item(player, player.hpMax * Player.TEAM_HEAL_PERCENT / 100);
                 for (Player player2 : this.players) {
                     if (player2 != null && !player2.isDie && player2.isFaction && player2.team == player.team) {
                         player2.updateHP(heal);
@@ -1416,7 +1434,7 @@ public class MapData {
             }
             //hoi 50% hp
             if (item.itemId == 32) {
-                player.updateHP(player.hpMax / 2);
+                player.updateHP(SetElement.item(player, player.hpMax / 2));
                 this.updateHP(player.index, player.hp, player.pixel);
                 this.updateAngry(player.index, player.angry);
             }

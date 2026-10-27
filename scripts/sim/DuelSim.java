@@ -42,6 +42,16 @@ import sun.misc.Unsafe;
             tier = 6, maxTurns = 120, ptsHp = 0, ptsAtt = 0, ptsDef = 0, ptsLuck = 0;
     static double sigmaForce = 0.6, sigmaAng = 1.0, sigmaF2 = 1.0, sigmaWind = 1.0, evadeChance = 0.5, ufoChance = 0.6;
     static boolean usePow = true, matrix = false, useTeleport = mobiarmy.server.Map.SCALE > 1, team2 = false;
+    /** 2v2: side 1 always two different ones of these characters (duo=a+b, or a+b+c for a group), null for random sides. */
+    static int[] duo;
+    /** The +15 set element (SetElement) of side 1's and side 2's players (el1, el2), at elevel (0 +15, 1 +16). */
+    static int el1 = SetElement.NONE, el2 = SetElement.NONE, elevel = 0;
+    /** 1v1: every duel is this character against each of the others in turn (focus=N), -1 for all pairs. */
+    static int focus = -1;
+    /** 2v2: with the team passives (SetTeam), false to measure a group without its own (teams=false). */
+    static boolean teamPassives = true;
+    /** Games side 1 won (a draw counts half, as two halves), of sideGames. */
+    static long sideWins2, sideGames;
     /** 2v2 (team=true): wins of each pair of characters as one side, keyed lower*10+higher. */
     static final long[] duoWins = new long[100], duoGames = new long[100];
     /** Teleport when the opponent is farther than this (px), to land about TELEPORT_GAP from him, within TELEPORT_MISS. */
@@ -88,6 +98,12 @@ import sun.misc.Unsafe;
                 case "matrix" -> matrix = Boolean.parseBoolean(v);
                 case "team" -> team2 = Boolean.parseBoolean(v);
                 case "heroes" -> heroes = Arrays.stream(v.split(",")).mapToInt(Integer::parseInt).toArray();
+                case "duo" -> duo = Arrays.stream(v.split("[,+]")).mapToInt(Integer::parseInt).toArray(); // (4+5 through Run-Sim)
+                case "focus" -> focus = Integer.parseInt(v);
+                case "teams" -> teamPassives = Boolean.parseBoolean(v);
+                case "el1" -> el1 = Integer.parseInt(v);
+                case "el2" -> el2 = Integer.parseInt(v);
+                case "elevel" -> elevel = Integer.parseInt(v);
                 default -> {
                     if (kv[0].startsWith("att")) attOverride.put(Integer.parseInt(kv[0].substring(3)), Integer.parseInt(v));
                     else throw new IllegalArgumentException("unknown arg " + kv[0]);
@@ -102,7 +118,7 @@ import sun.misc.Unsafe;
 
         List<int[]> pairs = new ArrayList<>();
         for (int i = 0; i < heroes.length; i++) {
-            for (int j = i + 1; j < heroes.length; j++) pairs.add(new int[] {heroes[i], heroes[j]});
+            for (int j = i + 1; j < heroes.length; j++) if (focus < 0 || heroes[i] == focus || heroes[j] == focus) pairs.add(new int[] {heroes[i], heroes[j]});
         }
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         AtomicInteger done = new AtomicInteger();
@@ -129,6 +145,11 @@ import sun.misc.Unsafe;
         pool.shutdown();
         report((System.currentTimeMillis() - t0) / 1000.0);
         if (team2) reportDuos();
+        double side = sideGames == 0 ? 0 : 50.0 * sideWins2 / sideGames;
+        System.out.printf(Locale.ROOT, "%nside 1 (%s, element %s +%d) against side 2 (element %s): %.1f%% +- %.1f of %d%n",
+                duo == null ? "random" : NAMES[duo[0]] + " + " + NAMES[duo[1]], SetElement.NAMES[el1].isEmpty() ? "none" : SetElement.NAMES[el1],
+                elevel == 0 ? 15 : 16, SetElement.NAMES[el2].isEmpty() ? "none" : SetElement.NAMES[el2], side,
+                196 * Math.sqrt(Math.max(side, 1) * Math.max(100 - side, 1) / 10000.0 / Math.max(1, sideGames)), sideGames);
     }
 
     static void report(double seconds) {
@@ -210,6 +231,8 @@ import sun.misc.Unsafe;
             pairGames[b][a]++;
             if (result == 1) pairWins[a][b]++;
             if (result == 2) pairWins[b][a]++;
+            sideGames++;
+            sideWins2 += result == 1 ? 2 : result == 2 ? 0 : 1;
         }
     }
 
@@ -222,6 +245,10 @@ import sun.misc.Unsafe;
         int a1 = heroes[r.nextInt(heroes.length)], a2, b1 = heroes[r.nextInt(heroes.length)], b2;
         do a2 = heroes[r.nextInt(heroes.length)]; while (a2 == a1);
         do b2 = heroes[r.nextInt(heroes.length)]; while (b2 == b1);
+        if (duo != null) { // (more than two: two different ones of them, as a group of a team passive)
+            a1 = duo[r.nextInt(duo.length)];
+            do a2 = duo[r.nextInt(duo.length)]; while (a2 == a1);
+        }
         SimMap map = SimMap.create(MAPS[Util.nextInt(MAPS.length)]);
         map.rules = (byte) rules;
         map.skillRules = rules == RoomRules.BALANCED;
@@ -229,18 +256,28 @@ import sun.misc.Unsafe;
         int[] glass = {a1, b1, a2, b2}; // turns alternate sides
         Player[] ps = new Player[4];
         for (int i = 0; i < 4; i++) ps[i] = spawn(map, i, glass[i], i % 2 == 0 ? 1 : 2, points);
-        SetTeam.apply(map, rules == RoomRules.BASE);
+        SetTeam.apply(map, rules == RoomRules.BASE || !teamPassives);
         Brain[] brains = new Brain[4];
         for (int i = 0; i < 4; i++) brains[i] = new Brain(ps[i], ps[(i + 1) % 4]);
         map.isWar = true;
         map.isTurn = true;
-        int turns = 0;
+        int turns = 0, idle = 0;
         while (map.isWar && turns < maxTurns * 2) {
             map.update();
             if (!map.isWar) break;
             int t = map.getTurn();
             if (t < 0) break;
             Player me = map.players[t];
+            if (++idle > 5000) { // only summons' or skipped turns this long: tell what is left and call it a draw
+                StringBuilder left = new StringBuilder("STUCK 2v2 map " + map.mapId + " " + map.width + "x" + map.height + " turn " + t + ":");
+                for (Player p : map.players) {
+                    if (p == null) continue;
+                    left.append(String.format(Locale.ROOT, " [%d %s team %d type %d hp %d/%d die %b faction %b shoot %b xy %d,%d]", p.index,
+                            p.name, p.team, p.typePlayer, p.hp, p.hpMax, p.isDie, p.isFaction, p.isShoot, p.x, p.y));
+                }
+                System.err.println(left);
+                break;
+            }
             if (t >= 4) {
                 map.timeUntilAction2 = 0;
                 if (!map.isTurn) me.update();
@@ -251,6 +288,7 @@ import sun.misc.Unsafe;
                 map.isTurn = true;
                 continue;
             }
+            idle = 0;
             turns++;
             brains[t].act();
             if (!me.isShoot) map.isTurn = true;
@@ -268,6 +306,8 @@ import sun.misc.Unsafe;
             if (result == 1) duoWins[da] += 2;
             else if (result == 2) duoWins[db] += 2;
             else { duoWins[da]++; duoWins[db]++; }
+            sideGames++;
+            sideWins2 += result == 1 ? 2 : result == 2 ? 0 : 1;
         }
     }
 
@@ -320,6 +360,7 @@ import sun.misc.Unsafe;
         Player p = new Player(map, null, NAMES[glassId], glassId, 50, s[0], s[1], s[2], s[3], s[4], 24, 24, items);
         p.index = (byte) index;
         p.setTier = rules == RoomRules.BASE ? 0 : tier;
+        if (rules != RoomRules.BASE) SetElement.give(p, team == 1 ? el1 : el2, elevel);
         p.theluc = SetPassive.steps(p);
         p.baseAtt = glass.att;
         p.isBoss = false;
@@ -445,12 +486,15 @@ import sun.misc.Unsafe;
             return true;
         }
 
-        /** 2v2: the nearest living opponent (a new one when his falls; where he was last seen is forgotten). */
+        /**
+         * 2v2: the nearest living opponent, the Scientists' T-rex too (a new one when his falls; where he was last seen
+         * is forgotten).
+         */
         void retarget() {
             Player best = this.foe != null && !this.foe.isDie ? this.foe : null;
-            for (int i = 0; i < 4; i++) {
-                Player p = this.me.mapData.players[i];
-                if (p == null || p.isDie || p.team == this.me.team) continue;
+            for (Player p : this.me.mapData.players) {
+                if (p == null || p.isDie || p.gift || p.team == this.me.team) continue;
+                if (p.typePlayer != 0 && !(p instanceof mobiarmy.war.Boss.ScienceTrex)) continue;
                 if (best == null || Math.abs(p.x - this.me.x) < Math.abs(best.x - this.me.x)) best = p;
             }
             if (best != null && best != this.foe) this.seen = false;
@@ -467,6 +511,8 @@ import sun.misc.Unsafe;
 
         void fire(Shot shot) {
             MapData map = this.me.mapData;
+            // Chilled by the ice (SetElement): he sees it over his head and pushes harder, as far as the bar goes.
+            if (this.me.chilledNow && this.me.chillForce > 0) shot.force = Math.min(30, (int) Math.round(shot.force * 100.0 / (100 - this.me.chillForce)));
             this.handError(shot);
             int dealt = this.me.statDealt;
             boolean pow = this.me.isPow;

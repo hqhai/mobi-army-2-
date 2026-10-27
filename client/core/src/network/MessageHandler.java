@@ -899,7 +899,7 @@ public class MessageHandler implements IMessageHandler {
                                 }
                             }
                         }
-                        // Server build 8: who the +15 set elements strike, {player, 1 burning + 2 poisoned}.
+                        // Server build 8: who the +15 set elements strike, {player, 1 burning + 2 poisoned + 4 chilled}.
                         if (msg.reader().available() > 0) {
                             if (PM.p != null) for (CPlayer p : PM.p) if (p != null) p.elementFlags = 0;
                             int struck = msg.reader().readUnsignedByte();
@@ -909,6 +909,31 @@ public class MessageHandler implements IMessageHandler {
                                 if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].elementFlags = flags;
                             }
                         }
+                        // Build 14: the elements of the players' sets and the ice's chill, {player, element, charge percent
+                        // (100: the next shot carries it), percent of force his shots lose this turn}.
+                        if (msg.reader().available() > 0) {
+                            if (PM.p != null) for (CPlayer p : PM.p) if (p != null) { p.elementOwn = 0; p.chillNow = 0; }
+                            int charging = msg.reader().readUnsignedByte();
+                            for (int s = 0; s < charging; s++) {
+                                int who = msg.reader().readUnsignedByte();
+                                int element = msg.reader().readUnsignedByte();
+                                int charge = msg.reader().readUnsignedByte();
+                                int chill = msg.reader().readUnsignedByte();
+                                if (PM.p != null && who < PM.p.length && PM.p[who] != null) {
+                                    PM.p[who].elementOwn = element;
+                                    PM.p[who].elementCharge = charge;
+                                    PM.p[who].chillNow = chill;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case -127: {
+                        // LAN build 14: Tarzan's POW boomerang flies back to him from where it hurt an opponent.
+                        int who = msg.reader().readUnsignedByte();
+                        short xB = msg.reader().readShort();
+                        short yB = msg.reader().readShort();
+                        if (PM.p != null && who < PM.p.length && PM.p[who] != null) PM.p[who].boomerangBack(xB, yB);
                         break;
                     }
                     case 83: {

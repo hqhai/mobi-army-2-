@@ -368,17 +368,17 @@
         }},
         1: {name: 'Mũi tên thứ ba', detail: function (s) {
             return 'Cứ mỗi phát trúng đối thủ thứ 3 gây sát thương chuẩn: bỏ qua toàn bộ phòng thủ, không bị may mắn cứu, và chắc chắn chí mạng x'
-                + (1 + scaledText(50, s) / 100).toLocaleString('vi-VN') + '. Bắn trượt không tính; trúng đồng đội không tính. '
+                + (1 + scaledText(65, s) / 100).toLocaleString('vi-VN') + '. Bắn trượt không tính; trúng đồng đội không tính. '
                 + 'Dịch chuyển chỉ phải chờ 2 lượt giữa hai lần dùng (nhân vật khác chờ 3).';
         }},
         2: {name: 'Tê liệt', detail: function (s) {
-            return 'Đạn điện to hơn ' + scaledText(15, s) + '%: nổ rộng hơn và đục hố to hơn chừng ấy. Đối thủ trúng đạn điện trong một phát bắn thì ở lượt kế tiếp của mình: '
+            return 'Đối thủ trúng đạn điện trong một phát bắn thì ở lượt kế tiếp của mình: '
                 + 'trúng 2–3 viên thì chỉ đi được ' + (100 - scaledText(70, s)) + '% số bước; trúng cả 3 viên thì cả phát đó còn là sát thương chuẩn (bỏ qua phòng thủ, may mắn); '
-                + 'trúng 1 viên thì đi ít hơn ' + scaledText(30, s) + '%. Bị tê liệt thì góc thấp nhất của nhân vật bị nâng lên 30 độ (Chicky -45 thành -15), kể cả bằng lệnh "g" (chữ "Tê liệt" trên đầu).';
+                + 'trúng 1 viên thì đi ít hơn ' + scaledText(30, s) + '%. Bị tê thì góc thấp nhất của nhân vật bị nâng lên 20 độ (Chicky -45 thành -25), kể cả bằng lệnh "g" (chữ "Tê" trên đầu).';
         }},
         3: {name: 'Bàn thạch', detail: function (s) {
             return 'Mỗi vòng đứng yên một chỗ King Kong to thêm ' + scaledText(25, s) + '%, tối đa ' + (100 + scaledText(200, s))
-                + '% sau 8 vòng: dễ bị bắn trúng hơn nhưng càng to càng lì, tới cỡ tối đa thì nhận ít hơn ' + scaledText(20, s)
+                + '% sau 8 vòng: dễ bị bắn trúng hơn nhưng càng to càng lì, tới cỡ tối đa thì nhận ít hơn ' + scaledText(25, s)
                 + '% sát thương và thêm ' + scaledText(20, s) + '% máu tối đa (tăng dần theo từng vòng). Đứng yên từ 2 vòng, đất dưới chân không bị phá. '
                 + 'Càng to thì chuối thường càng nhỏ và đục hố càng nhỏ, tới cỡ tối đa còn ' + (100 - scaledText(50, s)) + '% (sát thương như thường). POW to theo King Kong nhưng chỉ mạnh thêm tối đa ' + scaledText(30, s)
                 + '% khi đạt cỡ tối đa, và không đục đất. Đi bộ, dịch chuyển hay bị hất văng đều mất hết và King Kong về cỡ thường (máu tối đa cũng về như cũ).';
@@ -399,23 +399,25 @@
                 + 'Đứng giữa hai quả thì trúng cả hai tia. Đối thủ có 2 vòng để tránh khỏi hàng lựu đạn.';
         }},
         6: {name: 'Trứng Phục sinh', detail: function (s) {
-            return 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn, hoặc trúng quả trứng gà thứ 5 của Chicky trong trận, sẽ bị đẻ một quả trứng Phục sinh '
+            return 'Gà và trứng của Chicky gây thêm ' + scaledText(12, s) + '% sát thương. '
+                + 'Đối thủ trúng cả gà lẫn trứng trong một phát bắn, hoặc trúng quả trứng gà thứ 4 của Chicky trong trận, sẽ bị đẻ một quả trứng Phục sinh '
                 + 'dưới chân, mang màu skin của gà (mỗi lúc Chicky chỉ có một quả trứng Phục sinh chờ nở). Sau 2 vòng trứng nổ thành cột nấm khổng lồ (như bom tên lửa của T-Rex) mà không làm hỏng địa hình: '
-                + 'Chicky và cả đội được hồi ' + scaledText(10, s) + '% sát thương mà gà và trứng đã gây ra trong lượt đẻ trứng, dù đứng ở đâu; '
-                + 'đối thủ trong tầm trứng mất ' + scaledText(25, s) + '% lượng đó (sát thương chuẩn: bỏ qua phòng thủ và may mắn).';
+                + 'Chicky và cả đội được hồi ' + scaledText(15, s) + '% sát thương mà gà và trứng đã gây ra trong lượt đẻ trứng, dù đứng ở đâu; '
+                + 'đối thủ trong tầm trứng mất ' + scaledText(40, s) + '% lượng đó (sát thương chuẩn: bỏ qua phòng thủ và may mắn).';
         }},
         7: {name: 'Khế Ước Rừng Xanh', detail: function (s) {
             return 'Boomerang không bị gió ảnh hưởng, nổ rộng gấp rưỡi và gây thêm 20% khi trúng lúc bay về. '
-                + 'POW "Dây leo kéo": boomerang POW trúng đối thủ nào thì Tarzan hú lên, quăng dây kéo đối thủ đó lại gần mình ' + scaledText(60, s)
-                + ' px (không sát hơn 20 px); bay qua hố và gờ thấp, gặp vách thì dừng; rơi khỏi bản đồ là chết (tính cho Tarzan). '
-                + 'Đi được 120 bước mỗi lượt (thường 60). Vẫn giảm ' + scaledText(8, s) + '% mọi sát thương nhận vào. '
+                + 'POW "Vòng quanh thế giới": boomerang POW trúng đối thủ thì Tarzan hú lên, boomerang bay vòng về tay Tarzan và hoàn lại '
+                + scaledText(60, s) + '% thanh nộ (giữ sang lượt sau). '
+                + 'Đi được 120 bước mỗi lượt (thường 60). Giảm ' + scaledText(12, s) + '% mọi sát thương nhận vào. '
                 + 'Leo trèo: chân luôn bám vào địa hình, đi được lên vách và treo ngược dưới mỏm đá (phím phải giữ địa hình bên tay phải, phím trái bên tay trái); '
                 + 'khi đang bám vách hay treo ngược thì ngắm được mọi hướng, boomerang bay ra từ giữa thân. Chỉ rơi khi chỗ đang bám bị phá.';
         }},
         8: {name: 'Thợ săn ẩn nấp', detail: function (s) {
-            return 'Cứ mỗi 4 búa trúng đối thủ (búa thường hay búa POW đều tính, tiếng nổ lúc búa tách không tính), Apache tàng hình như khi dùng Tàng hình '
+            return 'Cứ mỗi 3 búa trúng đối thủ (búa thường hay búa POW đều tính, tiếng nổ lúc búa tách không tính), Apache tàng hình như khi dùng Tàng hình '
                 + 'và đi xa gấp đôi (mỗi bước 2 ô) cho tới khi bị mất máu: đối thủ không nhìn thấy Apache. Bị mất máu thì hiện hình, đi như thường '
-                + 'và đếm lại 4 búa từ đầu. Khi bắn POW, mỗi búa trúng đối thủ còn hồi cho Apache ' + scaledText(10, s) + '% máu tối đa.';
+                + 'và đếm lại 3 búa từ đầu. Phục kích: đang tàng hình thì mọi phát bắn của Apache mạnh hơn ' + scaledText(35, s) + '%. '
+                + 'Khi bắn POW, mỗi búa trúng đối thủ còn hồi cho Apache ' + scaledText(12, s) + '% máu tối đa.';
         }},
         9: {name: 'Người Ngoài Hành Tinh', detail: function (s) {
             return 'Khi tia laser POW của Magenta trúng đối thủ, một UFO phe Magenta được gọi tới lơ lửng trên đầu đối thủ đó (mỗi lúc chỉ một chiếc; '
@@ -442,17 +444,17 @@
     // Links with other characters, by character id: only the ones this character is part of.
     var PACT = {name: 'Khế Ước Rừng Xanh', with: 'Tarzan ↔ King Kong',
         need: 'Tarzan mặc đủ bộ +14 (King Kong không cần bộ).',
-        text: 'Ở hai phe: hai bên chỉ gây cho nhau một nửa sát thương. Cùng phe: cả hai gây thêm 20% và nhận ít hơn 10% sát thương khi cả hai còn sống (theo sức mạnh bộ của Tarzan).'};
+        text: 'Ở hai phe: hai bên chỉ gây cho nhau một nửa sát thương. Cùng phe: cả hai gây thêm 15% và nhận ít hơn 10% sát thương khi cả hai còn sống (theo sức mạnh bộ của Tarzan).'};
     var OUTSIDERS = {name: 'Kẻ Ngoại Lai', with: 'Chicky, Apache, Magenta',
         need: 'Cùng phe có ít nhất 2 nhân vật khác nhau trong nhóm; không cần bộ +14.',
-        text: 'Mỗi phát POW của họ có 25% gây sát thương chuẩn (bỏ qua phòng thủ, may mắn và nội tại giảm sát thương).'};
+        text: 'POW của họ bỏ qua 25% phòng thủ của đối thủ.'};
     var PRIVATES = {name: 'Liên Minh Binh Bét', with: 'Gunner, Miss 6, Electrician',
         need: 'Cùng phe có ít nhất 2 nhân vật khác nhau trong nhóm; không cần bộ +14.',
-        text: 'Cả đội nhận ít hơn 1% sát thương mỗi vòng (tối đa 30%); ai dưới 50% máu nhận ít hơn thêm 30%.'};
+        text: 'Cả đội nhận ít hơn 1% sát thương mỗi vòng (tối đa 10%); ai dưới 50% máu nhận ít hơn thêm 10%.'};
     var SCIENTISTS = {name: 'Nhà Khoa Học', with: 'Rocketer, Granos',
         need: 'Cùng phe có cả Rocketer và Granos; không cần bộ +14.',
-        text: 'Bắn thêm 1 viên đạn, kể cả POW (thêm 1 bom hạt nhân, thêm 1 quả lựu đạn laze). Nhà khoa học gục đầu tiên triệu hồi 1 T-rex phe mình '
-            + 'với máu bằng 100% máu tối đa và chỉ số của người đó, đánh như boss T-rex; người thứ hai gục thì không triệu hồi nữa.'};
+        text: 'Nhà khoa học gục đầu tiên triệu hồi 1 T-rex phe mình '
+            + 'với 30% máu tối đa và 60% sức tấn công của người đó (phòng thủ, may mắn như người đó), đánh như boss T-rex; người thứ hai gục thì không triệu hồi nữa.'};
     var LINKS = {0: [PRIVATES], 1: [PRIVATES], 2: [PRIVATES], 3: [PACT], 4: [SCIENTISTS], 5: [SCIENTISTS],
         6: [OUTSIDERS], 7: [PACT], 8: [OUTSIDERS], 9: [OUTSIDERS]};
 
@@ -466,7 +468,8 @@
             box.append(el('div', {className: 'link-item'}, [
                 el('p', {className: 'link-title'}, [el('b', {className: 'passive-name', text: link.name}), el('span', {className: 'link-with', text: ' · ' + link.with})]),
                 el('p', {className: 'passive-detail', text: link.text}),
-                el('p', {className: 'hint', text: 'Điều kiện: ' + link.need + ' Không có ở phòng Sát thương gốc' + (link === PACT ? '.' : ' và phòng đánh tự do.')})
+                el('p', {className: 'hint', text: 'Điều kiện: ' + link.need + ' Có ở luật Tự do và Cân bằng; không có ở luật Sát thương gốc'
+                    + (link === PACT ? '.' : ' và phòng đánh trùm (mọi người cùng một phe).')})
             ]));
         });
     }
@@ -495,8 +498,10 @@
             el('p', {className: 'hint', text: 'Kích hoạt khi mặc đủ súng, nón, áo, kính, balo cùng một bộ (1, 2, 3, 4, bạc hoặc vàng) và cả 5 món đều +14. '
                 + 'Trang phục (skin) mặc thêm không ảnh hưởng. Bộ càng cao nội tại càng mạnh. Không có tác dụng ở phòng luật Sát thương gốc.'}),
             el('p', {className: 'hint', text: 'Bộ +15/+16: khi nâng một món lên +15 bạn chọn hệ cho nó. Cả 5 món +15 trở lên cùng một hệ thì ngoài nội tại +14, '
-                + 'mỗi phát bắn trúng đối thủ có 10% (+16: 15%) gây hiệu ứng lên lượt kế của họ: '
-                + ELEMENTS.map(function (k) { return k.name + ': ' + k.text; }).join('; ') + '.'}),
+                + 'sát thương bạn gây cho đối thủ (kể cả UFO, trứng, laze, bom của bạn) được tích vào thanh hệ dưới thanh máu. Tích đủ '
+                + ELEMENT_CHARGE[0] + ' (+16: ' + ELEMENT_CHARGE[1] + ') thì phát bắn kế tiếp mang hiệu ứng lên mọi đối thủ trúng đạn; '
+                + 'bắn trúng hay trượt thì thanh cũng tích lại từ đầu, không có may rủi: '
+                + ELEMENTS.map(function (k) { return k.name + ' (' + k.effect + '): ' + k.text; }).join('; ') + '.'}),
             el('details', {className: 'passive-sets'}, [
                 el('summary', {text: 'Sức mạnh theo từng bộ'}),
                 el('div', {className: 'table-scroll'}, [el('table', {className: 'upgrade-table'}, [
@@ -807,12 +812,14 @@
         {id: 90, name: 'Bảo hiểm cao cấp', upTo: 16}
     ];
 
-    // Mirrors SetElement: the element a piece takes at +15; a full set of one element strikes with it.
+    // Mirrors SetElement: the element a piece takes at +15; a full set of one element charges with the damage its
+    // wearer deals, then strikes with his next shot (CHARGE).
+    var ELEMENT_CHARGE = [1800, 1400];
     var ELEMENTS = [
-        {id: 1, name: 'Lôi', text: 'tê liệt, đi chậm 30% và không ngắm thấp hơn 60°'},
-        {id: 2, name: 'Hỏa', text: 'bỏng, nhận thêm 15% sát thương (+16: 25%)'},
-        {id: 3, name: 'Băng', text: 'đóng băng, không di chuyển được'},
-        {id: 4, name: 'Độc', text: 'mất 3% máu tối đa mỗi lượt trong 2 lượt (+16: 5%)'}
+        {id: 1, name: 'Lôi', effect: 'Tê', text: '2 lượt kế của đối thủ đi ít hơn 50% (+16: 65%) và góc thấp nhất bị nâng lên 20°'},
+        {id: 2, name: 'Hỏa', effect: 'Thiêu', text: 'đầu 2 lượt kế đối thủ mất 3% (+16: 4%) máu tối đa, đang cháy thì tích nộ chậm hơn 50%'},
+        {id: 3, name: 'Băng', effect: 'Cóng', text: 'lượt kế đối thủ không đi được, và 2 lượt kế lực bắn giảm 12% (+16: 16%)'},
+        {id: 4, name: 'Độc', effect: 'Độc', text: '2 lượt kế đối thủ hồi máu ít hơn 40% (+16: 60%) và vật phẩm yếu đi 25% (+16: 35%)'}
     ];
 
     var ELEMENT_ICONS = {1: '⚡', 2: '🔥', 3: '❄', 4: '☠'};
@@ -821,7 +828,7 @@
     function elementBadge(item) {
         var kind = ELEMENTS.find(function (k) { return k.id === item.element; });
         if (!kind || (item.plus || 0) < 15) return null;
-        return el('span', {className: 'element-badge element-' + kind.id, title: 'Hệ ' + kind.name + ': ' + kind.text,
+        return el('span', {className: 'element-badge element-' + kind.id, title: 'Hệ ' + kind.name + ' (' + kind.effect + '): ' + kind.text,
             text: ELEMENT_ICONS[kind.id] + ' Hệ ' + kind.name});
     }
 

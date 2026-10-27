@@ -14,7 +14,9 @@ import mobiarmy.war.Boss.bullet.Bullet;
  * <p>The numbers come from duel simulations (scripts/sim/DuelSim.java): free rules, level 254, both sides in full
  * gold +14, bots from perfect to sloppy aim. The 10/2026 pass took Granos (holes) and Chicky down from 66-68% on
  * average and Rocketer and King Kong up from 30-35%; with Magenta's UFO and Apache's new hunt every character now
- * averages 44-54% (perfect aim still favours Apache, sloppy aim Granos and King Kong).
+ * averages 44-54% (perfect aim still favours Apache, sloppy aim Granos and King Kong). The 26/10/2026 pass (skilled
+ * bots, the VPS attack values) took Electrician down from 65% and Apache and Chicky up from 40%, gave Tarzan the
+ * boomerang that comes back instead of the pull, and toned the team passives down (SetTeam).
  * Passives are off in "Sát thương gốc" rooms, where gear does not count either.
  */
 public final class SetPassive {
@@ -40,7 +42,7 @@ public final class SetPassive {
      * Miss 6: every third hit ignores all defense and crits for this multiplier (percent, full strength); her Teleport
      * waits MISS6_TELEPORT fewer of her turns between uses than everyone else's.
      */
-    static final int MISS6_EVERY = 3, MISS6_CRIT = 150, MISS6_TELEPORT = 1;
+    static final int MISS6_EVERY = 3, MISS6_CRIT = 165, MISS6_TELEPORT = 1;
     /**
      * Rocketer "WorldWar": his POW fires no rockets but a flare the wind does not move (at any angle: the client lifts
      * his aim limit for it). Where it lands a bomber flies over and drops WORLDWAR_BOMBS nuclear bombs WORLDWAR_SPACING
@@ -68,27 +70,29 @@ public final class SetPassive {
      * whole team heal CHICKY_EGG_HEAL percent of that, and opponents within CHICKY_EGG_RADIUS lose CHICKY_EGG_DAMAGE
      * percent as true damage (full strength).
      */
-    static final int CHICKY_EGG_ROUNDS = 2, CHICKY_EGG_RADIUS = 50, CHICKY_EGG_HITS = 5;
-    static final int CHICKY_EGG_HEAL = 10, CHICKY_EGG_DAMAGE = 25;
+    static final int CHICKY_EGG_ROUNDS = 2, CHICKY_EGG_RADIUS = 50, CHICKY_EGG_HITS = 4;
+    static final int CHICKY_EGG_HEAL = 15, CHICKY_EGG_DAMAGE = 40;
+    /** Her chicken and its eggs hit CHICKY_DAMAGE percent harder (full strength; she won 38-47% of the duels without it). */
+    static final int CHICKY_DAMAGE = 12;
     /**
      * Tarzan "Khế Ước Rừng Xanh": he takes TARZAN_LESS percent less damage; his boomerang ignores the wind, blows up
      * TARZAN_RADIUS percent as wide and hits TARZAN_RETURN percent harder on its way back; he walks TARZAN_STEPS a turn
-     * instead of 60. His POW is a swinging kick: with a yell he
-     * kicks every opponent the POW boomerang hurt and who still stands TARZAN_KICK px away from the blast, flying over
-     * gaps and bumps until a wall stops him, then falling; one who falls off the map dies by Tarzan's hand. His pact
-     * with King Kong: a King Kong across the battle and he deal each other only half their damage, whatever the set; a
-     * King Kong on his side and he deal PACT_DAMAGE percent more and take PACT_LESS percent less while both stand.
+     * instead of 60, up walls and along ceilings (Climb). His POW "Vòng quanh thế giới": when its boomerang hurts an
+     * opponent it flies back to him with a yell (boomerangBack) and gives him back TARZAN_REFUND percent of the POW bar.
+     * His pact with King Kong: a King Kong across the battle and he deal each other only half their damage, whatever the
+     * set; a King Kong on his side and he deal PACT_DAMAGE percent more and take PACT_LESS percent less while both stand.
+     * (Until 26/10/2026 his POW pulled the opponents it hurt 60 px toward him instead.)
      */
-    public static final int TARZAN_LESS = 8, TARZAN_RADIUS = 150, TARZAN_RETURN = 20, TARZAN_STEPS = 120;
-    public static final int TARZAN_KICK = 60;
-    /** Tarzan pulls an opponent no closer than this to himself. */
-    public static final int TARZAN_PULL_GAP = 20;
-    /** A kicked player flies over a bump up to KICK_CLIMB px high per px forward; anything steeper is a wall. */
-    static final int KICK_CLIMB = 12;
-    /** Time the clients take to play the kick (ms), and the yell they show over Tarzan. */
-    public static final int KICK_TIME = 900;
+    public static final int TARZAN_LESS = 12, TARZAN_RADIUS = 150, TARZAN_RETURN = 20, TARZAN_STEPS = 120;
+    public static final int TARZAN_REFUND = 60;
+    /** Time the clients take to fly the boomerang back to Tarzan (ms), and the yell they show over him. */
+    public static final int BOOMERANG_TIME = 700;
     public static final String TARZAN_YELL = "Ô-ô-ô-ô-ô!";
-    static final int PACT_DAMAGE = 20, PACT_LESS = 10;
+    /** A knocked player flies over a bump up to KICK_CLIMB px high per px forward; anything steeper is a wall. */
+    static final int KICK_CLIMB = 12;
+    /** Time the clients take to play the knock (ms). */
+    public static final int KICK_TIME = 900;
+    static final int PACT_DAMAGE = 15, PACT_LESS = 10; // (20 put the pair at 63% of the 2v2 duels on 26/10/2026)
     /** Steps a turn without Tarzan's passive (Player.theluc). */
     static final int STEPS = 60;
     /**
@@ -100,18 +104,19 @@ public final class SetPassive {
      * at full size (powDamage); they dig no ground (holeScale 0).
      */
     static final int KINGKONG_GROW = 25, KINGKONG_BIGGEST = 300, KINGKONG_ROUNDS = (KINGKONG_BIGGEST - 100) / KINGKONG_GROW;
-    static final int KINGKONG_LESS = 20, KINGKONG_HP = 20, KINGKONG_POW = 30;
+    static final int KINGKONG_LESS = 25, KINGKONG_HP = 20, KINGKONG_POW = 30;
     /** King Kong's usual bananas shrink as he grows: KINGKONG_SHRINK percent smaller (and their holes) at full size. */
     static final int KINGKONG_SHRINK = 50;
     /**
-     * Electrician: his bolts are ELECTRICIAN_BIG percent of their size, blast and hole (full strength). An opponent hit
+     * Electrician: his bolts are ELECTRICIAN_BIG percent of their size, blast and hole (full strength; 115 until 26/10/2026,
+     * when duels put him at 65%: now their usual size). An opponent hit
      * in one shot by ELECTRICIAN_STUN_BOLTS of them takes that shot as true damage (boltsTrue). Hit by one, on his next
      * turn he walks ELECTRICIAN_SLOW percent less; by ELECTRICIAN_LOCK_BOLTS or more, ELECTRICIAN_LOCK_SLOW percent less
      * (full strength); either way his lowest aim is ELECTRICIAN_RAISE degrees higher (status message 114 tells the
      * clients; the server holds him to it: steps, shockedAngle).
      */
-    static final int ELECTRICIAN_STUN_BOLTS = 3, ELECTRICIAN_LOCK_BOLTS = 2, ELECTRICIAN_BIG = 115, ELECTRICIAN_SLOW = 30, ELECTRICIAN_LOCK_SLOW = 70;
-    public static final int ELECTRICIAN_RAISE = 30;
+    static final int ELECTRICIAN_STUN_BOLTS = 3, ELECTRICIAN_LOCK_BOLTS = 2, ELECTRICIAN_BIG = 100, ELECTRICIAN_SLOW = 30, ELECTRICIAN_LOCK_SLOW = 70;
+    public static final int ELECTRICIAN_RAISE = 20; // (30 and bolts of 115% put him at 65% in duels on 26/10/2026)
     /**
      * Granos "Người Gieo Laze": his own grenades dig GRANOS_HOLE percent wide holes (full strength), and his POW fires
      * one seed instead of them, at any angle and without wind, like Rocketer's flare (Boss.bullet.GranosSeed). Where it
@@ -129,8 +134,11 @@ public final class SetPassive {
      * Apache "Thợ săn ẩn nấp": every APACHE_HIDE_HAMMERS of his hammers that hurt an opponent (counted while he is
      * seen) hide him from opponents (as with the invisibility item) and let him walk twice as far, until he loses HP
      * again; each hammer of his POW that hits an opponent heals him APACHE_HEAL_PERCENT of his max HP (full strength).
+     * (4 hammers and 10% until 26/10/2026, when he won 41% of the duels; the ambush came then too.)
      */
-    static final int APACHE = 8, APACHE_HIDE_HAMMERS = 4, APACHE_HEAL_PERCENT = 10;
+    static final int APACHE = 8, APACHE_HIDE_HAMMERS = 3, APACHE_HEAL_PERCENT = 12;
+    /** Apache's ambush: his shots fired while his hunt hides him hit APACHE_AMBUSH percent harder (full strength). */
+    static final int APACHE_AMBUSH = 35;
     /** King Kong: after this many rounds stood still the ground under him cannot be dug until he moves. */
     static final int KINGKONG_ROCK_ROUNDS = 2;
 
@@ -197,6 +205,7 @@ public final class SetPassive {
         shooter.cannonRecoil = 0;
         shooter.huntHammers.clear();
         shooter.kicks.clear();
+        shooter.boomerangAt = null;
         shooter.eggsLanded.clear();
         shooter.lastEggTarget = null;
         shooter.dealtBeforeShot = shooter.statDealt;
@@ -248,7 +257,7 @@ public final class SetPassive {
      */
     public static void afterShot(Player shooter) {
         if (shooter.setTier != 0 && shooter.passiveHit) shooter.passiveHits++;
-        shooter.outsiderTrue = false;
+        shooter.outsiderPierce = false;
         shooter.passiveTrueShot = false;
         if (shooter.headGuideShots > 0) shooter.headGuideShots--;
         if (shooter.setTier == 0) return;
@@ -307,44 +316,53 @@ public final class SetPassive {
             }
         }
         shooter.huntHammers.clear();
+        boomerangBack(shooter);
     }
 
     /**
-     * Tarzan's POW boomerang (bullet 21) or Gunner's cannonball (bullet 0) hurt an opponent: kicked (knocked away) once
-     * the damage is in, away from this blast.
+     * After Tarzan's POW, "Vòng quanh thế giới": when its boomerang hurt an opponent it flies back to him (the clients
+     * play it) and gives him back TARZAN_REFUND percent of the POW bar. The POW is spent then, so the next turn keeps
+     * what came back (MapData empties the bar of a POW only at the next turn).
+     */
+    static void boomerangBack(Player tarzan) {
+        int[] at = tarzan.boomerangAt;
+        tarzan.boomerangAt = null;
+        if (at == null || tarzan.isDie || !tarzan.isPow) return;
+        MapData map = tarzan.mapData;
+        map.boomerangBack(tarzan, at[0], at[1]);
+        tarzan.isPow = false;
+        tarzan.angry = Math.min(100, scaled(tarzan, TARZAN_REFUND));
+        map.updateAngry(tarzan.index, tarzan.angry);
+    }
+
+    /**
+     * A bullet of the shooter's hurt an opponent: Gunner's POW cannonball (bullet 0) knocks him away once the damage is
+     * in, away from this blast; Tarzan's POW boomerang (bullet 21) flies back to Tarzan from the first it hurts.
      */
     static void kickHit(Player shooter, Player target, Bullet bullet) {
-        boolean tarzan = shooter != null && shooter.glassID == TARZAN && bullet.bulletId == 21;
-        boolean gunner = cannon(shooter) && bullet.bulletId == 0;
-        if (shooter == null || shooter.setTier == 0 || !shooter.isPow || !(tarzan || gunner)
-                || target.typePlayer != 0 || !enemies(shooter, target)) return;
-        shooter.kicks.putIfAbsent(target, bullet.bX);
+        if (shooter == null || shooter.setTier == 0 || !shooter.isPow || target.typePlayer != 0 || !enemies(shooter, target)) return;
+        if (cannon(shooter) && bullet.bulletId == 0) shooter.kicks.putIfAbsent(target, bullet.bX);
+        if (shooter.glassID == TARZAN && bullet.bulletId == 21 && shooter.boomerangAt == null) {
+            shooter.boomerangAt = new int[] {bullet.bX, bullet.bY};
+        }
     }
 
     /**
-     * Right after the damage of a shot (MapData.updateAffect): Tarzan's pull and Gunner's knock. With a yell Tarzan
-     * pulls every opponent his POW boomerang hurt and who still stands TARZAN_KICK px toward himself (never past
-     * TARZAN_PULL_GAP px from him); Gunner's cannonball knocks them GUNNER_KNOCK px away from its blast. One who falls
-     * off the map dies by the shooter's hand, before the shot's experience is counted.
+     * Right after the damage of a shot (MapData.updateAffect): Gunner's cannonball knocks every opponent it hurt
+     * GUNNER_KNOCK px away from its blast. One who falls off the map dies by Gunner's hand, before the shot's
+     * experience is counted.
      */
     static void kick(Player shooter) {
         if (shooter == null || shooter.kicks.isEmpty()) return;
         MapData map = shooter.mapData;
-        int dist = scaled(shooter, shooter.glassID == GUNNER ? GUNNER_KNOCK : TARZAN_KICK);
+        int dist = scaled(shooter, GUNNER_KNOCK);
         java.util.List<Player> kicked = new java.util.ArrayList<>();
         for (java.util.Map.Entry<Player, Integer> hit : shooter.kicks.entrySet()) {
             Player target = hit.getKey();
             if (target.isDie || target.isFly) continue;
-            int dir, far = dist;
-            if (shooter.glassID == TARZAN) {
-                dir = Integer.signum(shooter.x - target.x); // toward Tarzan
-                far = Math.min(dist, Math.abs(shooter.x - target.x) - TARZAN_PULL_GAP);
-                if (dir == 0 || far <= 0) continue; // already next to him
-            } else {
-                dir = Integer.signum(target.x - hit.getValue());
-                if (dir == 0) dir = target.x < shooter.x ? -1 : 1; // hit dead centre: away from the shooter
-            }
-            int[] spot = kickSpot(map, target.x, target.y, dir, far);
+            int dir = Integer.signum(target.x - hit.getValue());
+            if (dir == 0) dir = target.x < shooter.x ? -1 : 1; // hit dead centre: away from the shooter
+            int[] spot = kickSpot(map, target.x, target.y, dir, dist);
             if (spot[0] == target.x && spot[1] == target.y) continue;
             target.x = (short) spot[0];
             target.y = (short) spot[1];
@@ -460,8 +478,8 @@ public final class SetPassive {
         return percent;
     }
 
-    /** Damage of one explosion on target after the shooter's passive. */
-    static int dealt(Player shooter, Player target, int att) {
+    /** Damage of one explosion (of this bullet) on target after the shooter's passive. */
+    static int dealt(Player shooter, Player target, int att, int bulletId) {
         if (shooter != null && shooter.hiddenAtt > 0 && att > 0) att += att * shooter.hiddenAtt / 100;
         if (shooter == null || att <= 0) return att;
         if (pactFoes(shooter, target)) att /= 2;
@@ -470,6 +488,8 @@ public final class SetPassive {
         if (shooter.setTier == 0) return att;
         int bonus = switch (shooter.glassID) {
             case GUNNER -> shooter.isPow ? GUNNER_POW_DAMAGE - 100 : 0;
+            case APACHE -> shooter.huntHidden ? APACHE_AMBUSH : 0; // his ambush, from hiding
+            case CHICKY -> bulletId == 19 || bulletId == 20 ? CHICKY_DAMAGE : 0; // her chicken and its eggs
             default -> 0;
         };
         return att + att * scaled(shooter, bonus) / 100;
@@ -638,7 +658,6 @@ public final class SetPassive {
     /** Damage the target takes after its own passive. */
     static int taken(Player target, int damage) {
         if (damage <= 0) return damage;
-        damage = SetElement.taken(target, damage); // burning: more
         Player pact = pactAlly(target);
         if (pact != null) damage -= damage * scaled(pact, PACT_LESS) / 100;
         damage = SetTeam.taken(target, damage); // the Privates' side: less a round, less below half HP

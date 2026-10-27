@@ -29,6 +29,9 @@ public class KeyboardControlsCheck extends MainGame {
         checks++;
         System.out.println("PASS " + label);
     }
+    /** A field of the bullet manager the game keeps to itself. */
+    static Object bmField(Object o, String name) throws Exception { Field f=o.getClass().getDeclaredField(name); f.setAccessible(true); return f.get(o); }
+    static void bmSet(Object o, String name, Object value) throws Exception { Field f=o.getClass().getDeclaredField(name); f.setAccessible(true); f.set(o,value); }
     /** Message 114 for these player indexes, none poisoned or stunned; hidden >= 0 adds the build 5 list naming it. */
     static network.Message status(int[] players,int hidden) throws Exception {
         java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
@@ -85,8 +88,10 @@ public class KeyboardControlsCheck extends MainGame {
             reset(); input.keyDown(Keys.W); input.keyDown(Keys.S); repeat();
             check(player.angle==46,"opposing aim cancels");
             input.keyUp(Keys.S); repeat(); check(player.angle==47,"remaining aim resumes");
-            reset(); player.look=0; input.keyDown(Keys.W); repeat(); check(player.angle==43,"left facing aim");
-            reset(); player.angle=270; input.keyDown(Keys.W); repeat(); check(player.angle==270,"upper angle bound");
+            reset(); player.look=0; player.angle=135; input.keyDown(Keys.W); repeat(); check(player.angle==133,"left facing aim");
+            // Build 12: no further up than straight up, either way (past it the gun pointed behind him).
+            reset(); player.angle=90; input.keyDown(Keys.W); repeat(); check(player.angle==90,"upper angle bound facing right");
+            reset(); player.look=0; player.angle=90; input.keyDown(Keys.W); repeat(); check(player.angle==90,"upper angle bound facing left");
             reset(); player.angle=0; input.keyDown(Keys.S); repeat(); check(player.angle==0,"lower angle bound at a 0 gun limit");
             reset(); CPlayer.angleLock[0]=-45; player.angle=0; input.keyDown(Keys.S); check(player.angle==-1,"aim below horizontal");
             input.keyUp(Keys.S); reset(); player.angle=-45; input.keyDown(Keys.S); repeat();
@@ -321,6 +326,29 @@ public class KeyboardControlsCheck extends MainGame {
              check(player.teleportCooldown==2 && foe.teleportCooldown==0 && player.itemCooling(item.Item.ITEM_TELEPORT),"and whose Teleport waits");
              check(map.MM.mapScale==3 && CPlayer.climb()==12,"and the map scale: walkers climb 12 px steps");
              map.MM.mapScale=2;}
+            // Build 14: Tarzan's POW boomerang flies back to him (message -127); nothing waits for it.
+            {java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+             out.writeByte(0); out.writeShort(300); out.writeShort(90);
+             network.Session_ME.receiveSynchronized=0;
+             network.MessageHandler.gI().onMessage(new network.Message((byte)-127,bytes.toByteArray()));
+             check(player.boomerangFlying() && network.Session_ME.receiveSynchronized==0,"message -127 flies the boomerang back to the player it names; nothing waits");
+             for(int i=0;i<40;i++) player.update();
+             check(!player.boomerangFlying(),"then it is back in his hand");}
+            // Build 14, status 114's last lists: who the elements strike (4: chilled) and whose element charges how far,
+            // with the force the ice takes off his shots this turn.
+            {java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
+             out.writeByte(2); out.writeByte(0); out.writeBoolean(false); out.writeBoolean(false); out.writeByte(1); out.writeBoolean(false); out.writeBoolean(false);
+             out.writeByte(0); out.writeByte(0); out.writeByte(0);      // nobody hidden, no set tiers, nobody running
+             out.writeByte(0); out.writeByte(0); out.writeByte(2);      // nobody grown, nothing cooling, maps 2 times bigger
+             out.writeByte(0);                                          // nobody shocked
+             out.writeByte(1); out.writeByte(1); out.writeByte(4);      // the foe chilled
+             out.writeByte(2);
+             out.writeByte(0); out.writeByte(2); out.writeByte(100); out.writeByte(0); // my fire charged
+             out.writeByte(1); out.writeByte(0); out.writeByte(0); out.writeByte(12);  // the foe's shots 12% weaker
+             network.MessageHandler.gI().onMessage(new network.Message((byte)114,bytes.toByteArray()));
+             check(player.elementOwn==2 && player.elementCharge==100 && player.chillNow==0,"status 114: my fire is charged for my next shot");
+             check(foe.elementOwn==0 && foe.chillNow==12 && (foe.elementFlags&4)!=0,"the foe is chilled, 12% less force");
+             player.elementOwn=0; player.elementCharge=0; foe.chillNow=0; foe.elementFlags=0;}
             {byte gun=player.gun; player.gun=CPlayer.GUN_CHUOI; player.bodyPercent=120; // (the foe above is dead by now)
              check(Math.abs(player.grownScale()-1.2f)<0.001f && player.grownLift()==6,"King Kong at 120% is drawn 1.2 times bigger, his HP bar 6 px higher");
              player.bodyPercent=300;
@@ -344,8 +372,8 @@ public class KeyboardControlsCheck extends MainGame {
              PM.curP=(byte)GameScr.myIndex; CPlayer.isShooting=true; shown.setBoolean(clock,true); model.CTime.seconds=1; last.setLong(clock,0L); sent.clear(); clock.update();
              check(sent.isEmpty(),"my shot still flying: the shot ends the turn, nothing sent");
              CPlayer.isShooting=false; PM.curP=turn; CCanvas.curScr=(CScreen)scr; CCanvas.gameScr=gameBeforeClock; GameScr.time=before; player.active=true;}
-            // Electrician's shock (status 114's last list): slowed, fewer steps and no aim below 60 even with "g";
-            // locked, no steps and the angle stays where it was.
+            // Electrician's shock (status 114's last list): slowed, fewer steps and no aim below his own lowest raised by
+            // SHOCK_RAISE (build 12, it was 60 for all) even with "g"; locked, no steps and the angle stays where it was.
             {int angleBefore=player.angle; byte lookBefore=(byte)player.look;
              for (int level : new int[]{1, 2, 0}) {
                  java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream(); java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);
@@ -354,9 +382,10 @@ public class KeyboardControlsCheck extends MainGame {
                  if (level > 0) { out.writeByte(1); out.writeByte(0); out.writeByte(level); out.writeByte(level == 1 ? 42 : 0); } else out.writeByte(0);
                  network.MessageHandler.gI().onMessage(new network.Message((byte)114,bytes.toByteArray()));
                  if (level == 1) {
-                     check(player.paralyzed==1 && player.maxMovePoint()==42 && player.angleLimit()>=60,"slowed: 42 steps, no aim below 60");
+                     int lowest=CPlayer.angleLock[player.gun]+CPlayer.SHOCK_RAISE;
+                     check(player.paralyzed==1 && player.maxMovePoint()==42 && player.angleLimit()==lowest,"slowed: 42 steps, no aim below "+lowest);
                      player.look=2;
-                     check("Góc: 60".equals(GameScr.applyAngleCommand("g 30",player)) && player.angle==60,"g 30 gives 60 while slowed");
+                     check(("Góc: "+lowest).equals(GameScr.applyAngleCommand("g "+(lowest-20),player)) && player.angle==lowest,"g "+(lowest-20)+" gives "+lowest+" while slowed");
                      player.movePoint=21;
                      check(GameScr.walkBarFill(player)==30,"half of 42 steps walked: the bar half full");
                  } else if (level == 2) {
@@ -422,6 +451,49 @@ public class KeyboardControlsCheck extends MainGame {
              piece.aMap=null; Field asked=map.MM.class.getDeclaredField("groundAskedAt"); asked.setAccessible(true); asked.setLong(null,0L);
              check(map.MM.groundReady(),"a piece that never comes holds nobody up for good");
              map.MM.maps.removeElement(piece); map.MM.mapHeight=height; map.MM.mapID=mapId; GameScr.mm=mmBefore; reset(); sent.clear();}
+            // Miss 6's and Electrician's POW: the server sends 5 and 6 paths where the game expected 6 and 7. It read past
+            // them, gave the shot up with its late bullets still pending, and a later shot never ended: the next player
+            // could not act for his whole turn (BM.active). The paths now say how many bullets there are, a shot starts
+            // clean, and a shot with nothing left in the air or to come ends.
+            {item.BM bmBefore=GameScr.bm; effect.SmokeManager smBefore=GameScr.sm; map.MM mmBefore=GameScr.mm; byte curBefore=PM.curP;
+             java.io.PrintStream errBefore=System.err; java.io.ByteArrayOutputStream errs=new java.io.ByteArrayOutputStream();
+             try {
+              System.setErr(new java.io.PrintStream(errs,true));
+              GameScr.sm=new effect.SmokeManager(); if(GameScr.mm==null) GameScr.mm=new map.MM(); PM.curP=0; sent.clear();
+              for(int i=0;i<Equipment.PlayerEquip.bullets.length;i++) if(Equipment.PlayerEquip.bullets[i]==null) { // the bullet sheets come with a match
+                  com.badlogic.gdx.graphics.Pixmap sheet=new com.badlogic.gdx.graphics.Pixmap(16,256,com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+                  sheet.setColor(1,0,0,1); sheet.fill(); Image bulletSheet=new Image(); bulletSheet.texture=new com.badlogic.gdx.graphics.Texture(sheet);
+                  bulletSheet.width=16; bulletSheet.height=256; Equipment.PlayerEquip.bullets[i]=new mImage(bulletSheet);
+              }
+              for(int i=0;i<map.CMap.holeIMask.length;i++) if(map.CMap.holeIMask[i]==null) { // and the hole masks
+                  com.badlogic.gdx.graphics.Pixmap hole=new com.badlogic.gdx.graphics.Pixmap(16,16,com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+                  hole.setColor(1,0,0,1); hole.fill(); Image mask=new Image(); mask.texture=new com.badlogic.gdx.graphics.Texture(hole);
+                  mask.width=16; mask.height=16; map.CMap.holeIMask[i]=new mImage(mask);
+              }
+              for(int[] shot:new int[][]{{1,1,5},{1,0,2},{2,1,6},{2,0,3}}) { // {type, POW, paths the server sends}
+                  GameScr.bm=new item.BM(); item.BM bm=GameScr.bm;
+                  for(int c=0;c<2;c++) bm.frameBulletSpecial[2][c]=new model.FrameImage(Equipment.PlayerEquip.bullets[2].image,20,20); // (onInitSpecialBullet)
+                  short[][] xs=new short[shot[2]][], ys=new short[shot[2]][];
+                  for(int i=0;i<shot[2];i++){xs[i]=new short[]{(short)(100+i),(short)(101+i),(short)(102+i)}; ys[i]=new short[]{60,61,62};}
+                  bm.setBullType((byte)shot[1],(byte)0,(byte)shot[0],xs,ys,(byte)1,(byte)0,null,null,0);
+                  int frames=0; while(item.BM.active && frames<600){bm.update(); frames++;}
+                  check(!item.BM.active && (Integer)bmField(bm,"bIndex")==shot[2] && !errs.toString().contains("Exception"),
+                          (shot[0]==1?"Miss 6":"Electrician")+(shot[1]==1?"'s POW":"")+" fires the "+shot[2]+" bullets the server sent and the shot ends ("+frames+" frames)");
+              }
+              GameScr.bm=new item.BM(); item.BM bm=GameScr.bm;
+              bmSet(bm,"isEndDelayBull",false); bmSet(bm,"nDelayBull",2); bmSet(bm,"delayBullCound",(byte)0); // as a shot given up on left them
+              short[][] one={{200,201,202}}, oneY={{60,61,62}};
+              bm.setBullType((byte)0,(byte)0,(byte)0,one,oneY,(byte)1,(byte)0,null,null,0);
+              int frames=0; while(item.BM.active && frames<600){bm.update(); frames++;}
+              check(!item.BM.active && (Integer)bmField(bm,"bIndex")==1 && !errs.toString().contains("Exception"),"a shot after one given up on starts clean and ends ("+frames+" frames)");
+              item.BM.active=true; bmSet(bm,"numShoot",(byte)0); frames=0; // a shot whose count went wrong, nothing left of it
+              while(item.BM.active && frames<600){bm.update(); frames++;}
+              check(!item.BM.active && frames>100 && frames<=125,"a shot with nothing left in the air or to come ends by itself ("+frames+" frames)");
+             } finally {
+              System.setErr(errBefore);
+              if(errs.size()>0) System.out.println("(stderr during the shots: "+errs.toString().trim().replace('\n',' ')+")");
+              GameScr.bm=bmBefore; GameScr.sm=smBefore; GameScr.mm=mmBefore; PM.curP=curBefore; item.BM.active=false; sent.clear(); reset();
+             }}
             CCanvas.gameScr=gameBefore;
             PM.p=new CPlayer[]{player};
             System.out.println("KEYBOARD CHECKS PASSED: " + checks);

@@ -17,7 +17,8 @@ public class ScienceTrex extends Boss {
     static final int BOSS_ATT = 750, STOMP = 1200, ROCKET = 750, LASER = 300;
 
     public ScienceTrex(Player scientist, int x, int y) {
-        super("T-rex", (byte) 15, Math.max(1, scientist.hpMax), scientist.att, scientist.def, scientist.luck, 0, 45, 50, x, y);
+        super("T-rex", (byte) 15, Math.max(1, scientist.hpMax * mobiarmy.war.SetTeam.SCIENTIST_TREX_HP / 100),
+                Math.max(1, scientist.att * mobiarmy.war.SetTeam.SCIENTIST_TREX_ATT / 100), scientist.def, scientist.luck, 0, 45, 50, x, y);
         super.isBoss = false;
         super.isTurn = true;
         super.team = scientist.team;

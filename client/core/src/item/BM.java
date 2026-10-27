@@ -46,6 +46,15 @@ public class BM {
    static boolean isActive4Missile;
    static boolean isActiveMissileRain;
    public int nBull;
+   /**
+    * LAN: how many paths the server sent for this shot (createShootInfo): it, not the game's own count, says how many
+    * bullets Miss 6, Electrician, Rocketer and Granos fire. The game expected one more for the POW of the first two
+    * and read past the paths; Rocketer and Granos with a Scientist (SetTeam) get one more than it drew.
+    */
+   int shotPaths;
+   /** LAN: frames a shot has had nothing left in the air nor to come (update ends it after IDLE_LIMIT). */
+   int idleFrames;
+   static final int IDLE_LIMIT = 120;
    static int nArray;
    public static int nBum;
    public static int[] bumX;
@@ -146,6 +155,13 @@ public class BM {
       this.heroPowShot = PM.p != null && whoShot >= 0 && whoShot < PM.p.length
               && PM.p[whoShot] != null && PM.p[whoShot].itemUsed == 100;
       BM.force2 = force2;
+      // LAN: a shot starts clean. One the game gave up on (reading past the server's paths, see shotPaths) left its
+      // late bullets pending: they came out of the next shots, which then never ended, nobody able to act.
+      this.bullets.removeAllElements();
+      this.isEndDelayBull = true;
+      this.nDelayBull = 0;
+      this.nBull = 0;
+      this.idleFrames = 0;
       active = true;
       this.numShoot = nShoot;
       if (this.numShoot == 2) {
@@ -176,6 +192,7 @@ public class BM {
          bumY_Last[i] = -1;
       }
 
+      this.shotPaths = this.xPaint == null ? 0 : (this.xPaint.length - this.bIndex) / Math.max(1, this.numShoot);
       this.createBullet(this.type);
       boolean isFocusCAM = true;
       int camIndex = 0;
@@ -191,17 +208,11 @@ public class BM {
       case 1:
          this.delayBullType = 5;
          this.isEndDelayBull = false;
-         this.nBull = this.critical == 0 ? 2 : 6;
+         this.nBull = this.shotPaths; // (the game had 2, or 6 for the POW; the server sends 5)
          break;
       case 2:
          camIndex = 1;
-         if (this.critical == 0) {
-            this.nBull = 3;
-         }
-
-         if (this.critical == 1) {
-            this.nBull = 7;
-         }
+         this.nBull = this.shotPaths; // (the game had 3, or 7 for the POW; the server sends 6)
       case 3:
       case 12:
       case 15:
@@ -254,13 +265,13 @@ public class BM {
          if (this.critical == 0 || this.critical == 1) {
             this.delayBullType = 3;
             this.isEndDelayBull = false;
-            this.nBull = 3;
+            this.nBull = this.shotPaths; // (3, a Scientist's one more: SetTeam)
          }
          break;
       case 11:
          this.delayBullType = 5;
          this.isEndDelayBull = false;
-         this.nBull = 5;
+         this.nBull = this.shotPaths; // (5, a Scientist's one more)
          break;
       case 13:
          this.nBull = 1;
@@ -366,6 +377,10 @@ public class BM {
    private void createBullet(byte Type) {
       int var10000 = this.nBull * (this.nWasShoot - 1);
       int i;
+      if ((Type == 1 || Type == 10 || Type == 11) && (this.xPaint == null || this.bIndex >= this.xPaint.length)) {
+         return; // LAN: no path left for it (shotPaths)
+      }
+
       switch(Type) {
       case 0:
          Bullet b = new Bullet(Type, this.xPaint[this.bIndex], this.yPaint[this.bIndex], this.whoShot, this.idBullet);
@@ -377,13 +392,13 @@ public class BM {
          ++this.bIndex;
          break;
       case 2:
-         int m = this.critical == 0 ? 3 : 7;
+         int m = this.shotPaths; // (the game had 3, or 7 for the POW, and went on by 3 either way)
 
          for(i = 0; i < m; ++i) {
             this.bullets.addElement(new Bullet(Type, this.xPaint[i + this.bIndex], this.yPaint[i + this.bIndex], this.whoShot, this.idBullet));
          }
 
-         this.bIndex += 3;
+         this.bIndex += m;
          break;
       case 3:
          this.bullets.addElement(new Bullet(Type, this.xPaint[1], this.yPaint[1], this.whoShot));
@@ -779,6 +794,19 @@ public class BM {
                activeUFOLazer = false;
             }
          }
+
+         // LAN: a shot with nothing left in the air nor to come is over, whatever its count says (one whose count
+         // the server's paths did not match kept the next player from acting for his whole turn).
+         if (active && this.bullets.size() == 0 && this.numShoot <= 0 && this.isEndDelayBull && !isActiveAirFly
+                 && !isActiveLazer && !isAciveExplore && !isActiveEgg && !isActiveMeteor && !isActive4Missile
+                 && !isActiveMissileRain && !activeUFOLazer) {
+            if (++this.idleFrames > IDLE_LIMIT) {
+               CRes.out("END SHOOT: nothing left of the shot");
+               this.endShoot();
+            }
+         } else {
+            this.idleFrames = 0;
+         }
       } catch (Exception var4) {
          var4.printStackTrace();
          this.endShoot();
@@ -913,6 +941,9 @@ public class BM {
       active = false;
       this.nBull = 0;
       this.numShoot = 0;
+      this.isEndDelayBull = true; // (its late bullets stop with it)
+      this.nDelayBull = 0;
+      this.idleFrames = 0;
       this.endShoot = true;
       CPlayer.isStopFire = false;
        if (GameScr.trainingMode) {

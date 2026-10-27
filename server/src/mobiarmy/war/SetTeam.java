@@ -4,16 +4,19 @@ import mobiarmy.war.Boss.ScienceTrex;
 
 /**
  * Team passives: a side with at least TEAM_NEED different characters of one group gets its passive, whatever their
- * gear (MapData.startGame). Not in free-for-all rooms (no sides) nor in "Sát thương gốc" rooms.
+ * gear (MapData.startGame), under the "Tự do" and "Cân bằng" rules; not under "Sát thương gốc", nor in boss rooms
+ * (everyone on side 3: no sides).
  *
  * <ul>
- * <li>"Kẻ Ngoại Lai" (OUTSIDER: Chicky, Apache, Magenta): each of their POWs has OUTSIDER_TRUE percent chance to deal
- * true damage (no defense, no luck, no passive taking damage off).
+ * <li>"Kẻ Ngoại Lai" (OUTSIDER: Chicky, Apache, Magenta): their POWs go through OUTSIDER_PIERCE percent of the
+ * opponents' defense (until 26/10/2026 a 25 percent chance of true damage).
  * <li>"Liên Minh Binh Bét" (PRIVATES: Gunner, Miss 6, Electrician): the whole side takes PRIVATES_ROUND percent less
  * damage a round, up to PRIVATES_MOST, and PRIVATES_LOW percent less below half HP.
- * <li>"Nhà Khoa Học" (SCIENTISTS: Rocketer, Granos): they fire one more bullet, POW too (one more WorldWar bomb, one more
- * laser grenade); the first of them to fall calls a T-rex on the side (Boss.ScienceTrex) with his max HP, attack,
- * defense and luck, which fights like the boss T-rex. The second to fall calls none.
+ * <li>"Nhà Khoa Học" (SCIENTISTS: Rocketer, Granos): the first of them to fall calls a T-rex on the side
+ * (Boss.ScienceTrex) with SCIENTIST_TREX_HP percent of his max HP, SCIENTIST_TREX_ATT percent of his attack, his
+ * defense and luck, which fights like the boss T-rex. The second to fall calls none. They fire SCIENTIST_EXTRA more
+ * bullets, POW too (one more rocket,
+ * WorldWar bomb, laser grenade each until 26/10/2026, when the pair won 80% of the duo duels: now none).
  * </ul>
  */
 public final class SetTeam {
@@ -27,9 +30,18 @@ public final class SetTeam {
     static final int[] FLAGS = {OUTSIDER, PRIVATES, SCIENTISTS};
     public static final String[] NAMES = {"Kẻ Ngoại Lai", "Liên Minh Binh Bét", "Nhà Khoa Học"};
 
-    public static final int OUTSIDER_TRUE = 25;
-    public static final int PRIVATES_ROUND = 1, PRIVATES_MOST = 30, PRIVATES_LOW = 30;
-    public static final int SCIENTIST_EXTRA = 1;
+    /**
+     * An Outsider's POW goes through OUTSIDER_PIERCE percent of his opponents' defense. (True damage, every POW or
+     * every other, or half the defense put the group at 62-64% of the 2v2 duels on 26/10/2026, 49% without it.)
+     */
+    public static final int OUTSIDER_PIERCE = 25;
+    public static final int PRIVATES_ROUND = 1, PRIVATES_MOST = 10, PRIVATES_LOW = 10;
+    public static final int SCIENTIST_EXTRA = 0;
+    /**
+     * The Scientists' T-rex has these percents of the fallen Scientist's max HP and attack (100 and 100 until 26/10/2026,
+     * when the pair won 80% of the 2v2 duels; 50 and 100, 50 and 60 still 61-62%, 47% without the T-rex).
+     */
+    public static final int SCIENTIST_TREX_HP = 30, SCIENTIST_TREX_ATT = 60;
 
     private SetTeam() {
     }
@@ -63,10 +75,14 @@ public final class SetTeam {
         return false;
     }
 
-    /** Before a shot: an Outsider's POW rolls for true damage. */
+    /** Before a shot: an Outsider's POW pierces his opponents' defense (pierced). */
     static void beforeShot(Player shooter) {
-        shooter.outsiderTrue = shooter.isPow && has(shooter, OUTSIDER) && inGroup(shooter, OUTSIDER)
-                && mobiarmy.Util.nextInt(100) < OUTSIDER_TRUE;
+        shooter.outsiderPierce = shooter.isPow && has(shooter, OUTSIDER) && inGroup(shooter, OUTSIDER);
+    }
+
+    /** The defense target puts up against the shooter's shot: OUTSIDER_PIERCE percent less against an Outsider's POW. */
+    static int pierced(Player shooter, Player target, int def) {
+        return shooter != null && shooter.outsiderPierce && SetPassive.enemies(shooter, target) ? def * (100 - OUTSIDER_PIERCE) / 100 : def;
     }
 
     /** One more bullet for a Scientist's shots (Gun: Rocketer's rockets, Granos's grenades). */

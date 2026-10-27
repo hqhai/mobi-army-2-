@@ -2,6 +2,21 @@
 
 Tài liệu tổng hợp từ code ở commit `9ad6a0e` (25/10/2026). Mọi con số lấy từ `server/src/mobiarmy/war/SetPassive.java`, `SkillBalance.java`, `MapData.java`, `Player.java` và database của server (bảng `glass`, `item`).
 
+> **Bản client build 14 (26/10/2026): cân bằng tướng, hệ bộ +15/+16 không còn may rủi, Tarzan mới.** Các số chỉnh bằng mô phỏng (`scripts/sim/DuelSim.java`); mục này thay cho các số cũ ở dưới.
+>
+> - **Hệ bộ +15/+16**: sát thương mình gây cho đối thủ (kể cả UFO, trứng Phục sinh, laze, bom của mình; không tính lửa Thiêu) tích vào thanh hệ, hiện dưới thanh máu của mọi người và bằng chữ ở góc trái màn hình của mình. Tích đủ **1800** (+16: **1400**) thì **phát bắn kế tiếp** mang hiệu ứng lên mọi đối thủ trúng đạn; trúng hay trượt thì thanh cũng tích lại từ đầu. "2 lượt kế" là 2 lượt của người bị dính.
+>   - **Thiêu** (Hỏa): đầu 2 lượt kế mất 3% (+16: 4%) máu tối đa; đang cháy thì tích nộ chậm hơn 50%.
+>   - **Cóng** (Băng): lượt kế không đi được; 2 lượt kế lực bắn giảm 12% (+16: 16%). Đường ngắm Chỉ kẻ đầu tính cả phần lực bị giảm.
+>   - **Tê** (Lôi): 2 lượt kế đi ít hơn 50% (+16: 65%), góc thấp nhất bị nâng lên 20° (như Electrician).
+>   - **Độc** (Độc): 2 lượt kế hồi máu ít hơn 40% (+16: 60%), vật phẩm yếu đi 25% (+16: 35%): hồi máu của vật phẩm và đạn vật phẩm.
+> - **Tarzan**: bỏ cú kéo đối thủ, giữ leo trèo. POW mới **Vòng quanh thế giới**: boomerang POW trúng đối thủ thì Tarzan hú lên, boomerang bay vòng về tay Tarzan và hoàn **60%** thanh nộ (giữ sang lượt sau). Giảm **12%** sát thương nhận (trước 8%). Khế Ước Rừng Xanh cùng phe: gây thêm **15%** (trước 20%), vẫn nhận ít hơn 10%.
+> - **Electrician**: đạn điện về cỡ thường (trước 1,15 lần); bị tê thì góc thấp nhất nâng **20°** (trước 30°; Chicky -45° thành -25°).
+> - **King Kong**: ở cỡ tối đa nhận ít hơn **25%** sát thương (trước 20%).
+> - **Miss 6**: phát trúng thứ 3 chí mạng **x1,65** (trước x1,5).
+> - **Chicky**: gà và trứng gây thêm **12%** sát thương; quả trứng gà thứ **4** trúng (trước 5) cũng đẻ trứng Phục sinh; trứng nở hồi **15%** (trước 10%), gây **40%** (trước 25%).
+> - **Apache**: tàng hình sau **3 búa** trúng (trước 4). **Phục kích**: đang tàng hình thì đạn mạnh hơn **35%**. POW hồi **12%** máu tối đa mỗi búa (trước 10%).
+> - **Nội tại đội**: Kẻ Ngoại Lai: POW **bỏ qua 25% phòng thủ** đối thủ (trước 25% may rủi ra sát thương chuẩn). Liên Minh Binh Bét: tối đa **10%** (trước 30%), dưới nửa máu thêm **10%** (trước 30%). Nhà Khoa Học: **bỏ viên đạn thêm**, T-rex còn **30%** máu tối đa và **60%** sức tấn công của người gục (trước 100%).
+>
 > **Bản client build 8 (sau `3bf0001`, chưa deploy) thay đổi những điều dưới đây; các mục bên dưới phần này vẫn mô tả bản cũ.**
 >
 > - **King Kong**: to thêm 25%/vòng đứng yên, tối đa 300% sau 8 vòng; càng to càng lì, ở cỡ tối đa nhận ít hơn 20% sát thương và thêm 20% máu tối đa (tăng dần theo vòng, đi là mất). POW to theo người nhưng chỉ mạnh thêm tối đa 30% (trước là gấp 3).
@@ -22,7 +37,7 @@ Tài liệu tổng hợp từ code ở commit `9ad6a0e` (25/10/2026). Mọi con 
 > - **Rương kim cương** (đồ đặc biệt 85, 100 triệu xu hoặc 10.000 lượng): 1 vũ khí/trang bị +16, hệ theo hệ các món +15 đang có nhiều nhất (chưa có thì ngẫu nhiên). Trên web đồ +15/+16 có màu kim cương.
 > - **Gunner**: viên thần công POW hất văng đối thủ trúng đạn 40 px ra xa tâm nổ.
 > - **King Kong**: chuối thường nhỏ dần khi King Kong to lên, ở cỡ tối đa còn 50% (hố cũng vậy, sát thương giữ nguyên). Web có thêm mô tả Khế Ước Rừng Xanh.
-> - **Nội tại đội** (cùng phe có ít nhất 2 nhân vật khác nhau trong nhóm, không cần bộ +14, không có ở phòng tự do/Sát thương gốc): Kẻ Ngoại Lai (Chicky, Apache, Magenta), POW có 25% là sát thương chuẩn. Liên Minh Binh Bét (Gunner, Miss 6, Electrician), cả đội nhận ít hơn 1% sát thương mỗi vòng (tối đa 30%), dưới 50% máu thêm 30%. Nhà Khoa Học (Rocketer, Granos), thêm 1 viên đạn kể cả POW; người đầu tiên gục triệu hồi T-rex phe mình (máu tối đa, công, thủ, may mắn của người đó; đánh như boss T-rex); người thứ hai gục thì không.
+> - **Nội tại đội** (cùng phe có ít nhất 2 nhân vật khác nhau trong nhóm, không cần bộ +14; có ở luật Tự do và Cân bằng, không có ở luật Sát thương gốc và phòng đánh trùm): Kẻ Ngoại Lai (Chicky, Apache, Magenta), POW có 25% là sát thương chuẩn. Liên Minh Binh Bét (Gunner, Miss 6, Electrician), cả đội nhận ít hơn 1% sát thương mỗi vòng (tối đa 30%), dưới 50% máu thêm 30%. Nhà Khoa Học (Rocketer, Granos), thêm 1 viên đạn kể cả POW; người đầu tiên gục triệu hồi T-rex phe mình (máu tối đa, công, thủ, may mắn của người đó; đánh như boss T-rex); người thứ hai gục thì không.
 
 ---
 
